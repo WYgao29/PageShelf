@@ -2,12 +2,14 @@ const state = { view: "all", format: "", rootId: "", query: "", items: [], setti
 const elements = {
   allCount: document.querySelector("#allCount"), htmlCount: document.querySelector("#htmlCount"), markdownCount: document.querySelector("#markdownCount"), rootList: document.querySelector("#rootList"), settingsRootList: document.querySelector("#settingsRootList"), rootCount: document.querySelector("#rootCount"), libraryView: document.querySelector("#libraryView"), settingsView: document.querySelector("#settingsView"), viewTitle: document.querySelector("#viewTitle"), viewDescription: document.querySelector("#viewDescription"), searchInput: document.querySelector("#searchInput"), itemGrid: document.querySelector("#itemGrid"), resultCount: document.querySelector("#resultCount"), lastSynced: document.querySelector("#lastSynced"), rootForm: document.querySelector("#rootForm"), rootPath: document.querySelector("#rootPath"), rootLabel: document.querySelector("#rootLabel"), settingsMessage: document.querySelector("#settingsMessage"), refreshButton: document.querySelector("#refreshButton"), openSettings: document.querySelector("#openSettings"), dialog: document.querySelector("#itemDialog"), closeDialog: document.querySelector("#closeDialog"), dialogTitle: document.querySelector("#dialogTitle"), dialogEyebrow: document.querySelector("#dialogEyebrow"), dialogPath: document.querySelector("#dialogPath"), readerContent: document.querySelector("#readerContent"), htmlTab: document.querySelector("#htmlTab"), markdownTab: document.querySelector("#markdownTab"), openSource: document.querySelector("#openSource"), downloadSource: document.querySelector("#downloadSource"), toast: document.querySelector("#toast"),
 };
+let libraryRequestSerial = 0;
+let readerRequestSerial = 0;
 
 async function api(route, options) {
   const response = await fetch(route, options);
   const contentType = response.headers.get("content-type") || "";
   const body = contentType.includes("application/json") ? await response.json() : await response.text();
-  if (!response.ok) throw new Error(body.error || "请求失败");
+  if (!response.ok) throw new Error(body?.error || "请求失败");
   return body;
 }
 function formatBytes(bytes) { if (!bytes) return "0 B"; if (bytes < 1024) return bytes + " B"; if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB"; return (bytes / 1024 / 1024).toFixed(1) + " MB"; }
@@ -28,6 +30,15 @@ function renderMarkdown(value) {
   if (listOpen) output.push("</ul>"); if (inCode) output.push("</pre>"); return output.join("");
 }
 function sourceUrl(item, format, action) { return "/api/items/" + encodeURIComponent(item.id) + "/" + action + "/" + format; }
+function updateCounts(items) {
+  elements.allCount.textContent = items.length;
+  elements.htmlCount.textContent = items.filter((item) => item.html).length;
+  elements.markdownCount.textContent = items.filter((item) => item.markdown).length;
+}
+function notifyScan(result, label = "扫描完成") {
+  const issueText = result.errors?.length ? "，发现 " + result.errors.length + " 个问题" : "";
+  showToast(label + " " + result.stats.items + " 条记录" + issueText);
+}
 function setView(view, rootId = "") {
   state.view = view; state.rootId = rootId; state.format = view === "html" || view === "markdown" ? view : "";
   document.querySelectorAll(".nav-item[data-view]").forEach((button) => button.classList.toggle("active", button.dataset.view === view));
@@ -56,33 +67,52 @@ function renderCards() {
   }
 }
 async function loadLibrary() {
+  const requestSerial = ++libraryRequestSerial;
   const params = new URLSearchParams(); if (state.query) params.set("q", state.query); if (state.rootId) params.set("rootId", state.rootId); if (state.format) params.set("format", state.format);
-  try { const result = await api("/api/library?" + params.toString()); state.items = result.items; renderCards(); const lastScan = state.settings?.lastScan; elements.lastSynced.textContent = lastScan?.completedAt ? "上次扫描 " + formatDate(lastScan.completedAt) : "等待首次扫描"; } catch (error) { showToast(error.message); }
+  try {
+    const result = await api("/api/library?" + params.toString());
+    if (requestSerial !== libraryRequestSerial) return;
+    state.items = result.items;
+    renderCards();
+    const lastScan = state.settings?.lastScan;
+    elements.lastSynced.textContent = lastScan?.completedAt ? "上次扫描 " + formatDate(lastScan.completedAt) : "等待首次扫描";
+  } catch (error) {
+    if (requestSerial === libraryRequestSerial) showToast(error.message);
+  }
 }
 async function loadSettings() {
-  state.settings = await api("/api/settings"); renderRoots(); const items = await api("/api/library"); const all = items.items; elements.allCount.textContent = all.length; elements.htmlCount.textContent = all.filter((item) => item.html).length; elements.markdownCount.textContent = all.filter((item) => item.markdown).length; renderCards();
+  state.settings = await api("/api/settings"); renderRoots(); const items = await api("/api/library"); const all = items.items; updateCounts(all); state.items = all; renderCards();
 }
 async function refresh() {
   elements.refreshButton.classList.add("is-refreshing");
-  try { const result = await api("/api/scan", { method: "POST" }); state.settings = await api("/api/settings"); renderRoots(); await loadLibrary(); showToast("已扫描 " + result.stats.items + " 条记录"); } catch (error) { showToast(error.message); } finally { elements.refreshButton.classList.remove("is-refreshing"); }
+  try { const result = await api("/api/scan", { method: "POST" }); updateCounts(result.items); state.settings = await api("/api/settings"); renderRoots(); await loadLibrary(); notifyScan(result); } catch (error) { showToast(error.message); } finally { elements.refreshButton.classList.remove("is-refreshing"); }
 }
 async function addRoot(event) {
   event.preventDefault(); elements.settingsMessage.textContent = "正在验证并扫描目录…";
-  try { await api("/api/settings/roots", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ path: elements.rootPath.value, label: elements.rootLabel.value }) }); elements.rootForm.reset(); state.settings = await api("/api/settings"); renderRoots(); elements.settingsMessage.textContent = "目录已添加，索引已更新。"; showToast("扫描目录已添加"); } catch (error) { elements.settingsMessage.textContent = error.message; }
+  try { const result = await api("/api/settings/roots", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ path: elements.rootPath.value, label: elements.rootLabel.value }) }); updateCounts(result.scan.items); elements.rootForm.reset(); state.settings = await api("/api/settings"); renderRoots(); elements.settingsMessage.textContent = "目录已添加，索引已更新。"; notifyScan(result.scan, "目录已添加，扫描完成"); } catch (error) { elements.settingsMessage.textContent = error.message; }
 }
 async function removeRoot(id) {
   if (!window.confirm("移除这个扫描目录？源文件不会被删除。")) return;
-  try { await api("/api/settings/roots/" + encodeURIComponent(id), { method: "DELETE" }); state.settings = await api("/api/settings"); renderRoots(); await loadLibrary(); showToast("扫描目录已移除"); } catch (error) { showToast(error.message); }
+  try { const result = await api("/api/settings/roots/" + encodeURIComponent(id), { method: "DELETE" }); updateCounts(result.items); state.settings = await api("/api/settings"); renderRoots(); await loadLibrary(); notifyScan(result, "扫描目录已移除，扫描完成"); } catch (error) { showToast(error.message); }
 }
 async function openItem(item) {
-  state.selected = item; state.readerFormat = item.html ? "html" : "markdown"; elements.dialogTitle.textContent = item.title; elements.dialogEyebrow.textContent = item.rootLabel; elements.dialogPath.textContent = item.relativePath; elements.dialog.showModal(); await renderReader();
+  state.selected = item; state.readerFormat = item.html ? "html" : "markdown"; elements.dialogTitle.textContent = item.title; elements.dialogEyebrow.textContent = item.rootLabel; elements.dialogPath.textContent = item.relativePath; if (!elements.dialog.open) elements.dialog.showModal(); await renderReaderSafely();
 }
 async function renderReader() {
+  const requestSerial = ++readerRequestSerial;
   const item = state.selected; const format = state.readerFormat; const available = format === "html" ? item.html : item.markdown; elements.htmlTab.classList.toggle("active", format === "html"); elements.markdownTab.classList.toggle("active", format === "markdown"); elements.htmlTab.disabled = !item.html; elements.markdownTab.disabled = !item.markdown;
   if (!available) { elements.readerContent.innerHTML = "<div class=\"reader-empty\">这个记录没有对应格式的源文件。</div>"; return; }
   elements.openSource.href = sourceUrl(item, format, "source"); elements.downloadSource.href = sourceUrl(item, format, "download");
   if (format === "html") { elements.readerContent.innerHTML = "<iframe class=\"reader-frame\" sandbox=\"\" title=\"HTML 阅读内容\"></iframe>"; elements.readerContent.querySelector("iframe").src = sourceUrl(item, "html", "source"); }
-  else { elements.readerContent.innerHTML = "<div class=\"markdown-reader\"></div>"; const source = await api(sourceUrl(item, "markdown", "source")); elements.readerContent.querySelector(".markdown-reader").innerHTML = renderMarkdown(source); }
+  else { elements.readerContent.innerHTML = "<div class=\"markdown-reader\"></div>"; const source = await api(sourceUrl(item, "markdown", "source")); if (requestSerial !== readerRequestSerial || state.selected !== item || state.readerFormat !== format) return; const reader = elements.readerContent.querySelector(".markdown-reader"); if (reader) reader.innerHTML = renderMarkdown(source); }
+}
+async function renderReaderSafely() {
+  try {
+    await renderReader();
+  } catch (error) {
+    elements.readerContent.innerHTML = "<div class=\"reader-empty\">读取源文件失败，请重新扫描后重试。</div>";
+    showToast(error.message);
+  }
 }
 function showToast(message) { elements.toast.textContent = message; elements.toast.classList.add("show"); window.clearTimeout(showToast.timer); showToast.timer = window.setTimeout(() => elements.toast.classList.remove("show"), 2600); }
 let searchTimer;
@@ -91,5 +121,5 @@ document.querySelectorAll(".nav-item[data-view]").forEach((button) => button.add
 document.querySelectorAll(".filter-chip").forEach((button) => button.addEventListener("click", () => { state.format = button.dataset.format; document.querySelectorAll(".filter-chip").forEach((chip) => chip.classList.toggle("active", chip === button)); loadLibrary(); }));
 elements.refreshButton.addEventListener("click", refresh); elements.openSettings.addEventListener("click", () => setView("settings")); elements.rootForm.addEventListener("submit", addRoot);
 document.addEventListener("keydown", (event) => { if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") { event.preventDefault(); elements.searchInput.focus(); } });
-elements.closeDialog.addEventListener("click", () => elements.dialog.close()); elements.dialog.addEventListener("click", (event) => { if (event.target === elements.dialog) elements.dialog.close(); }); elements.htmlTab.addEventListener("click", () => { state.readerFormat = "html"; renderReader(); }); elements.markdownTab.addEventListener("click", () => { state.readerFormat = "markdown"; renderReader(); });
+elements.closeDialog.addEventListener("click", () => { readerRequestSerial += 1; state.selected = null; elements.dialog.close(); }); elements.dialog.addEventListener("click", (event) => { if (event.target === elements.dialog) { readerRequestSerial += 1; state.selected = null; elements.dialog.close(); } }); elements.htmlTab.addEventListener("click", () => { state.readerFormat = "html"; void renderReaderSafely(); }); elements.markdownTab.addEventListener("click", () => { state.readerFormat = "markdown"; void renderReaderSafely(); });
 loadSettings().catch((error) => showToast(error.message));

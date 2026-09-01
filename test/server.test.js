@@ -24,6 +24,19 @@ async function withServer(callback) {
   }
 }
 
+async function withConfiguredServer(options, callback) {
+  const dataDir = await mkdtemp(path.join(os.tmpdir(), "html-library-auth-data-"));
+  const server = createServer({ dataDir, ...options });
+  await server.ready;
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const baseUrl = "http://127.0.0.1:" + server.address().port;
+  try {
+    await callback({ baseUrl });
+  } finally {
+    await new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
+  }
+}
+
 async function jsonRequest(baseUrl, route, options = {}) {
   const response = await fetch(baseUrl + route, {
     ...options,
@@ -88,4 +101,62 @@ test("API removes a root without touching its source files", async () => {
     assert.equal(settings.roots.length, 0);
     assert.equal((await (await fetch(baseUrl + "/api/library")).json()).items.length, 0);
   });
+});
+
+test("protected servers reject unauthenticated requests and support token bootstrap", async () => {
+  await withConfiguredServer({ authToken: "review-secret" }, async ({ baseUrl }) => {
+    const denied = await fetch(baseUrl + "/api/settings");
+    assert.equal(denied.status, 401);
+
+    const bootstrap = await fetch(baseUrl + "/?token=review-secret", { redirect: "manual" });
+    assert.equal(bootstrap.status, 302);
+    assert.match(bootstrap.headers.get("set-cookie"), /html_library_token=review-secret/);
+
+    const cookie = bootstrap.headers.get("set-cookie").split(";", 1)[0];
+    const allowed = await fetch(baseUrl + "/api/settings", { headers: { cookie } });
+    assert.equal(allowed.status, 200);
+  });
+});
+
+test("source responses prevent executable HTML and unknown formats are not server errors", async () => {
+  await withServer(async ({ baseUrl, sourceDir }) => {
+    const added = await jsonRequest(baseUrl, "/api/settings/roots", {
+      method: "POST",
+      body: JSON.stringify({ path: sourceDir }),
+    });
+    const item = added.body.scan.items[0];
+    const source = await fetch(baseUrl + "/api/items/" + encodeURIComponent(item.id) + "/source/html");
+    assert.equal(source.status, 200);
+    assert.match(source.headers.get("content-security-policy"), /sandbox/);
+    assert.equal(source.headers.get("x-content-type-options"), "nosniff");
+
+    const unknown = await fetch(baseUrl + "/api/items/" + encodeURIComponent(item.id) + "/source/toString");
+    assert.equal(unknown.status, 404);
+  });
+});
+
+test("API rejects null JSON bodies with a client error", async () => {
+  await withServer(async ({ baseUrl }) => {
+    const response = await fetch(baseUrl + "/api/settings/roots", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: "null",
+    });
+    assert.equal(response.status, 400);
+  });
+});
+
+test("startup ignores invalid persisted roots instead of crashing", async () => {
+  const dataDir = await mkdtemp(path.join(os.tmpdir(), "html-library-invalid-config-"));
+  await writeFile(path.join(dataDir, "config.json"), JSON.stringify({ roots: [null, { label: "缺路径" }] }));
+  const server = createServer({ dataDir });
+  await assert.doesNotReject(server.ready);
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  try {
+    const response = await fetch("http://127.0.0.1:" + server.address().port + "/api/settings");
+    assert.equal(response.status, 200);
+    assert.deepEqual((await response.json()).roots, []);
+  } finally {
+    await new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
+  }
 });

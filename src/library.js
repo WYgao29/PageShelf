@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
-import { readdir, readFile, stat } from "node:fs/promises";
+import { constants as fsConstants } from "node:fs";
+import { open, readdir, readFile, realpath, stat } from "node:fs/promises";
 import path from "node:path";
 
 const SUPPORTED_EXTENSIONS = new Set([".html", ".htm", ".md"]);
@@ -13,13 +14,30 @@ function createId(value) {
 }
 
 function normalizeRoot(root) {
-  const resolvedPath = path.resolve(root.path);
+  if (!root || typeof root !== "object" || typeof root.path !== "string" || !root.path.trim()) {
+    throw Object.assign(new Error("配置中的扫描目录无效"), { code: "ROOT_CONFIG_INVALID" });
+  }
+  const resolvedPath = path.resolve(root.path.trim());
   return {
-    id: root.id || "root-" + createId(resolvedPath),
+    id: typeof root.id === "string" && root.id.trim() ? root.id : "root-" + createId(resolvedPath),
     path: resolvedPath,
-    label: root.label || path.basename(resolvedPath),
-    addedAt: root.addedAt || new Date().toISOString(),
+    label: typeof root.label === "string" && root.label.trim() ? root.label : path.basename(resolvedPath),
+    addedAt: typeof root.addedAt === "string" && root.addedAt ? root.addedAt : new Date().toISOString(),
   };
+}
+
+function sourceNotFound(message = "源文件不存在") {
+  return Object.assign(new Error(message), { code: "SOURCE_NOT_FOUND" });
+}
+
+function chooseSource(existing, candidate) {
+  if (existing.extension === candidate.extension) {
+    return existing.filename.localeCompare(candidate.filename) <= 0 ? existing : candidate;
+  }
+  if (existing.extension === ".html" || candidate.extension === ".html") {
+    return existing.extension === ".html" ? existing : candidate;
+  }
+  return existing.extension === ".htm" ? existing : candidate;
 }
 
 function decodeEntities(value) {
@@ -126,25 +144,27 @@ export function createLibrary({ roots = [] } = {}) {
     errors: [],
   };
 
-  async function scan() {
+  async function performScan() {
     const startedAt = Date.now();
     const nextItems = new Map();
     const errors = [];
     let fileCount = 0;
+    const rootsSnapshot = configuredRoots;
 
-    for (const root of configuredRoots) {
+    for (const root of rootsSnapshot) {
       try {
-        const rootStats = await stat(root.path);
+        const canonicalRootPath = await realpath(root.path);
+        const rootStats = await stat(canonicalRootPath);
         if (!rootStats.isDirectory()) {
           throw Object.assign(new Error("扫描路径不是目录"), { code: "ROOT_NOT_DIRECTORY" });
         }
-        const files = await walkDirectory(root.path);
+        const files = await walkDirectory(canonicalRootPath);
         fileCount += files.length;
         const groups = new Map();
 
         for (const filePath of files) {
           const extension = path.extname(filePath).toLowerCase();
-          const key = relativeStem(root.path, filePath);
+          const key = relativeStem(canonicalRootPath, filePath);
           const sourceStats = await stat(filePath);
           const content = await readFile(filePath, "utf8");
           const source = {
@@ -157,7 +177,18 @@ export function createLibrary({ roots = [] } = {}) {
             bodyText: extension === ".md" ? markdownText(content) : stripHtml(content),
           };
           const group = groups.get(key) || {};
-          group[extension === ".md" ? "markdown" : "html"] = source;
+          const sourceType = extension === ".md" ? "markdown" : "html";
+          if (group[sourceType]) {
+            const selected = chooseSource(group[sourceType], source);
+            group[sourceType] = selected;
+            errors.push({
+              rootId: root.id,
+              path: filePath,
+              message: `发现重复${sourceType === "markdown" ? " Markdown" : " HTML"}文件，已保留 ${selected.filename}`,
+            });
+          } else {
+            group[sourceType] = source;
+          }
           groups.set(key, group);
         }
 
@@ -200,7 +231,7 @@ export function createLibrary({ roots = [] } = {}) {
     lastScan = {
       completedAt: new Date().toISOString(),
       durationMs: Date.now() - startedAt,
-      stats: { roots: configuredRoots.length, files: fileCount, items: items.size },
+      stats: { roots: rootsSnapshot.length, files: fileCount, items: items.size },
       errors,
     };
     return {
@@ -208,6 +239,13 @@ export function createLibrary({ roots = [] } = {}) {
       stats: lastScan.stats,
       errors: lastScan.errors,
     };
+  }
+
+  let scanQueue = Promise.resolve();
+  function scan() {
+    const nextScan = scanQueue.then(() => performScan());
+    scanQueue = nextScan.catch(() => undefined);
+    return nextScan;
   }
 
   function search(query = "", filters = {}) {
@@ -228,18 +266,20 @@ export function createLibrary({ roots = [] } = {}) {
   async function addRoot(rootPath, label) {
     const resolvedPath = path.resolve(rootPath);
     let rootStats;
+    let canonicalPath;
     try {
-      rootStats = await stat(resolvedPath);
+      canonicalPath = await realpath(resolvedPath);
+      rootStats = await stat(canonicalPath);
     } catch (error) {
       throw Object.assign(new Error("扫描目录不存在或不可读取"), { code: "ROOT_INVALID", cause: error });
     }
     if (!rootStats.isDirectory()) {
       throw Object.assign(new Error("扫描路径不是目录"), { code: "ROOT_NOT_DIRECTORY" });
     }
-    if (configuredRoots.some((root) => root.path === resolvedPath)) {
+    if (configuredRoots.some((root) => root.path === canonicalPath)) {
       throw Object.assign(new Error("扫描目录已经存在"), { code: "ROOT_EXISTS" });
     }
-    const root = normalizeRoot({ path: resolvedPath, label });
+    const root = normalizeRoot({ path: canonicalPath, label });
     configuredRoots = [...configuredRoots, root];
     return root;
   }
@@ -264,23 +304,48 @@ export function createLibrary({ roots = [] } = {}) {
 
   async function readSource(id, format, requestedRelativePath) {
     const item = items.get(id);
-    const source = item?.[format];
-    if (!item || !source || !FORMAT_EXTENSIONS[format]) {
-      throw Object.assign(new Error("源文件不存在"), { code: "SOURCE_NOT_FOUND" });
+    if (!item || !Object.hasOwn(FORMAT_EXTENSIONS, format) || !Object.hasOwn(item, format)) {
+      throw sourceNotFound();
     }
+    const source = item[format];
     const root = configuredRoots.find((candidate) => candidate.id === item.rootId);
-    const candidatePath = requestedRelativePath
-      ? path.resolve(root.path, requestedRelativePath)
-      : source.path;
-    if (!isInsideRoot(root.path, candidatePath) || candidatePath !== source.path) {
-      throw Object.assign(new Error("源文件路径无效"), { code: "SOURCE_NOT_FOUND" });
+    if (!root) throw sourceNotFound();
+    let canonicalRootPath;
+    let canonicalSourcePath;
+    let candidatePath;
+    try {
+      canonicalRootPath = await realpath(root.path);
+      candidatePath = requestedRelativePath
+        ? path.resolve(canonicalRootPath, requestedRelativePath)
+        : source.path;
+      canonicalSourcePath = await realpath(source.path);
+      const canonicalCandidatePath = await realpath(candidatePath);
+      if (
+        !isInsideRoot(canonicalRootPath, canonicalCandidatePath) ||
+        canonicalCandidatePath !== canonicalSourcePath
+      ) {
+        throw sourceNotFound("源文件路径无效");
+      }
+    } catch (error) {
+      if (error.code === "SOURCE_NOT_FOUND") throw error;
+      if (["ENOENT", "ELOOP", "ENOTDIR"].includes(error.code)) throw sourceNotFound();
+      throw error;
     }
-    const content = await readFile(candidatePath, "utf8");
-    return {
-      content,
-      contentType: format === "html" ? "text/html; charset=utf-8" : "text/plain; charset=utf-8",
-      fileName: source.filename,
-    };
+    let handle;
+    try {
+      handle = await open(candidatePath, fsConstants.O_RDONLY | (fsConstants.O_NOFOLLOW || 0));
+      const content = await handle.readFile("utf8");
+      return {
+        content,
+        contentType: format === "html" ? "text/html; charset=utf-8" : "text/plain; charset=utf-8",
+        fileName: source.filename,
+      };
+    } catch (error) {
+      if (["ENOENT", "ELOOP", "ENOTDIR"].includes(error.code)) throw sourceNotFound();
+      throw error;
+    } finally {
+      await handle?.close();
+    }
   }
 
   return {

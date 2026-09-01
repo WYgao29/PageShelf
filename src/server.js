@@ -1,5 +1,6 @@
 import { createServer as createHttpServer } from "node:http";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { timingSafeEqual } from "node:crypto";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -18,6 +19,7 @@ function sendJson(response, statusCode, payload) {
   response.writeHead(statusCode, {
     "content-type": "application/json; charset=utf-8",
     "cache-control": "no-store",
+    "x-content-type-options": "nosniff",
   });
   response.end(JSON.stringify(payload));
 }
@@ -43,30 +45,94 @@ async function readJsonBody(request) {
 }
 
 function errorStatus(error) {
-  if (["ROOT_NOT_DIRECTORY", "ROOT_INVALID", "ROOT_EXISTS", "INVALID_JSON", "BODY_TOO_LARGE"].includes(error.code)) {
+  if ([
+    "ROOT_NOT_DIRECTORY",
+    "ROOT_INVALID",
+    "ROOT_EXISTS",
+    "ROOT_CONFIG_INVALID",
+    "INVALID_JSON",
+    "BODY_TOO_LARGE",
+    "INVALID_PATH",
+  ].includes(error.code)) {
     return 400;
   }
   if (error.code === "SOURCE_NOT_FOUND") return 404;
   return 500;
 }
 
+function invalidConfig() {
+  return Object.assign(new Error("配置文件不是有效的目录配置"), { code: "CONFIG_INVALID" });
+}
+
+function isRootConfig(value) {
+  return value && typeof value === "object" && !Array.isArray(value) && typeof value.path === "string" && value.path.trim();
+}
+
 async function readConfig(dataDir) {
   try {
     const config = JSON.parse(await readFile(path.join(dataDir, "config.json"), "utf8"));
-    return Array.isArray(config.roots) ? config.roots : [];
+    if (!config || typeof config !== "object" || !Array.isArray(config.roots)) throw invalidConfig();
+    return config.roots.filter(isRootConfig);
   } catch (error) {
     if (error.code === "ENOENT") return [];
-    return [];
+    if (error.code === "CONFIG_INVALID") throw error;
+    throw invalidConfig();
   }
 }
 
 async function saveConfig(dataDir, library) {
   await mkdir(dataDir, { recursive: true });
+  const configPath = path.join(dataDir, "config.json");
+  const temporaryPath = configPath + ".tmp-" + process.pid + "-" + Date.now();
   await writeFile(
-    path.join(dataDir, "config.json"),
+    temporaryPath,
     JSON.stringify({ roots: library.getSettings().roots }, null, 2) + "\n",
     "utf8",
   );
+  await rename(temporaryPath, configPath);
+}
+
+function decodeRoutePart(value) {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    throw Object.assign(new Error("请求路径无效"), { code: "INVALID_PATH" });
+  }
+}
+
+function tokenMatches(actual, expected) {
+  if (typeof actual !== "string" || !expected) return false;
+  const actualBuffer = Buffer.from(actual);
+  const expectedBuffer = Buffer.from(expected);
+  return actualBuffer.length === expectedBuffer.length && timingSafeEqual(actualBuffer, expectedBuffer);
+}
+
+function requestToken(request) {
+  const authorization = request.headers.authorization || "";
+  if (authorization.startsWith("Bearer ")) return authorization.slice("Bearer ".length);
+  const cookies = request.headers.cookie?.split(";").map((part) => part.trim()) || [];
+  const tokenCookie = cookies.find((part) => part.startsWith("html_library_token="));
+  if (!tokenCookie) return "";
+  try {
+    return decodeURIComponent(tokenCookie.slice("html_library_token=".length));
+  } catch {
+    return "";
+  }
+}
+
+function authorizeRequest(request, requestUrl, response, authToken) {
+  if (!authToken || tokenMatches(requestToken(request), authToken)) return true;
+  if (request.method === "GET" && requestUrl.pathname === "/" && tokenMatches(requestUrl.searchParams.get("token"), authToken)) {
+    response.writeHead(302, {
+      location: "/",
+      "set-cookie": "html_library_token=" + encodeURIComponent(authToken) + "; HttpOnly; SameSite=Strict; Path=/",
+      "cache-control": "no-store",
+    });
+    response.end();
+    return false;
+  }
+  sendJson(response, 401, { error: "需要访问令牌" });
+  return false;
 }
 
 async function serveStatic(response, pathname) {
@@ -87,7 +153,7 @@ async function serveStatic(response, pathname) {
   }
 }
 
-export function createServer({ dataDir = path.join(os.homedir(), ".html-library"), library } = {}) {
+export function createServer({ dataDir = path.join(os.homedir(), ".html-library"), library, authToken = "" } = {}) {
   const activeDataDir = path.resolve(dataDir);
   let activeLibrary = library;
 
@@ -99,12 +165,13 @@ export function createServer({ dataDir = path.join(os.homedir(), ".html-library"
   })();
 
   const server = createHttpServer(async (request, response) => {
-    await ready;
-    const requestUrl = new URL(request.url || "/", "http://localhost");
-    const pathname = requestUrl.pathname;
-    const method = request.method || "GET";
-
     try {
+      await ready;
+      const requestUrl = new URL(request.url || "/", "http://localhost");
+      if (!authorizeRequest(request, requestUrl, response, authToken)) return;
+      const pathname = requestUrl.pathname;
+      const method = request.method || "GET";
+
       if (pathname === "/api/settings" && method === "GET") {
         sendJson(response, 200, activeLibrary.getSettings());
         return;
@@ -133,7 +200,14 @@ export function createServer({ dataDir = path.join(os.homedir(), ".html-library"
 
       if (pathname === "/api/settings/roots" && method === "POST") {
         const body = await readJsonBody(request);
-        if (typeof body.path !== "string" || !body.path.trim()) {
+        if (
+          !body ||
+          typeof body !== "object" ||
+          Array.isArray(body) ||
+          typeof body.path !== "string" ||
+          !body.path.trim() ||
+          (body.label !== undefined && typeof body.label !== "string")
+        ) {
           sendError(response, 400, "请提供有效的扫描目录路径");
           return;
         }
@@ -146,7 +220,7 @@ export function createServer({ dataDir = path.join(os.homedir(), ".html-library"
 
       const rootMatch = pathname.match(/^\/api\/settings\/roots\/([^/]+)$/);
       if (rootMatch && method === "DELETE") {
-        const removed = activeLibrary.removeRoot(decodeURIComponent(rootMatch[1]));
+        const removed = activeLibrary.removeRoot(decodeRoutePart(rootMatch[1]));
         if (!removed) {
           sendError(response, 404, "扫描目录不存在");
           return;
@@ -158,14 +232,16 @@ export function createServer({ dataDir = path.join(os.homedir(), ".html-library"
 
       const sourceMatch = pathname.match(/^\/api\/items\/([^/]+)\/(source|download)\/([^/]+)$/);
       if (sourceMatch && method === "GET") {
-        const itemId = decodeURIComponent(sourceMatch[1]);
-        const format = decodeURIComponent(sourceMatch[3]);
+        const itemId = decodeRoutePart(sourceMatch[1]);
+        const format = decodeRoutePart(sourceMatch[3]);
         const source = await activeLibrary.readSource(itemId, format);
         const disposition = sourceMatch[2] === "download" ? "attachment" : "inline";
         response.writeHead(200, {
           "content-type": source.contentType,
           "content-disposition": disposition + "; filename*=UTF-8''" + encodeURIComponent(source.fileName),
           "cache-control": "no-store",
+          "content-security-policy": "sandbox; default-src 'none'; img-src data: blob:; style-src 'unsafe-inline'; font-src data:; script-src 'none'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+          "x-content-type-options": "nosniff",
         });
         response.end(source.content);
         return;
@@ -190,8 +266,12 @@ export function createServer({ dataDir = path.join(os.homedir(), ".html-library"
 const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (isMain) {
   const port = Number(process.env.PORT || 4321);
-  const host = process.env.HOST || "0.0.0.0";
-  const server = createServer();
+  const host = process.env.HOST || "127.0.0.1";
+  const authToken = process.env.AUTH_TOKEN || "";
+  if (!["127.0.0.1", "localhost", "::1"].includes(host) && !authToken) {
+    throw new Error("HOST 非本机地址时必须设置 AUTH_TOKEN");
+  }
+  const server = createServer({ authToken });
   await server.ready;
   server.listen(port, host, () => {
     console.log("HTML Library listening on http://" + host + ":" + port);
