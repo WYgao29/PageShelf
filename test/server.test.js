@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { access, mkdtemp, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -84,7 +84,9 @@ test("serves the unified library app shell", async () => {
   await withServer(async ({ baseUrl }) => {
     const response = await fetch(baseUrl + "/");
     assert.equal(response.status, 200);
-    assert.match(await response.text(), /我的对话库/);
+    const html = await response.text();
+    assert.match(html, /我的对话库/);
+    assert.match(html, /删除记录/);
   });
 });
 
@@ -99,6 +101,21 @@ test("API removes a root without touching its source files", async () => {
     assert.equal(removed.status, 200);
     const settings = await (await fetch(baseUrl + "/api/settings")).json();
     assert.equal(settings.roots.length, 0);
+    assert.equal((await (await fetch(baseUrl + "/api/library")).json()).items.length, 0);
+  });
+});
+
+test("API deletes a record's source file and index entry", async () => {
+  await withServer(async ({ baseUrl, sourceDir }) => {
+    const added = await jsonRequest(baseUrl, "/api/settings/roots", {
+      method: "POST",
+      body: JSON.stringify({ path: sourceDir, label: "待删除" }),
+    });
+    const item = added.body.scan.items[0];
+    const deleted = await fetch(baseUrl + "/api/items/" + encodeURIComponent(item.id), { method: "DELETE" });
+    assert.equal(deleted.status, 200);
+    assert.equal((await deleted.json()).scan.stats.items, 0);
+    await assert.rejects(access(path.join(sourceDir, "远程阅读.html")), { code: "ENOENT" });
     assert.equal((await (await fetch(baseUrl + "/api/library")).json()).items.length, 0);
   });
 });

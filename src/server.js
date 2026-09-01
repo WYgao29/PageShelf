@@ -219,6 +219,14 @@ export function createServer({ dataDir = path.join(os.homedir(), ".html-library"
         return;
       }
 
+      const itemMatch = pathname.match(/^\/api\/items\/([^/]+)$/);
+      if (itemMatch && method === "DELETE") {
+        const item = await activeLibrary.deleteItem(decodeRoutePart(itemMatch[1]));
+        const scan = await activeLibrary.scan();
+        sendJson(response, 200, { item, scan });
+        return;
+      }
+
       if (pathname === "/api/library" && method === "GET") {
         const format = requestUrl.searchParams.get("format") || "";
         if (format && !["html", "markdown"].includes(format)) {

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, rename, symlink, unlink, writeFile } from "node:fs/promises";
+import { access, mkdtemp, mkdir, rename, symlink, unlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -100,6 +100,35 @@ test("readSource rejects unknown formats and files removed after scanning", asyn
     library.readSource(item.id, "html"),
     (error) => error.code === "SOURCE_NOT_FOUND",
   );
+});
+
+test("deleteItem removes all source files for a record and its index entry", async () => {
+  const root = await createFixture();
+  const library = createLibrary({ roots: [{ id: "root-a", path: root, label: "我的对话" }] });
+  await library.scan();
+
+  const item = library.search("统一入口")[0];
+  await library.deleteItem(item.id);
+
+  await assert.rejects(access(path.join(root, "统一入口.html")), { code: "ENOENT" });
+  await assert.rejects(access(path.join(root, "统一入口.md")), { code: "ENOENT" });
+  assert.equal(library.search("统一入口").length, 0);
+});
+
+test("deleteItem refuses a source path replaced by an outside symlink", async () => {
+  const root = await createFixture();
+  const outside = await mkdtemp(path.join(os.tmpdir(), "html-library-delete-outside-"));
+  const outsideFile = path.join(outside, "secret.md");
+  const sourceFile = path.join(root, "统一入口.md");
+  await writeFile(outsideFile, "# 不应被删除");
+  const library = createLibrary({ roots: [{ id: "root-a", path: root, label: "我的对话" }] });
+  await library.scan();
+  await unlink(sourceFile);
+  await symlink(outsideFile, sourceFile);
+
+  const item = library.search("统一入口")[0];
+  await assert.rejects(library.deleteItem(item.id), (error) => error.code === "SOURCE_NOT_FOUND");
+  await access(outsideFile);
 });
 
 test("scan chooses .html deterministically when a stem has duplicate HTML formats", async () => {

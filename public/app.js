@@ -1,6 +1,6 @@
 const state = { view: "all", format: "", rootId: "", query: "", items: [], settings: null, selected: null, readerFormat: "html" };
 const elements = {
-  allCount: document.querySelector("#allCount"), htmlCount: document.querySelector("#htmlCount"), markdownCount: document.querySelector("#markdownCount"), rootList: document.querySelector("#rootList"), settingsRootList: document.querySelector("#settingsRootList"), rootCount: document.querySelector("#rootCount"), libraryView: document.querySelector("#libraryView"), settingsView: document.querySelector("#settingsView"), viewTitle: document.querySelector("#viewTitle"), viewDescription: document.querySelector("#viewDescription"), searchInput: document.querySelector("#searchInput"), itemGrid: document.querySelector("#itemGrid"), resultCount: document.querySelector("#resultCount"), lastSynced: document.querySelector("#lastSynced"), rootForm: document.querySelector("#rootForm"), rootPath: document.querySelector("#rootPath"), chooseRootPath: document.querySelector("#chooseRootPath"), rootLabel: document.querySelector("#rootLabel"), settingsMessage: document.querySelector("#settingsMessage"), refreshButton: document.querySelector("#refreshButton"), openSettings: document.querySelector("#openSettings"), dialog: document.querySelector("#itemDialog"), closeDialog: document.querySelector("#closeDialog"), dialogTitle: document.querySelector("#dialogTitle"), dialogEyebrow: document.querySelector("#dialogEyebrow"), dialogPath: document.querySelector("#dialogPath"), readerContent: document.querySelector("#readerContent"), htmlTab: document.querySelector("#htmlTab"), markdownTab: document.querySelector("#markdownTab"), openSource: document.querySelector("#openSource"), downloadSource: document.querySelector("#downloadSource"), toast: document.querySelector("#toast"),
+  allCount: document.querySelector("#allCount"), htmlCount: document.querySelector("#htmlCount"), markdownCount: document.querySelector("#markdownCount"), rootList: document.querySelector("#rootList"), settingsRootList: document.querySelector("#settingsRootList"), rootCount: document.querySelector("#rootCount"), libraryView: document.querySelector("#libraryView"), settingsView: document.querySelector("#settingsView"), viewTitle: document.querySelector("#viewTitle"), viewDescription: document.querySelector("#viewDescription"), searchInput: document.querySelector("#searchInput"), itemGrid: document.querySelector("#itemGrid"), resultCount: document.querySelector("#resultCount"), lastSynced: document.querySelector("#lastSynced"), rootForm: document.querySelector("#rootForm"), rootPath: document.querySelector("#rootPath"), chooseRootPath: document.querySelector("#chooseRootPath"), rootLabel: document.querySelector("#rootLabel"), settingsMessage: document.querySelector("#settingsMessage"), refreshButton: document.querySelector("#refreshButton"), openSettings: document.querySelector("#openSettings"), dialog: document.querySelector("#itemDialog"), closeDialog: document.querySelector("#closeDialog"), dialogTitle: document.querySelector("#dialogTitle"), dialogEyebrow: document.querySelector("#dialogEyebrow"), dialogPath: document.querySelector("#dialogPath"), readerContent: document.querySelector("#readerContent"), htmlTab: document.querySelector("#htmlTab"), markdownTab: document.querySelector("#markdownTab"), openSource: document.querySelector("#openSource"), downloadSource: document.querySelector("#downloadSource"), deleteItem: document.querySelector("#deleteItem"), toast: document.querySelector("#toast"),
 };
 let libraryRequestSerial = 0;
 let readerRequestSerial = 0;
@@ -112,8 +112,28 @@ async function removeRoot(id) {
   if (!window.confirm("移除这个扫描目录？源文件不会被删除。")) return;
   try { const result = await api("/api/settings/roots/" + encodeURIComponent(id), { method: "DELETE" }); updateCounts(result.items); state.settings = await api("/api/settings"); renderRoots(); await loadLibrary(); notifyScan(result, "扫描目录已移除，扫描完成"); } catch (error) { showToast(error.message); }
 }
+async function deleteSelectedItem() {
+  const item = state.selected;
+  if (!item || !window.confirm("确定删除“" + item.title + "”吗？\n这会同时删除对应的源文件，且无法恢复。")) return;
+  elements.deleteItem.disabled = true;
+  try {
+    const result = await api("/api/items/" + encodeURIComponent(item.id), { method: "DELETE" });
+    readerRequestSerial += 1;
+    state.selected = null;
+    elements.dialog.close();
+    updateCounts(result.scan.items);
+    state.settings = await api("/api/settings");
+    renderRoots();
+    await loadLibrary();
+    notifyScan(result.scan, "记录已删除，扫描完成");
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    elements.deleteItem.disabled = false;
+  }
+}
 async function openItem(item) {
-  state.selected = item; state.readerFormat = item.html ? "html" : "markdown"; elements.dialogTitle.textContent = item.title; elements.dialogEyebrow.textContent = item.rootLabel; elements.dialogPath.textContent = item.relativePath; if (!elements.dialog.open) elements.dialog.showModal(); await renderReaderSafely();
+  state.selected = item; state.readerFormat = item.html ? "html" : "markdown"; elements.deleteItem.disabled = false; elements.dialogTitle.textContent = item.title; elements.dialogEyebrow.textContent = item.rootLabel; elements.dialogPath.textContent = item.relativePath; if (!elements.dialog.open) elements.dialog.showModal(); await renderReaderSafely();
 }
 async function renderReader() {
   const requestSerial = ++readerRequestSerial;
@@ -136,7 +156,7 @@ let searchTimer;
 elements.searchInput.addEventListener("input", () => { state.query = elements.searchInput.value; window.clearTimeout(searchTimer); searchTimer = window.setTimeout(loadLibrary, 180); });
 document.querySelectorAll(".nav-item[data-view]").forEach((button) => button.addEventListener("click", () => setView(button.dataset.view)));
 document.querySelectorAll(".filter-chip").forEach((button) => button.addEventListener("click", () => { state.format = button.dataset.format; document.querySelectorAll(".filter-chip").forEach((chip) => chip.classList.toggle("active", chip === button)); loadLibrary(); }));
-elements.refreshButton.addEventListener("click", refresh); elements.openSettings.addEventListener("click", () => setView("settings")); elements.rootForm.addEventListener("submit", addRoot); elements.chooseRootPath.addEventListener("click", chooseRoot);
+elements.refreshButton.addEventListener("click", refresh); elements.openSettings.addEventListener("click", () => setView("settings")); elements.rootForm.addEventListener("submit", addRoot); elements.chooseRootPath.addEventListener("click", chooseRoot); elements.deleteItem.addEventListener("click", deleteSelectedItem);
 document.addEventListener("keydown", (event) => { if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") { event.preventDefault(); elements.searchInput.focus(); } });
 elements.closeDialog.addEventListener("click", () => { readerRequestSerial += 1; state.selected = null; elements.dialog.close(); }); elements.dialog.addEventListener("click", (event) => { if (event.target === elements.dialog) { readerRequestSerial += 1; state.selected = null; elements.dialog.close(); } }); elements.htmlTab.addEventListener("click", () => { state.readerFormat = "html"; void renderReaderSafely(); }); elements.markdownTab.addEventListener("click", () => { state.readerFormat = "markdown"; void renderReaderSafely(); });
 loadSettings().catch((error) => showToast(error.message));

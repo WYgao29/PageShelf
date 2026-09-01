@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { constants as fsConstants } from "node:fs";
-import { open, readdir, readFile, realpath, stat } from "node:fs/promises";
+import { lstat, open, readdir, readFile, realpath, stat, unlink } from "node:fs/promises";
 import path from "node:path";
 
 const SUPPORTED_EXTENSIONS = new Set([".html", ".htm", ".md"]);
@@ -176,7 +176,8 @@ export function createLibrary({ roots = [] } = {}) {
             content,
             bodyText: extension === ".md" ? markdownText(content) : stripHtml(content),
           };
-          const group = groups.get(key) || {};
+          const group = groups.get(key) || { files: [] };
+          group.files.push(source);
           const sourceType = extension === ".md" ? "markdown" : "html";
           if (group[sourceType]) {
             const selected = chooseSource(group[sourceType], source);
@@ -216,6 +217,7 @@ export function createLibrary({ roots = [] } = {}) {
             rootLabel: root.label,
             html: group.html || null,
             markdown: group.markdown || null,
+            sourceFiles: group.files,
             updatedAt,
             size,
             snippet: bodyText.slice(0, 220),
@@ -290,6 +292,40 @@ export function createLibrary({ roots = [] } = {}) {
     return configuredRoots.length !== previousLength;
   }
 
+  async function deleteItem(id) {
+    const item = items.get(id);
+    if (!item) throw sourceNotFound();
+    const root = configuredRoots.find((candidate) => candidate.id === item.rootId);
+    if (!root) throw sourceNotFound();
+
+    let canonicalRootPath;
+    try {
+      canonicalRootPath = await realpath(root.path);
+      for (const source of item.sourceFiles) {
+        const sourceStats = await lstat(source.path);
+        const canonicalSourcePath = await realpath(source.path);
+        if (!sourceStats.isFile() || !isInsideRoot(canonicalRootPath, canonicalSourcePath) || canonicalSourcePath !== source.path) {
+          throw sourceNotFound("源文件路径无效");
+        }
+      }
+    } catch (error) {
+      if (error.code === "SOURCE_NOT_FOUND") throw error;
+      if (["ENOENT", "ELOOP", "ENOTDIR"].includes(error.code)) throw sourceNotFound();
+      throw error;
+    }
+
+    for (const source of item.sourceFiles) {
+      try {
+        await unlink(source.path);
+      } catch (error) {
+        if (["ENOENT", "ELOOP", "ENOTDIR"].includes(error.code)) throw sourceNotFound();
+        throw error;
+      }
+    }
+    items.delete(id);
+    return publicItem(item);
+  }
+
   function getSettings() {
     return {
       roots: configuredRoots.map(({ id, path: rootPath, label, addedAt }) => ({
@@ -354,6 +390,7 @@ export function createLibrary({ roots = [] } = {}) {
     getItem,
     addRoot,
     removeRoot,
+    deleteItem,
     getSettings,
     readSource,
   };
