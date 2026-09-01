@@ -1,6 +1,6 @@
 const state = { view: "all", format: "", rootId: "", query: "", items: [], settings: null, selected: null, readerFormat: "html" };
 const elements = {
-  allCount: document.querySelector("#allCount"), htmlCount: document.querySelector("#htmlCount"), markdownCount: document.querySelector("#markdownCount"), rootList: document.querySelector("#rootList"), settingsRootList: document.querySelector("#settingsRootList"), rootCount: document.querySelector("#rootCount"), libraryView: document.querySelector("#libraryView"), settingsView: document.querySelector("#settingsView"), viewTitle: document.querySelector("#viewTitle"), viewDescription: document.querySelector("#viewDescription"), searchInput: document.querySelector("#searchInput"), itemGrid: document.querySelector("#itemGrid"), resultCount: document.querySelector("#resultCount"), lastSynced: document.querySelector("#lastSynced"), rootForm: document.querySelector("#rootForm"), rootPath: document.querySelector("#rootPath"), rootLabel: document.querySelector("#rootLabel"), settingsMessage: document.querySelector("#settingsMessage"), refreshButton: document.querySelector("#refreshButton"), openSettings: document.querySelector("#openSettings"), dialog: document.querySelector("#itemDialog"), closeDialog: document.querySelector("#closeDialog"), dialogTitle: document.querySelector("#dialogTitle"), dialogEyebrow: document.querySelector("#dialogEyebrow"), dialogPath: document.querySelector("#dialogPath"), readerContent: document.querySelector("#readerContent"), htmlTab: document.querySelector("#htmlTab"), markdownTab: document.querySelector("#markdownTab"), openSource: document.querySelector("#openSource"), downloadSource: document.querySelector("#downloadSource"), toast: document.querySelector("#toast"),
+  allCount: document.querySelector("#allCount"), htmlCount: document.querySelector("#htmlCount"), markdownCount: document.querySelector("#markdownCount"), rootList: document.querySelector("#rootList"), settingsRootList: document.querySelector("#settingsRootList"), rootCount: document.querySelector("#rootCount"), libraryView: document.querySelector("#libraryView"), settingsView: document.querySelector("#settingsView"), viewTitle: document.querySelector("#viewTitle"), viewDescription: document.querySelector("#viewDescription"), searchInput: document.querySelector("#searchInput"), itemGrid: document.querySelector("#itemGrid"), resultCount: document.querySelector("#resultCount"), lastSynced: document.querySelector("#lastSynced"), rootForm: document.querySelector("#rootForm"), rootPath: document.querySelector("#rootPath"), chooseRootPath: document.querySelector("#chooseRootPath"), rootLabel: document.querySelector("#rootLabel"), settingsMessage: document.querySelector("#settingsMessage"), refreshButton: document.querySelector("#refreshButton"), openSettings: document.querySelector("#openSettings"), dialog: document.querySelector("#itemDialog"), closeDialog: document.querySelector("#closeDialog"), dialogTitle: document.querySelector("#dialogTitle"), dialogEyebrow: document.querySelector("#dialogEyebrow"), dialogPath: document.querySelector("#dialogPath"), readerContent: document.querySelector("#readerContent"), htmlTab: document.querySelector("#htmlTab"), markdownTab: document.querySelector("#markdownTab"), openSource: document.querySelector("#openSource"), downloadSource: document.querySelector("#downloadSource"), toast: document.querySelector("#toast"),
 };
 let libraryRequestSerial = 0;
 let readerRequestSerial = 0;
@@ -91,6 +91,23 @@ async function addRoot(event) {
   event.preventDefault(); elements.settingsMessage.textContent = "正在验证并扫描目录…";
   try { const result = await api("/api/settings/roots", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ path: elements.rootPath.value, label: elements.rootLabel.value }) }); updateCounts(result.scan.items); elements.rootForm.reset(); state.settings = await api("/api/settings"); renderRoots(); elements.settingsMessage.textContent = "目录已添加，索引已更新。"; notifyScan(result.scan, "目录已添加，扫描完成"); } catch (error) { elements.settingsMessage.textContent = error.message; }
 }
+async function chooseRoot() {
+  elements.chooseRootPath.disabled = true;
+  elements.settingsMessage.textContent = "正在打开文件夹选择器…";
+  try {
+    const result = await api("/api/settings/choose-folder", { method: "POST" });
+    if (result.cancelled) {
+      elements.settingsMessage.textContent = "已取消选择。";
+      return;
+    }
+    elements.rootPath.value = result.path;
+    elements.settingsMessage.textContent = "已选择文件夹，请点击“添加并扫描”。";
+  } catch (error) {
+    elements.settingsMessage.textContent = error.message;
+  } finally {
+    elements.chooseRootPath.disabled = false;
+  }
+}
 async function removeRoot(id) {
   if (!window.confirm("移除这个扫描目录？源文件不会被删除。")) return;
   try { const result = await api("/api/settings/roots/" + encodeURIComponent(id), { method: "DELETE" }); updateCounts(result.items); state.settings = await api("/api/settings"); renderRoots(); await loadLibrary(); notifyScan(result, "扫描目录已移除，扫描完成"); } catch (error) { showToast(error.message); }
@@ -119,7 +136,7 @@ let searchTimer;
 elements.searchInput.addEventListener("input", () => { state.query = elements.searchInput.value; window.clearTimeout(searchTimer); searchTimer = window.setTimeout(loadLibrary, 180); });
 document.querySelectorAll(".nav-item[data-view]").forEach((button) => button.addEventListener("click", () => setView(button.dataset.view)));
 document.querySelectorAll(".filter-chip").forEach((button) => button.addEventListener("click", () => { state.format = button.dataset.format; document.querySelectorAll(".filter-chip").forEach((chip) => chip.classList.toggle("active", chip === button)); loadLibrary(); }));
-elements.refreshButton.addEventListener("click", refresh); elements.openSettings.addEventListener("click", () => setView("settings")); elements.rootForm.addEventListener("submit", addRoot);
+elements.refreshButton.addEventListener("click", refresh); elements.openSettings.addEventListener("click", () => setView("settings")); elements.rootForm.addEventListener("submit", addRoot); elements.chooseRootPath.addEventListener("click", chooseRoot);
 document.addEventListener("keydown", (event) => { if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") { event.preventDefault(); elements.searchInput.focus(); } });
 elements.closeDialog.addEventListener("click", () => { readerRequestSerial += 1; state.selected = null; elements.dialog.close(); }); elements.dialog.addEventListener("click", (event) => { if (event.target === elements.dialog) { readerRequestSerial += 1; state.selected = null; elements.dialog.close(); } }); elements.htmlTab.addEventListener("click", () => { state.readerFormat = "html"; void renderReaderSafely(); }); elements.markdownTab.addEventListener("click", () => { state.readerFormat = "markdown"; void renderReaderSafely(); });
 loadSettings().catch((error) => showToast(error.message));

@@ -1,9 +1,11 @@
 import { createServer as createHttpServer } from "node:http";
+import { execFile as execFileCallback } from "node:child_process";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { timingSafeEqual } from "node:crypto";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
 import { createLibrary } from "./library.js";
 
 const currentDirectory = path.dirname(fileURLToPath(import.meta.url));
@@ -14,6 +16,7 @@ const contentTypes = {
   ".js": "text/javascript; charset=utf-8",
   ".json": "application/json; charset=utf-8",
 };
+const execFile = promisify(execFileCallback);
 
 function sendJson(response, statusCode, payload) {
   response.writeHead(statusCode, {
@@ -53,6 +56,7 @@ function errorStatus(error) {
     "INVALID_JSON",
     "BODY_TOO_LARGE",
     "INVALID_PATH",
+    "FOLDER_PICKER_CANCELLED",
   ].includes(error.code)) {
     return 400;
   }
@@ -135,6 +139,26 @@ function authorizeRequest(request, requestUrl, response, authToken) {
   return false;
 }
 
+async function chooseFolderWithNativeDialog() {
+  if (process.platform !== "darwin") {
+    throw Object.assign(new Error("当前系统不支持原生文件夹选择器，请手动输入路径"), { code: "FOLDER_PICKER_UNAVAILABLE" });
+  }
+  try {
+    const { stdout } = await execFile("osascript", [
+      "-e",
+      'POSIX path of (choose folder with prompt "选择要扫描的文件夹")',
+    ]);
+    const selectedPath = stdout.trim();
+    if (!selectedPath) throw Object.assign(new Error("没有选择文件夹"), { code: "FOLDER_PICKER_CANCELLED" });
+    return selectedPath;
+  } catch (error) {
+    if (error.code === "FOLDER_PICKER_CANCELLED" || /user canceled|cancelled|canceled/i.test(error.stderr || error.message || "")) {
+      return null;
+    }
+    throw Object.assign(new Error("无法打开文件夹选择器，请手动输入路径"), { code: "FOLDER_PICKER_UNAVAILABLE", cause: error });
+  }
+}
+
 async function serveStatic(response, pathname) {
   const requestedPath = pathname === "/" ? "index.html" : pathname.replace(/^\/assets\//, "");
   const filePath = path.resolve(publicDirectory, requestedPath);
@@ -153,7 +177,7 @@ async function serveStatic(response, pathname) {
   }
 }
 
-export function createServer({ dataDir = path.join(os.homedir(), ".html-library"), library, authToken = "" } = {}) {
+export function createServer({ dataDir = path.join(os.homedir(), ".html-library"), library, authToken = "", chooseDirectory = chooseFolderWithNativeDialog } = {}) {
   const activeDataDir = path.resolve(dataDir);
   let activeLibrary = library;
 
@@ -179,6 +203,19 @@ export function createServer({ dataDir = path.join(os.homedir(), ".html-library"
 
       if (pathname === "/api/scan" && method === "POST") {
         sendJson(response, 200, await activeLibrary.scan());
+        return;
+      }
+
+      if (pathname === "/api/settings/choose-folder" && method === "POST") {
+        const selectedPath = await chooseDirectory();
+        if (selectedPath === null) {
+          sendJson(response, 200, { cancelled: true });
+          return;
+        }
+        if (typeof selectedPath !== "string" || !selectedPath.trim()) {
+          throw Object.assign(new Error("选择的文件夹路径无效"), { code: "FOLDER_PICKER_UNAVAILABLE" });
+        }
+        sendJson(response, 200, { cancelled: false, path: selectedPath.trim() });
         return;
       }
 

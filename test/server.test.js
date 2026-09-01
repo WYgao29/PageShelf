@@ -160,3 +160,19 @@ test("startup ignores invalid persisted roots instead of crashing", async () => 
     await new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
   }
 });
+
+test("API returns the folder selected by the native folder picker", async () => {
+  await withConfiguredServer({ chooseDirectory: async () => "/Users/example/Documents/对话" }, async ({ baseUrl }) => {
+    const response = await fetch(baseUrl + "/api/settings/choose-folder", { method: "POST" });
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), { cancelled: false, path: "/Users/example/Documents/对话" });
+  });
+});
+
+test("API reports when the native folder picker is cancelled", async () => {
+  await withConfiguredServer({ chooseDirectory: async () => null }, async ({ baseUrl }) => {
+    const response = await fetch(baseUrl + "/api/settings/choose-folder", { method: "POST" });
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), { cancelled: true });
+  });
+});

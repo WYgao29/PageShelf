@@ -51,7 +51,7 @@
         <section id="settingsView" class="settings-view hidden">
           <div class="settings-intro"><div class="settings-icon">⌁</div><div><p class="eyebrow">SOURCE FOLDERS</p><h2>管理扫描目录</h2><p>添加保存 HTML / Markdown 对话的文件夹。系统只读取文件，不会移动或改写源文件。</p></div></div>
           <form id="rootForm" class="root-form">
-            <label><span>文件夹路径</span><input id="rootPath" type="text" placeholder="/Users/你的名字/Documents/对话" required></label>
+            <label><span>文件夹路径</span><div class="root-path-controls"><input id="rootPath" type="text" placeholder="/Users/你的名字/Documents/对话" required><button id="chooseRootPath" type="button" class="secondary-button">选择文件夹…</button></div></label>
             <label><span>显示名称 <em>可选</em></span><input id="rootLabel" type="text" placeholder="例如：工作对话"></label>
             <button type="submit" class="primary-button">添加并扫描 <span>→</span></button>
           </form>
