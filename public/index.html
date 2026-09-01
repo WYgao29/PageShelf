@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f4f1ea">
+    <title>我的对话库</title>
+    <link rel="stylesheet" href="/assets/styles.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark"><span></span><span></span><span></span></div>
+          <div>
+            <strong>我的对话库</strong>
+            <small>Personal archive</small>
+          </div>
+        </div>
+        <nav class="primary-nav" aria-label="主导航">
+          <button class="nav-item active" data-view="all"><span class="nav-icon">✦</span><span>全部内容</span><b id="allCount">0</b></button>
+          <button class="nav-item" data-view="html"><span class="nav-icon">▣</span><span>HTML 阅读</span><b id="htmlCount">0</b></button>
+          <button class="nav-item" data-view="markdown"><span class="nav-icon">M</span><span>Markdown</span><b id="markdownCount">0</b></button>
+        </nav>
+        <div class="sidebar-section">
+          <div class="section-label"><span>扫描目录</span><button id="openSettings" class="text-button">管理</button></div>
+          <div id="rootList" class="root-list"><div class="sidebar-empty">还没有扫描目录</div></div>
+        </div>
+        <div class="sidebar-bottom">
+          <div class="status-pill"><span class="status-dot"></span><span>仅自己可见 · 本地运行</span></div>
+          <button class="nav-item settings-link" data-view="settings"><span class="nav-icon">⚙</span><span>设置</span></button>
+        </div>
+      </aside>
+      <main class="main-content">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">KNOWLEDGE INDEX <span class="eyebrow-line"></span></p>
+            <h1 id="viewTitle">全部内容</h1>
+            <p id="viewDescription" class="view-description">把散落的对话，重新放回一个顺手的入口。</p>
+          </div>
+          <button id="refreshButton" class="refresh-button"><span>↻</span><span>重新扫描</span></button>
+        </header>
+        <section id="libraryView">
+          <div class="toolbar">
+            <label class="search-box"><span>⌕</span><input id="searchInput" type="search" placeholder="搜索标题、目录或正文…" autocomplete="off"><kbd>⌘ K</kbd></label>
+            <div class="format-filters" aria-label="格式筛选"><button class="filter-chip active" data-format="">全部</button><button class="filter-chip" data-format="html">HTML</button><button class="filter-chip" data-format="markdown">MD</button></div>
+          </div>
+          <div class="content-meta"><div><strong id="resultCount">0</strong><span> 条记录</span></div><span id="lastSynced">等待首次扫描</span></div>
+          <div id="itemGrid" class="item-grid" aria-live="polite"></div>
+        </section>
+        <section id="settingsView" class="settings-view hidden">
+          <div class="settings-intro"><div class="settings-icon">⌁</div><div><p class="eyebrow">SOURCE FOLDERS</p><h2>管理扫描目录</h2><p>添加保存 HTML / Markdown 对话的文件夹。系统只读取文件，不会移动或改写源文件。</p></div></div>
+          <form id="rootForm" class="root-form">
+            <label><span>文件夹路径</span><input id="rootPath" type="text" placeholder="/Users/你的名字/Documents/对话" required></label>
+            <label><span>显示名称 <em>可选</em></span><input id="rootLabel" type="text" placeholder="例如：工作对话"></label>
+            <button type="submit" class="primary-button">添加并扫描 <span>→</span></button>
+          </form>
+          <div id="settingsMessage" class="form-message" role="status"></div>
+          <div class="settings-card"><div class="settings-card-header"><div><h3>已添加的目录</h3><p id="rootCount">0 个目录</p></div><span class="mini-badge">自动索引</span></div><div id="settingsRootList" class="settings-root-list"></div></div>
+        </section>
+      </main>
+    </div>
+    <dialog id="itemDialog" class="item-dialog">
+      <div class="dialog-shell">
+        <div class="dialog-header"><div><p id="dialogEyebrow" class="eyebrow"></p><h2 id="dialogTitle"></h2><p id="dialogPath" class="dialog-path"></p></div><button id="closeDialog" class="close-button" aria-label="关闭">×</button></div>
+        <div class="dialog-toolbar"><div class="reader-tabs"><button id="htmlTab" class="reader-tab active">HTML 阅读</button><button id="markdownTab" class="reader-tab">Markdown</button></div><div class="reader-actions"><a id="openSource" class="quiet-button" target="_blank" rel="noopener">新窗口打开</a><a id="downloadSource" class="quiet-button">下载</a></div></div>
+        <div id="readerContent" class="reader-content"></div>
+      </div>
+    </dialog>
+    <div id="toast" class="toast" role="status"></div>
+    <script src="/assets/app.js" defer></script>
+  </body>
+</html>
