@@ -277,7 +277,7 @@ export function createServer({ dataDir = path.join(os.homedir(), ".html-library"
           "content-type": source.contentType,
           "content-disposition": disposition + "; filename*=UTF-8''" + encodeURIComponent(source.fileName),
           "cache-control": "no-store",
-          "content-security-policy": "sandbox; default-src 'none'; img-src data: blob:; style-src 'unsafe-inline'; font-src data:; script-src 'none'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+          "content-security-policy": "sandbox; default-src 'none'; img-src data: blob:; style-src 'unsafe-inline'; font-src data:; script-src 'none'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'",
           "x-content-type-options": "nosniff",
         });
         response.end(source.content);

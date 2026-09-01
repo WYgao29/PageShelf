@@ -128,6 +128,7 @@ test("source responses prevent executable HTML and unknown formats are not serve
     const source = await fetch(baseUrl + "/api/items/" + encodeURIComponent(item.id) + "/source/html");
     assert.equal(source.status, 200);
     assert.match(source.headers.get("content-security-policy"), /sandbox/);
+    assert.match(source.headers.get("content-security-policy"), /frame-ancestors 'self'/);
     assert.equal(source.headers.get("x-content-type-options"), "nosniff");
 
     const unknown = await fetch(baseUrl + "/api/items/" + encodeURIComponent(item.id) + "/source/toString");
