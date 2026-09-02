@@ -9,6 +9,10 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
+    "service:install": "node src/service.js install",
+    "service:status": "node src/service.js status",
+    "service:stop": "node src/service.js stop",
+    "service:uninstall": "node src/service.js uninstall",
     "test": "node --test"
   }
 }

@@ -37,6 +37,29 @@ async function withConfiguredServer(options, callback) {
   }
 }
 
+function mhtmlFixture() {
+  return [
+    'MIME-Version: 1.0',
+    'Content-Type: multipart/related; type="text/html"; boundary="mhtml-boundary"',
+    '',
+    '--mhtml-boundary',
+    'Content-Type: text/html; charset="utf-8"',
+    'Content-Transfer-Encoding: 8bit',
+    'Content-Location: http://example.test/index.html',
+    '',
+    '<html><head><title>MHTML 服务</title></head><body><p>通过服务读取。</p><img src="cid:image@example.test"></body></html>',
+    '--mhtml-boundary',
+    'Content-Type: image/png',
+    'Content-Transfer-Encoding: base64',
+    'Content-Location: http://example.test/image.png',
+    'Content-ID: <image@example.test>',
+    '',
+    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]).toString('base64'),
+    '--mhtml-boundary--',
+    '',
+  ].join('\r\n');
+}
+
 async function jsonRequest(baseUrl, route, options = {}) {
   const response = await fetch(baseUrl + route, {
     ...options,
@@ -66,6 +89,35 @@ test("API adds a root, scans it, searches it, and reads its source", async () =>
   });
 });
 
+test("API opens MHTML as HTML and keeps the original archive for download", async () => {
+  await withServer(async ({ baseUrl, sourceDir }) => {
+    const content = mhtmlFixture();
+    await writeFile(path.join(sourceDir, "离线页面.mhtml"), content);
+    const added = await jsonRequest(baseUrl, "/api/settings/roots", {
+      method: "POST",
+      body: JSON.stringify({ path: sourceDir, label: "MHTML" }),
+    });
+    assert.equal(added.body.scan.items.length, 2);
+    const item = added.body.scan.items.find((entry) => entry.mhtml);
+    assert.equal(item.title, "MHTML 服务");
+
+    const source = await fetch(baseUrl + "/api/items/" + encodeURIComponent(item.id) + "/source/mhtml");
+    assert.equal(source.status, 200);
+    assert.equal(source.headers.get("content-type"), "text/html; charset=utf-8");
+    const rendered = await source.text();
+    assert.match(rendered, /MHTML 服务/);
+    assert.match(rendered, /data:image\/png;base64,/);
+    assert.doesNotMatch(rendered, /multipart\/related|mhtml-boundary/);
+
+    const download = await fetch(baseUrl + "/api/items/" + encodeURIComponent(item.id) + "/download/mhtml");
+    assert.equal(download.headers.get("content-type"), 'multipart/related; type="text/html"; boundary="mhtml-boundary"');
+    assert.match(await download.text(), /MHTML 服务/);
+
+    const htmlRecords = await jsonRequest(baseUrl, "/api/library?format=html");
+    assert.equal(htmlRecords.body.items.some((entry) => entry.id === item.id), true);
+  });
+});
+
 test("API rejects invalid roots and unknown source formats", async () => {
   await withServer(async ({ baseUrl }) => {
     const invalid = await jsonRequest(baseUrl, "/api/settings/roots", {
@@ -86,7 +138,10 @@ test("serves the unified library app shell", async () => {
     assert.equal(response.status, 200);
     const html = await response.text();
     assert.match(html, /我的对话库/);
-    assert.match(html, /删除记录/);
+    assert.doesNotMatch(html, /itemDialog|打开记录/);
+    const app = await (await fetch(baseUrl + "/assets/app.js")).text();
+    assert.match(app, /HTML 打开/);
+    assert.match(app, /Markdown 打开/);
   });
 });
 

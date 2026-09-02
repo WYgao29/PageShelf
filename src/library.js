@@ -3,9 +3,10 @@ import { constants as fsConstants } from "node:fs";
 import { lstat, open, readdir, readFile, realpath, stat, unlink } from "node:fs/promises";
 import path from "node:path";
 
-const SUPPORTED_EXTENSIONS = new Set([".html", ".htm", ".md"]);
+const SUPPORTED_EXTENSIONS = new Set([".html", ".htm", ".mhtml", ".mht", ".md"]);
 const FORMAT_EXTENSIONS = {
   html: new Set([".html", ".htm"]),
+  mhtml: new Set([".mhtml", ".mht"]),
   markdown: new Set([".md"]),
 };
 
@@ -34,10 +35,156 @@ function chooseSource(existing, candidate) {
   if (existing.extension === candidate.extension) {
     return existing.filename.localeCompare(candidate.filename) <= 0 ? existing : candidate;
   }
-  if (existing.extension === ".html" || candidate.extension === ".html") {
-    return existing.extension === ".html" ? existing : candidate;
+  const priority = { ".html": 3, ".htm": 2, ".mhtml": 3, ".mht": 2 };
+  return (priority[existing.extension] || 0) >= (priority[candidate.extension] || 0)
+    ? existing
+    : candidate;
+}
+
+function isMhtmlExtension(extension) {
+  return extension === ".mhtml" || extension === ".mht";
+}
+
+function parseMimeHeaders(value) {
+  const headers = {};
+  let currentName = "";
+  for (const line of value.replace(/\r\n?/g, "\n").split("\n")) {
+    if (/^[ \t]/.test(line) && currentName) {
+      headers[currentName] += " " + line.trim();
+      continue;
+    }
+    const separator = line.indexOf(":");
+    if (separator < 1) continue;
+    currentName = line.slice(0, separator).trim().toLowerCase();
+    headers[currentName] = line.slice(separator + 1).trim();
   }
-  return existing.extension === ".htm" ? existing : candidate;
+  return headers;
+}
+
+function decodeMhtmlPart(value, transferEncoding = "") {
+  const encoding = transferEncoding.toLowerCase();
+  if (encoding === "base64") {
+    return Buffer.from(value.replace(/\s/g, ""), "base64").toString("utf8");
+  }
+  if (encoding === "quoted-printable") {
+    if (!/=([0-9a-f]{2})|=\r?\n/i.test(value)) return value;
+    const binary = value
+      .replace(/=\r?\n/g, "")
+      .replace(/=([0-9a-f]{2})/gi, (_, hex) => String.fromCharCode(Number.parseInt(hex, 16)));
+    return Buffer.from(binary, "latin1").toString("utf8");
+  }
+  return value;
+}
+
+function decodeMhtmlPartBuffer(value, transferEncoding = "") {
+  const encoding = transferEncoding.toLowerCase();
+  if (encoding === "base64") {
+    return Buffer.from(value.replace(/\s/g, ""), "base64");
+  }
+  if (encoding === "quoted-printable") {
+    const binary = value
+      .replace(/=\r?\n/g, "")
+      .replace(/=([0-9a-f]{2})/gi, (_, hex) => String.fromCharCode(Number.parseInt(hex, 16)));
+    return Buffer.from(binary, "latin1");
+  }
+  return Buffer.from(value, "latin1");
+}
+
+function extractMhtmlHtml(content) {
+  const normalized = content.replace(/\r\n?/g, "\n");
+  const headerEnd = normalized.indexOf("\n\n");
+  if (headerEnd < 0) return content;
+  const headers = parseMimeHeaders(normalized.slice(0, headerEnd));
+  const boundaryMatch = headers["content-type"]?.match(/boundary\s*=\s*(?:"([^"]+)"|([^;\s]+))/i);
+  if (!boundaryMatch) return content;
+  const boundary = boundaryMatch[1] || boundaryMatch[2];
+  for (const part of normalized.slice(headerEnd + 2).split("--" + boundary)) {
+    if (!part.trim() || part.trim() === "--") continue;
+    const partHeaderEnd = part.indexOf("\n\n");
+    if (partHeaderEnd < 0) continue;
+    const partHeaders = parseMimeHeaders(part.slice(0, partHeaderEnd));
+    if (/^text\/html\b/i.test(partHeaders["content-type"] || "")) {
+      return decodeMhtmlPart(part.slice(partHeaderEnd + 2).replace(/\n--?\s*$/g, ""), partHeaders["content-transfer-encoding"]);
+    }
+  }
+  return content;
+}
+
+function mhtmlContentType(content) {
+  const text = (Buffer.isBuffer(content) ? content.toString("latin1", 0, 64 * 1024) : content).replace(/\r\n?/g, "\n");
+  const headerEnd = text.indexOf("\n\n");
+  if (headerEnd < 0) return "multipart/related";
+  const contentType = parseMimeHeaders(text.slice(0, headerEnd))["content-type"] || "";
+  const boundaryMatch = contentType.match(/boundary\s*=\s*(?:"([^"]+)"|([^;\s]+))/i);
+  const boundary = boundaryMatch?.[1] || boundaryMatch?.[2];
+  if (!boundary || /[\r\n"]/.test(boundary)) return "multipart/related";
+  return 'multipart/related; type="text/html"; boundary="' + boundary + '"';
+}
+
+function parseMhtmlArchive(content) {
+  const raw = Buffer.isBuffer(content) ? content.toString("latin1") : content;
+  const normalized = raw.replace(/\r\n?/g, "\n");
+  const headerEnd = normalized.indexOf("\n\n");
+  if (headerEnd < 0) return { headers: {}, parts: [] };
+  const headers = parseMimeHeaders(normalized.slice(0, headerEnd));
+  const boundaryMatch = headers["content-type"]?.match(/boundary\s*=\s*(?:"([^"]+)"|([^;\s]+))/i);
+  if (!boundaryMatch) return { headers, parts: [] };
+  const boundary = boundaryMatch[1] || boundaryMatch[2];
+  const parts = [];
+  for (const part of normalized.slice(headerEnd + 2).split("--" + boundary)) {
+    if (!part.trim() || part.trim() === "--") continue;
+    const partHeaderEnd = part.indexOf("\n\n");
+    if (partHeaderEnd < 0) continue;
+    const partHeaders = parseMimeHeaders(part.slice(0, partHeaderEnd));
+    let body = part.slice(partHeaderEnd + 2);
+    body = body.replace(/\n$/, "");
+    parts.push({ headers: partHeaders, body: decodeMhtmlPartBuffer(body, partHeaders["content-transfer-encoding"]) });
+  }
+  return { headers, parts };
+}
+
+function resourceKey(value, baseLocation = "") {
+  if (!value) return "";
+  const trimmed = value.trim();
+  if (/^cid:/i.test(trimmed)) return "cid:" + trimmed.slice(4).replace(/^<|>$/g, "").toLowerCase();
+  try {
+    return new URL(trimmed, baseLocation || undefined).href;
+  } catch {
+    return trimmed;
+  }
+}
+
+function rewriteCssResources(value, baseLocation, resources) {
+  return value.replace(/url\(\s*(["']?)([^)"']+)\1\s*\)/gi, (match, quote, reference) => {
+    const replacement = resources.get(resourceKey(reference, baseLocation));
+    return replacement ? "url(\"" + replacement + "\")" : match;
+  });
+}
+
+function renderMhtml(content) {
+  const archive = parseMhtmlArchive(content);
+  const htmlPart = archive.parts.find((part) => /^text\/html\b/i.test(part.headers["content-type"] || ""));
+  if (!htmlPart) return Buffer.isBuffer(content) ? content.toString("utf8") : content;
+  const htmlLocation = htmlPart.headers["content-location"] || "";
+  const resources = new Map();
+  for (const part of archive.parts) {
+    if (part === htmlPart) continue;
+    const contentType = (part.headers["content-type"] || "application/octet-stream").split(";", 1)[0].trim();
+    const dataUri = "data:" + contentType + ";base64," + part.body.toString("base64");
+    const location = part.headers["content-location"];
+    const contentId = part.headers["content-id"];
+    if (location) resources.set(resourceKey(location, htmlLocation), dataUri);
+    if (contentId) resources.set(resourceKey("cid:" + contentId, htmlLocation), dataUri);
+  }
+  let html = htmlPart.body.toString("utf8");
+  html = html.replace(/<base\b[^>]*>/gi, "");
+  html = html.replace(/(\b(?:src|href|poster|background)\s*=\s*)(["'])([^"']+)\2/gi, (match, prefix, quote, reference) => {
+    const replacement = resources.get(resourceKey(reference, htmlLocation));
+    return replacement ? prefix + quote + replacement + quote : match;
+  });
+  html = html.replace(/(\bstyle\s*=\s*)(["'])([\s\S]*?)\2/gi, (match, prefix, quote, style) => prefix + quote + rewriteCssResources(style, htmlLocation, resources) + quote);
+  html = html.replace(/(<style\b[^>]*>)([\s\S]*?)(<\/style>)/gi, (match, open, style, close) => open + rewriteCssResources(style, htmlLocation, resources) + close);
+  return html;
 }
 
 function decodeEntities(value) {
@@ -77,9 +224,10 @@ function extractTitle(extension, content, fallback) {
     return heading?.[1].replace(/[*_\x60]/g, "").trim() || fallback;
   }
 
-  const title = content.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i);
+  const htmlContent = isMhtmlExtension(extension) ? extractMhtmlHtml(content) : content;
+  const title = htmlContent.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i);
   if (title?.[1]) return stripHtml(title[1]);
-  const heading = content.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/i);
+  const heading = htmlContent.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/i);
   return heading?.[1] ? stripHtml(heading[1]) : fallback;
 }
 
@@ -127,6 +275,7 @@ function publicItem(item) {
     rootId: item.rootId,
     rootLabel: item.rootLabel,
     html: publicSource(item.html),
+    mhtml: publicSource(item.mhtml),
     markdown: publicSource(item.markdown),
     updatedAt: item.updatedAt,
     size: item.size,
@@ -174,18 +323,20 @@ export function createLibrary({ roots = [] } = {}) {
             size: sourceStats.size,
             updatedAt: sourceStats.mtime.toISOString(),
             content,
-            bodyText: extension === ".md" ? markdownText(content) : stripHtml(content),
+            bodyText: extension === ".md"
+              ? markdownText(content)
+              : stripHtml(isMhtmlExtension(extension) ? extractMhtmlHtml(content) : content),
           };
           const group = groups.get(key) || { files: [] };
           group.files.push(source);
-          const sourceType = extension === ".md" ? "markdown" : "html";
+          const sourceType = extension === ".md" ? "markdown" : isMhtmlExtension(extension) ? "mhtml" : "html";
           if (group[sourceType]) {
             const selected = chooseSource(group[sourceType], source);
             group[sourceType] = selected;
             errors.push({
               rootId: root.id,
               path: filePath,
-              message: `发现重复${sourceType === "markdown" ? " Markdown" : " HTML"}文件，已保留 ${selected.filename}`,
+              message: `发现重复${sourceType === "markdown" ? " Markdown" : sourceType === "mhtml" ? " MHTML" : " HTML"}文件，已保留 ${selected.filename}`,
             });
           } else {
             group[sourceType] = source;
@@ -194,19 +345,19 @@ export function createLibrary({ roots = [] } = {}) {
         }
 
         for (const [relativePath, group] of groups) {
-          const preferredSource = group.markdown || group.html;
+          const preferredSource = group.markdown || group.html || group.mhtml;
           const fallbackTitle = path.basename(relativePath);
           const title = extractTitle(
             preferredSource.extension,
             preferredSource.content,
             fallbackTitle,
           );
-          const bodyText = [group.html?.bodyText, group.markdown?.bodyText].filter(Boolean).join(" ");
-          const updatedAt = [group.html?.updatedAt, group.markdown?.updatedAt]
+          const bodyText = [group.html?.bodyText, group.mhtml?.bodyText, group.markdown?.bodyText].filter(Boolean).join(" ");
+          const updatedAt = [group.html?.updatedAt, group.mhtml?.updatedAt, group.markdown?.updatedAt]
             .filter(Boolean)
             .sort()
             .at(-1);
-          const size = (group.html?.size || 0) + (group.markdown?.size || 0);
+          const size = (group.html?.size || 0) + (group.mhtml?.size || 0) + (group.markdown?.size || 0);
           const id = root.id + ":" + createId(relativePath);
           nextItems.set(id, {
             id,
@@ -216,6 +367,7 @@ export function createLibrary({ roots = [] } = {}) {
             rootId: root.id,
             rootLabel: root.label,
             html: group.html || null,
+            mhtml: group.mhtml || null,
             markdown: group.markdown || null,
             sourceFiles: group.files,
             updatedAt,
@@ -255,7 +407,7 @@ export function createLibrary({ roots = [] } = {}) {
     const terms = normalizedQuery ? normalizedQuery.split(/\s+/) : [];
     return [...items.values()]
       .filter((item) => !filters.rootId || item.rootId === filters.rootId)
-      .filter((item) => !filters.format || item[filters.format])
+      .filter((item) => !filters.format || (filters.format === "html" ? item.html || item.mhtml : item[filters.format]))
       .filter((item) => terms.every((term) => item.searchText.includes(term)))
       .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
       .map(publicItem);
@@ -340,7 +492,7 @@ export function createLibrary({ roots = [] } = {}) {
 
   async function readSource(id, format, requestedRelativePath) {
     const item = items.get(id);
-    if (!item || !Object.hasOwn(FORMAT_EXTENSIONS, format) || !Object.hasOwn(item, format)) {
+    if (!item || !Object.hasOwn(FORMAT_EXTENSIONS, format) || !item[format]) {
       throw sourceNotFound();
     }
     const source = item[format];
@@ -370,10 +522,12 @@ export function createLibrary({ roots = [] } = {}) {
     let handle;
     try {
       handle = await open(candidatePath, fsConstants.O_RDONLY | (fsConstants.O_NOFOLLOW || 0));
-      const content = await handle.readFile("utf8");
+      const content = format === "mhtml" ? await handle.readFile() : await handle.readFile("utf8");
       return {
         content,
-        contentType: format === "html" ? "text/html; charset=utf-8" : "text/plain; charset=utf-8",
+        contentType: format === "html"
+          ? "text/html; charset=utf-8"
+          : format === "mhtml" ? mhtmlContentType(content) : "text/plain; charset=utf-8",
         fileName: source.filename,
       };
     } catch (error) {
@@ -382,6 +536,15 @@ export function createLibrary({ roots = [] } = {}) {
     } finally {
       await handle?.close();
     }
+  }
+
+  async function readMhtmlView(id) {
+    const source = await readSource(id, "mhtml");
+    return {
+      content: renderMhtml(source.content),
+      contentType: "text/html; charset=utf-8",
+      fileName: source.fileName.replace(/\.(?:mhtml|mht)$/i, ".html"),
+    };
   }
 
   return {
@@ -393,5 +556,6 @@ export function createLibrary({ roots = [] } = {}) {
     deleteItem,
     getSettings,
     readSource,
+    readMhtmlView,
   };
 }

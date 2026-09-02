@@ -24,6 +24,21 @@ async function createFixture() {
   return root;
 }
 
+function mhtmlFixture() {
+  return [
+    'MIME-Version: 1.0',
+    'Content-Type: multipart/related; boundary="mhtml-boundary"',
+    '',
+    '--mhtml-boundary',
+    'Content-Type: text/html; charset="utf-8"',
+    'Content-Transfer-Encoding: quoted-printable',
+    '',
+    '<!doctype html><html><head><title>MHTML 示例</title></head><body><h1>离线页面</h1><p>内嵌资源索引测试</p></body></html>',
+    '--mhtml-boundary--',
+    '',
+  ].join('\r\n');
+}
+
 test("scan merges matching HTML and Markdown files into one item", async () => {
   const root = await createFixture();
   const library = createLibrary({ roots: [{ id: "root-a", path: root, label: "我的对话" }] });
@@ -42,6 +57,34 @@ test("scan merges matching HTML and Markdown files into one item", async () => {
   assert.ok(markdownOnly);
   assert.equal(markdownOnly.html, null);
   assert.equal(markdownOnly.markdown.extension, ".md");
+});
+
+test("scan indexes MHTML and extracts its embedded HTML for title and search", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "html-library-mhtml-"));
+  await writeFile(path.join(root, "离线页面.mhtml"), mhtmlFixture());
+  const library = createLibrary({ roots: [{ id: "root-a", path: root, label: "离线资料" }] });
+
+  const result = await library.scan();
+  assert.equal(result.items.length, 1);
+  assert.equal(result.items[0].mhtml.extension, ".mhtml");
+  assert.equal(result.items[0].html, null);
+  assert.equal(result.items[0].title, "MHTML 示例");
+  assert.match(result.items[0].snippet, /离线页面|内嵌资源索引测试/);
+  assert.equal(library.search("内嵌资源").length, 1);
+});
+
+test("readSource returns the original MHTML archive", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "html-library-mhtml-source-"));
+  const content = mhtmlFixture();
+  await writeFile(path.join(root, "离线页面.mht"), content);
+  const library = createLibrary({ roots: [{ id: "root-a", path: root, label: "离线资料" }] });
+  await library.scan();
+
+  const item = library.search()[0];
+  const source = await library.readSource(item.id, "mhtml");
+  assert.equal(source.fileName, "离线页面.mht");
+  assert.equal(source.contentType, 'multipart/related; type="text/html"; boundary="mhtml-boundary"');
+  assert.equal(source.content.toString("utf8"), content);
 });
 
 test("search matches title, path, and body content", async () => {

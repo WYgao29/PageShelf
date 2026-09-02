@@ -229,7 +229,7 @@ export function createServer({ dataDir = path.join(os.homedir(), ".html-library"
 
       if (pathname === "/api/library" && method === "GET") {
         const format = requestUrl.searchParams.get("format") || "";
-        if (format && !["html", "markdown"].includes(format)) {
+        if (format && !["html", "mhtml", "markdown"].includes(format)) {
           sendError(response, 400, "格式筛选无效");
           return;
         }
@@ -279,13 +279,15 @@ export function createServer({ dataDir = path.join(os.homedir(), ".html-library"
       if (sourceMatch && method === "GET") {
         const itemId = decodeRoutePart(sourceMatch[1]);
         const format = decodeRoutePart(sourceMatch[3]);
-        const source = await activeLibrary.readSource(itemId, format);
+        const source = format === "mhtml" && sourceMatch[2] === "source"
+          ? await activeLibrary.readMhtmlView(itemId)
+          : await activeLibrary.readSource(itemId, format);
         const disposition = sourceMatch[2] === "download" ? "attachment" : "inline";
         response.writeHead(200, {
           "content-type": source.contentType,
           "content-disposition": disposition + "; filename*=UTF-8''" + encodeURIComponent(source.fileName),
           "cache-control": "no-store",
-          "content-security-policy": "sandbox; default-src 'none'; img-src data: blob:; style-src 'unsafe-inline'; font-src data:; script-src 'none'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'",
+          "content-security-policy": "sandbox; default-src 'none'; img-src data: blob:; style-src 'unsafe-inline' data:; font-src data:; script-src 'none'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'",
           "x-content-type-options": "nosniff",
         });
         response.end(source.content);
