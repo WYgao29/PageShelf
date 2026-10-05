@@ -198,9 +198,20 @@ test("a scan queued after removing a root cannot be overwritten by the earlier s
   const library = createLibrary({ roots: [{ id: "root-a", path: root, label: "临时目录" }] });
   const firstScan = library.scan();
   await new Promise((resolve) => setImmediate(resolve));
-  library.removeRoot("root-a");
+  await library.removeRoot("root-a");
   const secondScan = library.scan();
   await Promise.all([firstScan, secondScan]);
 
   assert.equal(library.search().length, 0);
 });
+
+test('incremental scans reuse unchanged metadata and full scans reread', async()=>{
+ const root=await createFixture();let reads=0;const library=createLibrary({roots:[{id:'a',path:root}],scanFile:async()=>{reads++;return {title:'spy',bodyText:'content'};}});await library.scan();assert.equal(reads,3);reads=0;await library.scan();assert.equal(reads,0);await library.scan({full:true});assert.equal(reads,3);assert.equal(library.getSnapshot().items.some(item=>item.sourceFiles.some(source=>Object.hasOwn(source,'content') || Buffer.isBuffer(source.buffer))),false);
+});
+test('legacy NFD stems retain v1 item ids and memory feedback persists on next mutation',async()=>{
+ const {createConfigStore}=await import('../src/config.js'),{createRootRegistry}=await import('../src/roots.js'),{withTempFixture}=await import('./helpers/fixture.js'),{readFile}=await import('node:fs/promises'),{createHash}=await import('node:crypto');await withTempFixture(async directory=>{const root=path.join(directory,'source');await mkdir(root);await writeFile(path.join(root,'cafe\u0301.md'),'# Café');const store=createConfigStore({dataDir:directory});await writeFile(path.join(directory,'config.json'),JSON.stringify({roots:[{id:'old',path:root}]}));const registry=createRootRegistry({configStore:store});await registry.load();const library=createLibrary({rootRegistry:registry});await library.scan();const {readdir}=await import('node:fs/promises');const raw=(await readdir(root))[0].slice(0,-3);const oldId='old:'+createHash('sha1').update(raw).digest('hex').slice(0,12);assert.equal(library.search()[0].id,oldId);await registry.applyChange({type:'patch',id:'old',input:{label:'updated'}});assert.equal(JSON.parse(await readFile(path.join(directory,'config.json'),'utf8')).roots[0].options.idAlgo,'v1');});
+});
+test('legacy fixture retains all ids and ownership goes 48 to 40+8 to 48',async()=>{
+ const {createConfigStore}=await import('../src/config.js'),{createRootRegistry}=await import('../src/roots.js'),{withTempFixture,createLegacyFixture}=await import('./helpers/fixture.js');await withTempFixture(async directory=>{const fixture=await createLegacyFixture(directory);const registry=createRootRegistry({configStore:createConfigStore({dataDir:fixture.dataDir})});await registry.load();const library=createLibrary({rootRegistry:registry});await library.scan();assert.deepEqual(library.search().map(x=>x.id).sort(),fixture.expectedItemIds);const {root}=await registry.applyChange({type:'add',input:{path:path.join(fixture.rootPath,'腾讯云ADP-FDE认证课程')}});await library.scan();assert.equal(library.search('',{rootId:fixture.rootId}).length,40);assert.equal(library.search('',{rootId:root.id}).length,8);await registry.applyChange({type:'remove',id:root.id});await library.scan();assert.equal(library.search().length,48);});
+});
+test('a stale delayed scan cannot resurrect a trashed item',async()=>{const root=await createFixture();let gate,release,slow=false;const library=createLibrary({roots:[{id:'a',path:root}],trashService:testTrashService,scanFile:async()=>{if(slow){gate=new Promise(resolve=>release=resolve);await gate;}return{title:'item',bodyText:'text'};}});assert.equal(typeof library.getSnapshot,'function');await library.scan();slow=true;const scanning=library.scan({full:true});while(!release)await new Promise(r=>setImmediate(r));const id=library.search().find(x=>x.html).id;await library.trashItem(id);slow=false;release();await scanning;assert.equal(library.getItem(id),null);});

@@ -1,12 +1,16 @@
 import { createServer as createHttpServer } from "node:http";
 import { execFile as execFileCallback } from "node:child_process";
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { timingSafeEqual } from "node:crypto";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { createLibrary } from "./library.js";
+import { createConfigStore } from "./config.js";
+import { createRootRegistry } from "./roots.js";
+import { handle as handleRoots } from "./routes/roots.js";
+import { handle as handleSystem } from "./routes/system.js";
 
 const currentDirectory = path.dirname(fileURLToPath(import.meta.url));
 const publicDirectory = path.resolve(currentDirectory, "..", "public");
@@ -62,38 +66,6 @@ function errorStatus(error) {
   }
   if (error.code === "SOURCE_NOT_FOUND") return 404;
   return 500;
-}
-
-function invalidConfig() {
-  return Object.assign(new Error("配置文件不是有效的目录配置"), { code: "CONFIG_INVALID" });
-}
-
-function isRootConfig(value) {
-  return value && typeof value === "object" && !Array.isArray(value) && typeof value.path === "string" && value.path.trim();
-}
-
-async function readConfig(dataDir) {
-  try {
-    const config = JSON.parse(await readFile(path.join(dataDir, "config.json"), "utf8"));
-    if (!config || typeof config !== "object" || !Array.isArray(config.roots)) throw invalidConfig();
-    return config.roots.filter(isRootConfig);
-  } catch (error) {
-    if (error.code === "ENOENT") return [];
-    if (error.code === "CONFIG_INVALID") throw error;
-    throw invalidConfig();
-  }
-}
-
-async function saveConfig(dataDir, library) {
-  await mkdir(dataDir, { recursive: true });
-  const configPath = path.join(dataDir, "config.json");
-  const temporaryPath = configPath + ".tmp-" + process.pid + "-" + Date.now();
-  await writeFile(
-    temporaryPath,
-    JSON.stringify({ roots: library.getSettings().roots }, null, 2) + "\n",
-    "utf8",
-  );
-  await rename(temporaryPath, configPath);
 }
 
 function decodeRoutePart(value) {
@@ -181,11 +153,16 @@ export function createServer({ dataDir = path.join(os.homedir(), ".html-library"
   const activeDataDir = path.resolve(dataDir);
   let activeLibrary = library;
 
+  const configStore = createConfigStore({ dataDir: activeDataDir });
+  let registry;
   const ready = (async () => {
     if (!activeLibrary) {
-      activeLibrary = createLibrary({ roots: await readConfig(activeDataDir), trashService });
-    }
-    await activeLibrary.scan();
+      registry = createRootRegistry({ configStore }); await registry.load();
+      activeLibrary = createLibrary({ rootRegistry: registry, trashService });
+    } else registry = activeLibrary.registry;
+    const roots = registry.list();
+    roots.forEach(root => activeLibrary.scheduler.enqueue(root.id, {}));
+    if (roots.length) await activeLibrary.scheduler.waitForRoot(roots[0].id);
   })();
 
   const server = createHttpServer(async (request, response) => {
@@ -195,27 +172,19 @@ export function createServer({ dataDir = path.join(os.homedir(), ".html-library"
       if (!authorizeRequest(request, requestUrl, response, authToken)) return;
       const pathname = requestUrl.pathname;
       const method = request.method || "GET";
+      let body;
+      if (["POST", "PATCH", "PUT", "DELETE"].includes(method)) {
+        const expectedOrigin = 'http://' + request.headers.host;
+        if (request.headers.origin !== expectedOrigin) throw Object.assign(new Error('仅允许同源请求'), { code: 'ORIGIN_FORBIDDEN', status: 403 });
+        if (!/^application\/json(?:;|$)/i.test(request.headers['content-type'] || '')) throw Object.assign(new Error('请求需要 application/json'), { code: 'CONTENT_TYPE_REQUIRED', status: 415 });
+        body = await readJsonBody(request);
+        if (!body || typeof body !== 'object' || Array.isArray(body)) throw Object.assign(new Error('请求需要 JSON 对象'), { code: 'INVALID_JSON', status: 400 });
+      }
+      const context = { request, response, url: requestUrl, library: activeLibrary, registry, configStore, sendJson, body, decode: decodeRoutePart, chooseDirectory };
+      if (await handleRoots(context) || await handleSystem(context)) return;
 
       if (pathname === "/api/settings" && method === "GET") {
         sendJson(response, 200, activeLibrary.getSettings());
-        return;
-      }
-
-      if (pathname === "/api/scan" && method === "POST") {
-        sendJson(response, 200, await activeLibrary.scan());
-        return;
-      }
-
-      if (pathname === "/api/settings/choose-folder" && method === "POST") {
-        const selectedPath = await chooseDirectory();
-        if (selectedPath === null) {
-          sendJson(response, 200, { cancelled: true });
-          return;
-        }
-        if (typeof selectedPath !== "string" || !selectedPath.trim()) {
-          throw Object.assign(new Error("选择的文件夹路径无效"), { code: "FOLDER_PICKER_UNAVAILABLE" });
-        }
-        sendJson(response, 200, { cancelled: false, path: selectedPath.trim() });
         return;
       }
 
@@ -244,7 +213,6 @@ export function createServer({ dataDir = path.join(os.homedir(), ".html-library"
       }
 
       if (pathname === "/api/settings/roots" && method === "POST") {
-        const body = await readJsonBody(request);
         if (
           !body ||
           typeof body !== "object" ||
@@ -257,7 +225,6 @@ export function createServer({ dataDir = path.join(os.homedir(), ".html-library"
           return;
         }
         const root = await activeLibrary.addRoot(body.path.trim(), body.label);
-        await saveConfig(activeDataDir, activeLibrary);
         const scan = await activeLibrary.scan();
         sendJson(response, 201, { root, scan });
         return;
@@ -265,12 +232,11 @@ export function createServer({ dataDir = path.join(os.homedir(), ".html-library"
 
       const rootMatch = pathname.match(/^\/api\/settings\/roots\/([^/]+)$/);
       if (rootMatch && method === "DELETE") {
-        const removed = activeLibrary.removeRoot(decodeRoutePart(rootMatch[1]));
+        const removed = await activeLibrary.removeRoot(decodeRoutePart(rootMatch[1]));
         if (!removed) {
           sendError(response, 404, "扫描目录不存在");
           return;
         }
-        await saveConfig(activeDataDir, activeLibrary);
         sendJson(response, 200, await activeLibrary.scan());
         return;
       }
@@ -301,7 +267,9 @@ export function createServer({ dataDir = path.join(os.homedir(), ".html-library"
 
       sendError(response, 404, "接口不存在");
     } catch (error) {
-      sendError(response, errorStatus(error), error.message || "服务器内部错误");
+      const legacy = request.url?.startsWith('/api/settings') || request.url?.startsWith('/api/library') || request.method === 'DELETE' && /^\/api\/items\/[^/]+$/.test(request.url || '');
+      const status = error.status || (['ROOT_NOT_FOUND','SOURCE_NOT_FOUND'].includes(error.code) ? 404 : error.code === 'CONFIG_READ_ONLY' ? 409 : /^(ROOT_|INVALID_|LABEL_|ORDER_)/.test(error.code || '') ? 400 : errorStatus(error));
+      sendJson(response, status, { error: legacy ? error.message : { code: error.code || 'INTERNAL_ERROR', message: error.message || '服务器内部错误', details: error.details || {} } });
     }
   });
 

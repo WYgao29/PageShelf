@@ -19,7 +19,7 @@ async function withServer(callback) {
   const address = server.address();
   const baseUrl = "http://127.0.0.1:" + address.port;
   try {
-    await callback({ baseUrl, sourceDir });
+    await callback({ baseUrl, sourceDir, server });
   } finally {
     await new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
   }
@@ -64,7 +64,7 @@ function mhtmlFixture() {
 async function jsonRequest(baseUrl, route, options = {}) {
   const response = await fetch(baseUrl + route, {
     ...options,
-    headers: { "content-type": "application/json", ...(options.headers || {}) },
+    headers: { "content-type": "application/json", origin: baseUrl, ...(options.headers || {}) },
   });
   return { response, body: await response.json() };
 }
@@ -153,7 +153,7 @@ test("API removes a root without touching its source files", async () => {
       body: JSON.stringify({ path: sourceDir, label: "待移除" }),
     });
     const rootId = added.body.root.id;
-    const removed = await fetch(baseUrl + "/api/settings/roots/" + encodeURIComponent(rootId), { method: "DELETE" });
+    const removed = await fetch(baseUrl + "/api/settings/roots/" + encodeURIComponent(rootId), { method: "DELETE", headers: { origin: baseUrl, "content-type": "application/json" }, body: "{}" });
     assert.equal(removed.status, 200);
     const settings = await (await fetch(baseUrl + "/api/settings")).json();
     assert.equal(settings.roots.length, 0);
@@ -168,7 +168,7 @@ test("API deletes a record's source file and index entry", async () => {
       body: JSON.stringify({ path: sourceDir, label: "待删除" }),
     });
     const item = added.body.scan.items[0];
-    const deleted = await fetch(baseUrl + "/api/items/" + encodeURIComponent(item.id), { method: "DELETE" });
+    const deleted = await fetch(baseUrl + "/api/items/" + encodeURIComponent(item.id), { method: "DELETE", headers: { origin: baseUrl, "content-type": "application/json" }, body: "{}" });
     assert.equal(deleted.status, 200);
     assert.equal((await deleted.json()).scan.stats.items, 0);
     await assert.rejects(access(path.join(sourceDir, "远程阅读.html")), { code: "ENOENT" });
@@ -213,7 +213,7 @@ test("API rejects null JSON bodies with a client error", async () => {
   await withServer(async ({ baseUrl }) => {
     const response = await fetch(baseUrl + "/api/settings/roots", {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", origin: baseUrl },
       body: "null",
     });
     assert.equal(response.status, 400);
@@ -237,7 +237,7 @@ test("startup ignores invalid persisted roots instead of crashing", async () => 
 
 test("API returns the folder selected by the native folder picker", async () => {
   await withConfiguredServer({ chooseDirectory: async () => "/Users/example/Documents/对话" }, async ({ baseUrl }) => {
-    const response = await fetch(baseUrl + "/api/settings/choose-folder", { method: "POST" });
+    const response = await fetch(baseUrl + "/api/settings/choose-folder", { method: "POST", headers: { origin: baseUrl, "content-type": "application/json" }, body: "{}" });
     assert.equal(response.status, 200);
     assert.deepEqual(await response.json(), { cancelled: false, path: "/Users/example/Documents/对话" });
   });
@@ -245,7 +245,7 @@ test("API returns the folder selected by the native folder picker", async () => 
 
 test("API reports when the native folder picker is cancelled", async () => {
   await withConfiguredServer({ chooseDirectory: async () => null }, async ({ baseUrl }) => {
-    const response = await fetch(baseUrl + "/api/settings/choose-folder", { method: "POST" });
+    const response = await fetch(baseUrl + "/api/settings/choose-folder", { method: "POST", headers: { origin: baseUrl, "content-type": "application/json" }, body: "{}" });
     assert.equal(response.status, 200);
     assert.deepEqual(await response.json(), { cancelled: true });
   });
@@ -260,4 +260,20 @@ test('occupied port exits successfully without repeated errors', async()=>{
   const timer=setTimeout(()=>child.kill(),5000);const code=await new Promise(resolve=>child.on('exit',resolve));clearTimeout(timer);
   assert.equal(code,0);assert.match(output,new RegExp('服务已在运行.*'+port));assert.equal(errors,'');
  }finally{await new Promise(resolve=>blocker.close(resolve));}
+});
+
+test('v2 root API guards writes and supports preview rename order disable relocate remove',async()=>{
+ await withServer(async({baseUrl,sourceDir,server})=>{
+  const before=(await import('node:fs/promises')).stat;const stamp=(await before(path.join(sourceDir,'远程阅读.html'))).mtimeMs;
+  for(const [headers,body,status] of [[{'content-type':'application/json'},'{}',403],[{origin:'https://other.test','content-type':'application/json'},'{}',403],[{origin:baseUrl,'content-type':'text/plain'},'{}',415],[{origin:baseUrl,'content-type':'application/json'},'null',400],[{origin:baseUrl,'content-type':'application/json'},'[]',400]])assert.equal((await fetch(baseUrl+'/api/roots',{method:'POST',headers,body})).status,status);
+  const preview=await jsonRequest(baseUrl,'/api/roots?dryRun=1',{method:'POST',body:JSON.stringify({path:sourceDir})});assert.equal(preview.body.valid,true);assert.equal((await (await fetch(baseUrl+'/api/roots')).json()).roots.length,0);
+  const add=await jsonRequest(baseUrl,'/api/roots',{method:'POST',body:JSON.stringify({path:sourceDir,label:'资料'})});assert.equal(add.response.status,201);const id=add.body.root.id;await server.library().scheduler.waitForIdle();
+  const renamed=await jsonRequest(baseUrl,'/api/roots/'+id,{method:'PATCH',body:JSON.stringify({label:'新名'})});assert.equal(renamed.body.root.label,'新名');assert.equal(renamed.body.root.id,id);
+  assert.equal((await jsonRequest(baseUrl,'/api/roots/order',{method:'PUT',body:JSON.stringify({ids:[]})})).response.status,400);
+  assert.equal((await jsonRequest(baseUrl,'/api/roots/order',{method:'PUT',body:JSON.stringify({ids:[id]})})).response.status,200);
+  await jsonRequest(baseUrl,'/api/roots/'+id,{method:'PATCH',body:'{"enabled":false}'});await server.library().scheduler.waitForIdle();assert.equal((await (await fetch(baseUrl+'/api/roots')).json()).totals.items,0);
+  await jsonRequest(baseUrl,'/api/roots/'+id,{method:'PATCH',body:'{"enabled":true}'});await server.library().scheduler.waitForIdle();assert.equal((await (await fetch(baseUrl+'/api/roots')).json()).totals.items,1);
+  const queued=await jsonRequest(baseUrl,'/api/roots/'+id+'/scan',{method:'POST',body:'{}'});assert.equal(queued.response.status,202);await server.library().scheduler.waitForIdle();
+  await jsonRequest(baseUrl,'/api/roots/'+id,{method:'DELETE',body:'{}'});assert.equal((await (await fetch(baseUrl+'/api/roots')).json()).roots.length,0);assert.equal((await before(path.join(sourceDir,'远程阅读.html'))).mtimeMs,stamp);
+ });
 });

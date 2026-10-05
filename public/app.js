@@ -5,6 +5,7 @@ const elements = {
 let libraryRequestSerial = 0;
 
 async function api(route, options) {
+  if (options && ["POST", "PATCH", "PUT", "DELETE"].includes(options.method)) options = { ...options, headers: { "content-type": "application/json", ...options.headers }, body: options.body || "{}" };
   const response = await fetch(route, options);
   const contentType = response.headers.get("content-type") || "";
   const body = contentType.includes("application/json") ? await response.json() : await response.text();
@@ -86,13 +87,15 @@ async function loadLibrary() {
   }
 }
 async function loadSettings() {
-  state.settings = await api("/api/settings"); elements.lastSynced.textContent = state.settings.lastScan?.completedAt ? "上次扫描 " + formatDate(state.settings.lastScan.completedAt) : "等待首次扫描"; renderRoots(); const items = await api("/api/library"); const all = items.items; updateCounts(all); state.items = all; renderCards();
+  state.settings = await api("/api/settings"); const configStatus = await api("/api/roots"); if (configStatus.startupWarning) elements.settingsMessage.textContent = configStatus.startupWarning; elements.lastSynced.textContent = state.settings.lastScan?.completedAt ? "上次扫描 " + formatDate(state.settings.lastScan.completedAt) : "等待首次扫描"; renderRoots(); const items = await api("/api/library"); const all = items.items; updateCounts(all); state.items = all; renderCards();
 }
 async function refresh() {
   if (elements.refreshButton.disabled) return;
   elements.refreshButton.disabled = true;
   elements.refreshButton.classList.add("is-refreshing");
-  try { const result = await api("/api/scan", { method: "POST" }); updateCounts(result.items); state.settings = await api("/api/settings"); renderRoots(); await loadLibrary(); notifyScan(result); } catch (error) { showToast(error.message); } finally { elements.refreshButton.disabled = false; elements.refreshButton.classList.remove("is-refreshing"); }
+  try { await api("/api/scan", { method: "POST" });
+    while (true) { const status = await api("/api/scan/status"); if (!status.running.length && !status.queued.length) break; await new Promise(resolve => setTimeout(resolve, 500)); }
+    const result = await api("/api/library"); updateCounts(result.items); state.settings = await api("/api/settings"); renderRoots(); await loadLibrary(); notifyScan(result); } catch (error) { showToast(error.message); } finally { elements.refreshButton.disabled = false; elements.refreshButton.classList.remove("is-refreshing"); }
 }
 async function addRoot(event) {
   event.preventDefault(); elements.settingsMessage.textContent = "正在验证并扫描目录…";

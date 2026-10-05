@@ -19,7 +19,7 @@ test("end-to-end flow indexes and serves a paired conversation", async () => {
   try {
     const add = await fetch(baseUrl + "/api/settings/roots", {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", origin: baseUrl },
       body: JSON.stringify({ path: sourceDir, label: "生活" }),
     });
     assert.equal(add.status, 201);
