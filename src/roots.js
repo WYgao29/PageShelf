@@ -429,14 +429,20 @@ export function createRootRegistry({
           !root ||
           !old ||
           old.path !== root.path ||
+          old.realPath !== root.realPath ||
           old.enabled !== root.enabled ||
+          rootAvailable(old) !== rootAvailable(root) ||
           JSON.stringify(old.excludes) !== JSON.stringify(root.excludes)
         ) {
           invalidate(id);
           if (root)
             affected.push({
               rootId: id,
-              full: !old || old.path !== root.path,
+              full:
+                !old ||
+                old.path !== root.path ||
+                old.realPath !== root.realPath ||
+                !rootAvailable(old),
               subtree: old?.excludes.find((x) => !root.excludes.includes(x)),
             });
         } else {

@@ -117,9 +117,13 @@ export async function handle(context) {
     return true;
   }
   if (route === "/api/roots/order" && method === "PUT") {
-    await registry.applyChange({ type: "order", ids: body.ids });
+    const result = await registry.applyChange({ type: "order", ids: body.ids });
+    result.affected.forEach((entry) =>
+      library.scheduler.enqueue(entry.rootId, entry),
+    );
     sendJson(response, 200, {
       roots: registry.list().map((root) => rootResponse(root, library)),
+      scan: { queued: result.affected.map((entry) => entry.rootId) },
     });
     return true;
   }
