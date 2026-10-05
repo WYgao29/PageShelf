@@ -31,8 +31,17 @@ export function getServicePaths({
   projectDirectory = defaultProjectDirectory,
   label = SERVICE_LABEL,
 } = {}) {
-  const launchAgentsDirectory = path.join(homeDirectory, "Library", "LaunchAgents");
-  const logDirectory = path.join(homeDirectory, "Library", "Logs", "html-conversation-library");
+  const launchAgentsDirectory = path.join(
+    homeDirectory,
+    "Library",
+    "LaunchAgents",
+  );
+  const logDirectory = path.join(
+    homeDirectory,
+    "Library",
+    "Logs",
+    "html-conversation-library",
+  );
   return {
     label,
     projectDirectory: path.resolve(projectDirectory),
@@ -51,8 +60,20 @@ export function createLaunchAgentPlist({
   workingDirectory = defaultProjectDirectory,
   host = DEFAULT_HOST,
   port = DEFAULT_PORT,
-  stdoutPath = path.join(os.homedir(), "Library", "Logs", "html-conversation-library", "stdout.log"),
-  stderrPath = path.join(os.homedir(), "Library", "Logs", "html-conversation-library", "stderr.log"),
+  stdoutPath = path.join(
+    os.homedir(),
+    "Library",
+    "Logs",
+    "html-conversation-library",
+    "stdout.log",
+  ),
+  stderrPath = path.join(
+    os.homedir(),
+    "Library",
+    "Logs",
+    "html-conversation-library",
+    "stderr.log",
+  ),
 } = {}) {
   return [
     '<?xml version="1.0" encoding="UTF-8"?>',
@@ -78,7 +99,7 @@ export function createLaunchAgentPlist({
     "  <key>RunAtLoad</key>",
     "  <true/>",
     "  <key>KeepAlive</key>",
-    "  <true/>",
+    "  <dict><key>SuccessfulExit</key><false/></dict>",
     "  <key>StandardOutPath</key>",
     "  " + xmlString(stdoutPath),
     "  <key>StandardErrorPath</key>",
@@ -94,11 +115,13 @@ export async function runLaunchctl(args) {
 }
 
 function requireMacOS(platform = process.platform) {
-  if (platform !== "darwin") throw new Error("macOS LaunchAgent 只能在 macOS 上使用");
+  if (platform !== "darwin")
+    throw new Error("macOS LaunchAgent 只能在 macOS 上使用");
 }
 
 function currentUserId(userId) {
-  if (userId !== undefined && userId !== null && String(userId).trim()) return String(userId);
+  if (userId !== undefined && userId !== null && String(userId).trim())
+    return String(userId);
   if (typeof process.getuid === "function") return String(process.getuid());
   throw new Error("无法确定当前 macOS 用户 ID");
 }
@@ -198,14 +221,16 @@ export async function uninstallLaunchAgent({
 }
 
 function printUsage() {
-  console.log([
-    "用法：npm run service:<命令>",
-    "",
-    "  service:install    安装并启动后台服务",
-    "  service:status     查看后台服务状态",
-    "  service:stop       停止后台服务",
-    "  service:uninstall   停止并取消开机自动启动",
-  ].join("\n"));
+  console.log(
+    [
+      "用法：npm run service:<命令>",
+      "",
+      "  service:install    安装并启动后台服务",
+      "  service:status     查看后台服务状态",
+      "  service:stop       停止后台服务",
+      "  service:uninstall   停止并取消开机自动启动",
+    ].join("\n"),
+  );
 }
 
 async function runCli(command) {
@@ -237,7 +262,9 @@ async function runCli(command) {
   throw new Error("未知命令：" + command);
 }
 
-const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+const isMain =
+  process.argv[1] &&
+  path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (isMain) {
   try {
     await runCli(process.argv[2]);

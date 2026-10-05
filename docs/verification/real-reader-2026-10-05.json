@@ -1,0 +1,403 @@
+{
+  "date": "2026-10-05",
+  "browser": "Chrome headless",
+  "config": "isolated copy; source files read only",
+  "idsStable": true,
+  "documents": [
+    {
+      "id": "root-2e61579df9d2:d923903a6e61",
+      "title": "4 评测与优化智能体 - 腾讯云 ADP 前沿部署工程师 (FDE) 认证课程",
+      "format": "html",
+      "status": "reader",
+      "site": "readability",
+      "headings": 89,
+      "reason": null
+    },
+    {
+      "id": "root-2e61579df9d2:9a3eb4d53241",
+      "title": "3 使用 ADP 开发智能体 - 腾讯云 ADP 前沿部署工程师 (FDE) 认证课程",
+      "format": "html",
+      "status": "reader",
+      "site": "readability",
+      "headings": 183,
+      "reason": null
+    },
+    {
+      "id": "root-2e61579df9d2:bf84e285542b",
+      "title": "2 ADP 产品能力 - 腾讯云 ADP 前沿部署工程师 (FDE) 认证课程",
+      "format": "html",
+      "status": "reader",
+      "site": "readability",
+      "headings": 59,
+      "reason": null
+    },
+    {
+      "id": "root-2e61579df9d2:d742a4ee7524",
+      "title": "1 AI 和 Agent 基础 - 腾讯云 ADP 前沿部署工程师 (FDE) 认证课程",
+      "format": "html",
+      "status": "reader",
+      "site": "readability",
+      "headings": 27,
+      "reason": null
+    },
+    {
+      "id": "root-2e61579df9d2:b75f1c917e05",
+      "title": "ShipAny直出AI产品官网",
+      "format": "mhtml",
+      "status": "reader",
+      "site": "zsxq",
+      "headings": 0,
+      "reason": null
+    },
+    {
+      "id": "root-2e61579df9d2:91a43a43b1f1",
+      "title": "为什么开中国公司？",
+      "format": "mhtml",
+      "status": "reader",
+      "site": "zsxq",
+      "headings": 0,
+      "reason": null
+    },
+    {
+      "id": "root-2e61579df9d2:bf9d73de1a84",
+      "title": "运营一家美国公司需要多少钱？",
+      "format": "mhtml",
+      "status": "reader",
+      "site": "zsxq",
+      "headings": 0,
+      "reason": null
+    },
+    {
+      "id": "root-2e61579df9d2:a2b1b68509e7",
+      "title": "为什么开美国公司？",
+      "format": "mhtml",
+      "status": "reader",
+      "site": "zsxq",
+      "headings": 0,
+      "reason": null
+    },
+    {
+      "id": "root-2e61579df9d2:da4af6d2eeaa",
+      "title": "资源推荐：网络 + 支付 + 手机号",
+      "format": "mhtml",
+      "status": "reader",
+      "site": "zsxq",
+      "headings": 0,
+      "reason": null
+    },
+    {
+      "id": "root-2e61579df9d2:68400553e3a9",
+      "title": "如何注册美国公司？",
+      "format": "mhtml",
+      "status": "reader",
+      "site": "zsxq",
+      "headings": 0,
+      "reason": null
+    },
+    {
+      "id": "root-2e61579df9d2:4b4b89dec1e6",
+      "title": "分享内容和投资Skills",
+      "format": "mhtml",
+      "status": "reader",
+      "site": "zsxq",
+      "headings": 0,
+      "reason": null
+    },
+    {
+      "id": "root-2e61579df9d2:46503f4d9b77",
+      "title": "我的主力AI工具（2026年6月）",
+      "format": "mhtml",
+      "status": "reader",
+      "site": "zsxq",
+      "headings": 0,
+      "reason": null
+    },
+    {
+      "id": "root-2e61579df9d2:7bb8e06a70d7",
+      "title": "唯有中间层值得长期投入",
+      "format": "mhtml",
+      "status": "reader",
+      "site": "zsxq",
+      "headings": 0,
+      "reason": null
+    },
+    {
+      "id": "root-2e61579df9d2:cd9c2a702104",
+      "title": "智能已经商品化，但动机没有商品化",
+      "format": "mhtml",
+      "status": "reader",
+      "site": "zsxq",
+      "headings": 0,
+      "reason": null
+    },
+    {
+      "id": "root-2e61579df9d2:b8dc0b33051d",
+      "title": "如果要采集动机，产品形态会是什么样的？",
+      "format": "mhtml",
+      "status": "reader",
+      "site": "zsxq",
+      "headings": 0,
+      "reason": null
+    },
+    {
+      "id": "root-2e61579df9d2:1b4240289d24",
+      "title": "动机采集产品，捕获层必须是极低摩擦的瞬时记录入口",
+      "format": "mhtml",
+      "status": "reader",
+      "site": "zsxq",
+      "headings": 0,
+      "reason": null
+    },
+    {
+      "id": "root-2e61579df9d2:819dc6880105",
+      "title": "第五篇：让现实给出下一轮问题",
+      "format": "mhtml",
+      "status": "reader",
+      "site": "newtype",
+      "headings": 7,
+      "reason": null
+    },
+    {
+      "id": "root-2e61579df9d2:7338d2bfbfd2",
+      "title": "第四篇：人拍板，拍的是什么",
+      "format": "mhtml",
+      "status": "reader",
+      "site": "newtype",
+      "headings": 2,
+      "reason": null
+    },
+    {
+      "id": "root-2e61579df9d2:76d697dbf27f",
+      "title": "第二篇：与AI一起澄清问题",
+      "format": "mhtml",
+      "status": "reader",
+      "site": "newtype",
+      "headings": 2,
+      "reason": null
+    },
+    {
+      "id": "root-2e61579df9d2:7ce7d51bc49a",
+      "title": "第三篇：让AI把几条路同时打开",
+      "format": "mhtml",
+      "status": "reader",
+      "site": "newtype",
+      "headings": 0,
+      "reason": null
+    },
+    {
+      "id": "root-2e61579df9d2:4f06c9e566f4",
+      "title": "第一篇：先说发生了什么",
+      "format": "mhtml",
+      "status": "reader",
+      "site": "newtype",
+      "headings": 0,
+      "reason": null
+    },
+    {
+      "id": "root-2e61579df9d2:9dda4ddc1834",
+      "title": "AI时代，如何提问？",
+      "format": "mhtml",
+      "status": "reader",
+      "site": "newtype",
+      "headings": 2,
+      "reason": null
+    },
+    {
+      "id": "root-2e61579df9d2:95a314895181",
+      "title": "第二章 Codex为什么适合做跨境卖家的“AI工作台”",
+      "format": "mhtml",
+      "status": "reader",
+      "site": "newtype",
+      "headings": 7,
+      "reason": null
+    },
+    {
+      "id": "root-2e61579df9d2:eaf3d3bb2a4e",
+      "title": "第七讲：把证据变成结论、情景和行动",
+      "format": "mhtml",
+      "status": "reader",
+      "site": "newtype",
+      "headings": 9,
+      "reason": null
+    },
+    {
+      "id": "root-2e61579df9d2:11efc7511049",
+      "title": "第六讲：拆解公司、竞争关系和商业模式假设",
+      "format": "mhtml",
+      "status": "reader",
+      "site": "newtype",
+      "headings": 11,
+      "reason": null
+    },
+    {
+      "id": "root-2e61579df9d2:0737197e1639",
+      "title": "第五讲：研究客户、用户和所有能够否决交易的人",
+      "format": "mhtml",
+      "status": "reader",
+      "site": "newtype",
+      "headings": 10,
+      "reason": null
+    },
+    {
+      "id": "root-2e61579df9d2:87d99fb5a5ac",
+      "title": "第四讲：先理解行业怎样运转，再研究谁是竞争者",
+      "format": "mhtml",
+      "status": "reader",
+      "site": "newtype",
+      "headings": 8,
+      "reason": null
+    },
+    {
+      "id": "root-2e61579df9d2:6d6be36515cd",
+      "title": "第一部分·认知篇：为什么跨境电商要建在Codex上",
+      "format": "mhtml",
+      "status": "reader",
+      "site": "newtype",
+      "headings": 6,
+      "reason": null
+    },
+    {
+      "id": "root-2e61579df9d2:82ba69fd5c2e",
+      "title": "核电为什么突然变成AI概念股？",
+      "format": "mhtml",
+      "status": "reader",
+      "site": "newtype",
+      "headings": 0,
+      "reason": null
+    },
+    {
+      "id": "root-2e61579df9d2:f7288ead140b",
+      "title": "NotebookLM 长篇 YouTube 视频快速预览速查手册",
+      "format": "html",
+      "status": "reader",
+      "site": "article",
+      "headings": 16,
+      "reason": null
+    },
+    {
+      "id": "root-2e61579df9d2:442ea1438ea2",
+      "title": "液冷不是一根水管：直入芯片冷却怎么重构机房",
+      "format": "mhtml",
+      "status": "reader",
+      "site": "newtype",
+      "headings": 0,
+      "reason": null
+    },
+    {
+      "id": "root-2e61579df9d2:919bcfcfd598",
+      "title": "光模块和交换芯片：AI集群里那条被忽略的血管",
+      "format": "mhtml",
+      "status": "reader",
+      "site": "newtype",
+      "headings": 0,
+      "reason": null
+    },
+    {
+      "id": "root-2e61579df9d2:9d575216328b",
+      "title": "台积电的CoWoS到底卡在哪里？",
+      "format": "mhtml",
+      "status": "reader",
+      "site": "newtype",
+      "headings": 0,
+      "reason": null
+    },
+    {
+      "id": "root-2e61579df9d2:a5739c3bbcce",
+      "title": "AI数据中心为什么越来越像一场能源建设？",
+      "format": "mhtml",
+      "status": "reader",
+      "site": "newtype",
+      "headings": 0,
+      "reason": null
+    },
+    {
+      "id": "root-2e61579df9d2:5bce72811e1e",
+      "title": "为什么HBM不再只是普通内存？",
+      "format": "mhtml",
+      "status": "reader",
+      "site": "newtype",
+      "headings": 0,
+      "reason": null
+    },
+    {
+      "id": "root-2e61579df9d2:5d07d657a958",
+      "title": "第八讲：交付报告，并让研究项目继续生长",
+      "format": "mhtml",
+      "status": "reader",
+      "site": "newtype",
+      "headings": 15,
+      "reason": null
+    },
+    {
+      "id": "root-2e61579df9d2:cc18730dafcd",
+      "title": "闲鱼 AI 知识产品自动化运营 · 深度调研报告",
+      "format": "html",
+      "status": "reader",
+      "site": "article",
+      "headings": 37,
+      "reason": null
+    },
+    {
+      "id": "root-2e61579df9d2:3f37e8114f29",
+      "title": "第三讲：建立命题与证据系统",
+      "format": "mhtml",
+      "status": "reader",
+      "site": "newtype",
+      "headings": 8,
+      "reason": null
+    },
+    {
+      "id": "root-2e61579df9d2:91acffaf96b0",
+      "title": "第二讲：先设计搜索，再开始收集资料",
+      "format": "mhtml",
+      "status": "reader",
+      "site": "newtype",
+      "headings": 13,
+      "reason": null
+    },
+    {
+      "id": "root-2e61579df9d2:07478d10756d",
+      "title": "第一讲：从决策出发，定义真正的研究问题",
+      "format": "mhtml",
+      "status": "reader",
+      "site": "newtype",
+      "headings": 9,
+      "reason": null
+    },
+    {
+      "id": "root-2e61579df9d2:0a3c65a00587",
+      "title": "准备篇：把Codex放进一个可复查的研究项目",
+      "format": "mhtml",
+      "status": "reader",
+      "site": "newtype",
+      "headings": 5,
+      "reason": null
+    },
+    {
+      "id": "root-2e61579df9d2:ccea10afcb64",
+      "title": "导论：AI能写报告，但不能替你定义问题",
+      "format": "mhtml",
+      "status": "reader",
+      "site": "newtype",
+      "headings": 4,
+      "reason": null
+    },
+    {
+      "id": "root-2e61579df9d2:d3362196fe6a",
+      "title": "AI FDE 入行方案｜腾讯报告修订版",
+      "format": "html",
+      "status": "fallback",
+      "headings": 0,
+      "reason": "抽取正文不足 200 字"
+    },
+    {
+      "id": "root-2e61579df9d2:9d93edd529e6",
+      "title": "Docker 入门：技术小白也能看懂的完整指南",
+      "format": "html",
+      "status": "reader",
+      "site": "article",
+      "headings": 24,
+      "reason": null
+    }
+  ]
+}

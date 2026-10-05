@@ -1,0 +1,423 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1440">
+<title>HTML 知识库 · Web UI 效果图（v2 方案）</title>
+<script>
+  (function(){var p=new URLSearchParams(location.search);
+   if(p.get('theme')==='dark')document.documentElement.dataset.theme='dark';
+   if(p.get('view')==='manage')document.documentElement.dataset.view='manage';})();
+</script>
+<style>
+:root{
+  --bg:#f4f1ea; --side:#ebe6db; --surface:#fbfaf7; --surface-2:#f0ece3; --ink:#25251f; --ink-2:#4d4c45; --ink-3:#625f56;
+  --line:rgba(37,37,31,.12); --line-2:rgba(37,37,31,.2); --accent:#a63f24; --accent-fill:#a63f24; --accent-soft:#f5ddd3; --on-accent:#fff;
+  --sage:#3e6536; --sage-soft:#dfe8dc; --amber:#8a5a00; --amber-soft:#f6e7c4; --red:#a8321f; --red-soft:#f7dcd5;
+  --mark:#f6d58e; --mark-ink:#25251f; --shadow:0 20px 60px rgba(64,52,32,.14);
+  --serif:"Songti SC","Noto Serif CJK SC",Georgia,serif; --sans:-apple-system,BlinkMacSystemFont,"PingFang SC","Noto Sans CJK SC","Helvetica Neue",sans-serif;
+  --mono:ui-monospace,SFMono-Regular,Menlo,"Noto Sans Mono CJK SC",monospace;
+}
+[data-theme=dark]{
+  --bg:#1b1a17; --side:#151412; --surface:#23221e; --surface-2:#2b2a25; --ink:#ece8df; --ink-2:#cfcabe; --ink-3:#aaa498;
+  --line:rgba(255,255,255,.09); --line-2:rgba(255,255,255,.17); --accent:#f0937a; --accent-fill:#b14a2f; --accent-soft:#3d2620; --on-accent:#fff;
+  --sage:#8fbf83; --sage-soft:#24321f; --amber:#e6b85c; --amber-soft:#3a2f17; --red:#f08f7c; --red-soft:#3f211b;
+  --mark:#6b4f16; --mark-ink:#fff3d9; --shadow:0 24px 70px rgba(0,0,0,.5);
+}
+*{box-sizing:border-box} html,body{margin:0;height:100%}
+body{width:1440px;height:900px;overflow:hidden;background:var(--bg);color:var(--ink);font:14px/1.6 var(--sans)}
+a{color:inherit;text-decoration:none} ul{margin:0;padding:0;list-style:none} button{font:inherit;color:inherit;cursor:pointer}
+mark{background:var(--mark);color:var(--mark-ink);border-radius:3px;padding:0 2px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.app{display:grid;grid-template-columns:252px 384px 1fr;height:900px}
+
+/* ---------- 左栏 ---------- */
+.side{background:var(--side);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+.brand{display:flex;align-items:center;gap:10px;padding:18px 18px 14px}
+.brand-mark{display:flex;align-items:flex-end;gap:3px;width:26px;height:26px;padding:4px;border-radius:8px;background:var(--ink);transform:rotate(-8deg)}
+.brand-mark i{display:block;width:4px;border-radius:3px}
+.brand-mark i:nth-child(1){height:8px;background:#dd5f42}.brand-mark i:nth-child(2){height:15px;background:#d6b36a}.brand-mark i:nth-child(3){height:11px;background:#829a79}
+.brand strong{font:600 17px/1.2 var(--serif);letter-spacing:-.02em}
+.brand .icon-btn{margin-left:auto}
+.icon-btn{display:inline-grid;place-items:center;width:30px;height:30px;border:1px solid var(--line);border-radius:8px;background:transparent;color:var(--ink-2);font-size:14px}
+.side-scroll{flex:1;overflow:hidden;padding:4px 10px}
+.all{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;font-weight:500;color:var(--ink-2)}
+.all b,.dir b,.series b{margin-left:auto;font-weight:500;font-size:12.5px;color:var(--ink-3);font-variant-numeric:tabular-nums}
+.sec{display:flex;justify-content:space-between;align-items:center;margin:14px 10px 6px;font-size:12px;font-weight:600;letter-spacing:.08em;color:var(--ink-3)}
+.sec a{color:var(--accent);letter-spacing:0;font-weight:500}
+.dir{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:8px;color:var(--ink-2)}
+.dir .name{font-weight:500;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dir small{display:block;font-size:12px;color:var(--ink-3);font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:150px}
+.dir .txt{min-width:0}
+.dir.cur{background:var(--surface);box-shadow:0 1px 0 var(--line)}
+.dot{flex:0 0 8px;height:8px;border-radius:50%;background:var(--sage);box-shadow:0 0 0 3px var(--sage-soft)}
+.dot.warn{background:var(--red);box-shadow:0 0 0 3px var(--red-soft)}
+.dot.spin{background:none;box-shadow:none;width:10px;height:10px;flex-basis:10px;border:2px solid var(--line-2);border-top-color:var(--accent)}
+.dir .badge-warn{margin-left:auto;font-size:12px;color:var(--red);background:var(--red-soft);border-radius:5px;padding:1px 6px;white-space:nowrap}
+.series{margin:2px 0 6px 18px;border-left:1px solid var(--line-2);padding-left:8px}
+.series li a{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:6px;font-size:13.5px;color:var(--ink-2)}
+.series li a span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.series li.cur a{color:var(--accent);background:var(--accent-soft);font-weight:500}
+.series li.cur b{color:var(--accent)}
+.side-foot{padding:12px 14px 14px;border-top:1px solid var(--line)}
+.add-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;height:38px;border:1px dashed var(--line-2);border-radius:9px;background:transparent;color:var(--accent);font-weight:500}
+.foot-row{display:flex;align-items:center;gap:6px;margin-top:10px;font-size:12.5px;color:var(--ink-3)}
+.foot-row button{border:0;background:none;color:var(--ink-2);padding:4px 6px;border-radius:6px;font-size:13px}
+.foot-row .sp{flex:1}
+
+/* ---------- 中栏 ---------- */
+.list{border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0;background:var(--bg)}
+.list-head{padding:16px 18px 10px;border-bottom:1px solid var(--line)}
+.search{display:flex;align-items:center;gap:8px;height:40px;padding:0 10px 0 12px;border:1.5px solid var(--accent);border-radius:10px;background:var(--surface)}
+.search .q{flex:1;font-size:15px;color:var(--ink)}
+.search .q::after{content:"";display:inline-block;width:1.5px;height:17px;margin-left:1px;background:var(--accent);vertical-align:-3px}
+.search kbd{font:12px var(--mono);color:var(--ink-3);border:1px solid var(--line-2);border-radius:5px;padding:1px 6px}
+.search .x{border:0;background:var(--surface-2);width:22px;height:22px;border-radius:50%;font-size:12px;color:var(--ink-2)}
+.scope{display:flex;margin-top:10px;padding:3px;border-radius:9px;background:var(--surface-2);font-size:13px}
+.scope button{flex:1;border:0;background:none;padding:5px 8px;border-radius:7px;color:var(--ink-2)}
+.scope button.on{background:var(--surface);color:var(--ink);font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.res{display:flex;align-items:center;justify-content:space-between;margin-top:10px;font-size:13px;color:var(--ink-3)}
+.res strong{color:var(--ink);font-weight:600}
+.res .sort{color:var(--ink-2)}
+.chips{display:flex;gap:6px;margin-top:9px}
+.chip{font-size:12.5px;padding:3px 10px;border-radius:99px;border:1px solid var(--line-2);color:var(--ink-2)}
+.chip.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.list-body{flex:1;overflow:hidden}
+.group{display:flex;align-items:center;gap:6px;padding:10px 18px 6px;font-size:12.5px;font-weight:600;color:var(--ink-3);background:var(--bg);border-bottom:1px solid var(--line)}
+.group .crumb{color:var(--ink-2)} .group em{font-style:normal;font-weight:400;margin-left:auto}
+.row a{display:block;padding:8px 18px 8px 20px;border-bottom:1px solid var(--line);position:relative}
+.row.active a{background:var(--surface)}
+.row.active a::before{content:"";position:absolute;left:0;top:8px;bottom:8px;width:3px;border-radius:0 3px 3px 0;background:var(--accent)}
+.row-title{font:500 15px/1.45 var(--serif);color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row-meta{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;margin-top:3px;font-size:12px;color:var(--ink-3)}
+.row-meta span+span:not(.dir-tag):not(.demo-tag)::before{content:"·";margin-right:8px;color:var(--line-2)}
+.dir-tag{padding:0 6px;border-radius:4px;background:var(--sage-soft);color:var(--sage);font-weight:500}
+.dir-tag.alt{background:var(--amber-soft);color:var(--amber)}
+.seq{font-family:var(--mono);color:var(--ink-2)}
+.hits{color:var(--accent)}
+.demo-tag{margin-left:auto;font-size:11.5px;border:1px dashed var(--line-2);border-radius:4px;padding:0 5px}
+.row-snip{margin:4px 0 0;font-size:14px;line-height:1.55;color:var(--ink-2);display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
+.row.active .row-snip{-webkit-line-clamp:2}
+.more{display:block;padding:9px 20px;font-size:13px;color:var(--accent);border-bottom:1px solid var(--line)}
+
+/* ---------- 阅读区 ---------- */
+.reader{display:flex;flex-direction:column;min-width:0;background:var(--surface)}
+.r-bar{display:flex;align-items:center;gap:12px;height:56px;padding:0 20px 0 28px;border-bottom:1px solid var(--line)}
+.crumbs{font-size:13px;color:var(--ink-3);white-space:nowrap}
+.crumbs b{color:var(--ink-2);font-weight:500}
+.seg{display:flex;padding:3px;border-radius:9px;background:var(--surface-2);font-size:13px;margin-left:auto}
+.seg button{border:0;background:none;padding:5px 12px;border-radius:7px;color:var(--ink-2)}
+.seg button.on{background:var(--surface);color:var(--ink);font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.1)}
+.find{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--ink-2);border:1px solid var(--line);border-radius:8px;padding:4px 8px}
+.r-main{flex:1;display:grid;grid-template-columns:1fr 212px;gap:28px;padding:0 24px 0 44px;overflow:hidden}
+.article{overflow:hidden;padding:30px 0 0;max-width:600px}
+.kicker{font-size:12.5px;font-weight:600;letter-spacing:.06em;color:var(--accent)}
+.article h1{margin:8px 0 10px;font:600 28px/1.3 var(--serif);letter-spacing:-.02em}
+.byline{display:flex;gap:10px;font-size:13px;color:var(--ink-3);padding-bottom:18px;border-bottom:1px solid var(--line)}
+.article .body{font:17px/1.85 var(--serif);color:var(--ink)}
+.article .body p{margin:14px 0}
+.article .body h2{margin:28px 0 6px;font:600 21px/1.35 var(--serif)}
+.article .body ul{margin:8px 0;padding-left:22px;list-style:disc}
+.article .body li{margin:4px 0}
+.article .body li::marker{color:var(--accent)}
+.toc{padding-top:30px;font-size:13.5px}
+.toc h4{margin:0 0 8px;font-size:12px;letter-spacing:.08em;color:var(--ink-3)}
+.toc ol{margin:0;padding:0;list-style:none;border-left:1px solid var(--line-2)}
+.toc li a{display:block;padding:4px 0 4px 12px;margin-left:-1px;color:var(--ink-2);border-left:2px solid transparent;line-height:1.45}
+.toc li.cur a{color:var(--accent);border-left-color:var(--accent);font-weight:500}
+.pn{margin-top:18px;display:grid;gap:8px}
+.pn a{display:block;border:1px solid var(--line);border-radius:10px;padding:8px 12px;background:var(--bg)}
+.pn small{display:block;font-size:12px;color:var(--ink-3)}
+.pn span{display:block;font:500 14px/1.4 var(--serif);color:var(--ink)}
+.pn a.next{text-align:right}
+.series-pos{margin-top:12px;font-size:12px;color:var(--ink-3)}
+.bar{height:4px;border-radius:2px;background:var(--surface-2);margin-top:6px;display:flex;gap:2px}
+.bar i{flex:1;border-radius:2px;background:var(--line-2)} .bar i.on{background:var(--accent)}
+
+/* 水印 */
+.wm{position:fixed;right:14px;bottom:12px;z-index:50;font-size:12px;font-weight:600;color:var(--ink-2);background:var(--surface);border:1px dashed var(--accent);border-radius:7px;padding:4px 10px;box-shadow:0 2px 10px rgba(0,0,0,.08)}
+
+/* ---------- 目录管理弹窗 ---------- */
+.overlay{display:none}
+[data-view=manage] .overlay{display:grid;position:fixed;inset:0;z-index:40;place-items:center;background:rgba(30,24,16,.42);backdrop-filter:blur(2px)}
+[data-theme=dark][data-view=manage] .overlay{background:rgba(0,0,0,.55)}
+.modal{width:1040px;max-height:860px;background:var(--surface);border-radius:16px;box-shadow:var(--shadow);border:1px solid var(--line);overflow:hidden;display:flex;flex-direction:column}
+.m-head{display:flex;align-items:center;gap:12px;padding:18px 24px;border-bottom:1px solid var(--line)}
+.m-head h2{margin:0;font:600 21px/1.3 var(--serif)}
+.m-head p{margin:0;font-size:13px;color:var(--ink-3)}
+.m-head .sp{flex:1}
+.btn{flex-shrink:0;display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 13px;border-radius:8px;border:1px solid var(--line-2);background:var(--surface);font-size:13.5px;color:var(--ink);white-space:nowrap}
+.btn.primary{background:var(--accent-fill);border-color:var(--accent-fill);color:var(--on-accent);font-weight:600}
+.btn.ghost{border-color:transparent;background:transparent;color:var(--ink-2)}
+.btn.danger{color:var(--red);border-color:transparent;background:transparent}
+.btn.sm{height:30px;padding:0 10px;font-size:13px}
+.m-body{padding:14px 24px 20px;overflow:hidden}
+.tbl-head{display:grid;grid-template-columns:28px 1fr 330px 190px;gap:12px;padding:0 12px 6px;font-size:12px;letter-spacing:.06em;color:var(--ink-3);font-weight:600}
+.d-row{display:grid;grid-template-columns:28px 1fr 330px 190px;gap:12px;align-items:center;padding:11px 12px;border:1px solid var(--line);border-radius:11px;margin-bottom:8px;background:var(--surface)}
+.d-row.dragging{box-shadow:0 12px 30px rgba(0,0,0,.16);transform:translateX(6px) rotate(-.4deg);border-color:var(--accent);background:var(--surface)}
+.drop-line{height:3px;border-radius:2px;background:var(--accent);margin:-5px 12px 5px;opacity:.8}
+.grip{font-size:16px;color:var(--ink-3);cursor:grab;text-align:center}
+.d-name{display:flex;align-items:center;gap:9px;min-width:0}
+.d-name strong{font-weight:600;font-size:14.5px}
+.d-name .path{display:block;font:12.5px/1.4 var(--mono);color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.d-name input{font:600 14.5px var(--sans);color:var(--ink);background:var(--bg);border:1.5px solid var(--accent);border-radius:6px;padding:3px 8px;width:220px}
+.hint{font-size:12px;color:var(--ink-3);margin-left:6px}
+.d-stat{font-size:13px;color:var(--ink-2);line-height:1.5}
+.d-stat .warn{color:var(--amber)}
+.prog{height:5px;border-radius:3px;background:var(--surface-2);margin-top:5px;overflow:hidden}
+.prog i{display:block;height:100%;width:66%;background:var(--accent)}
+.d-act{display:flex;gap:6px;justify-content:flex-end}
+.d-row.missing{border-color:color-mix(in srgb,var(--red) 45%,transparent);background:color-mix(in srgb,var(--red-soft) 55%,var(--surface))}
+.missing .err{color:var(--red);font-weight:600}
+.relocate{grid-column:2 / -1;display:flex;align-items:center;gap:10px;margin-top:2px;padding:10px 12px;border-radius:9px;background:var(--surface);border:1px solid var(--line)}
+.field{flex:1;display:flex;align-items:center;height:34px;padding:0 10px;border:1px solid var(--line-2);border-radius:8px;background:var(--bg);font:13px var(--mono);color:var(--ink)}
+.ok{color:var(--sage);font-size:13px;white-space:nowrap}
+.add-panel{margin-top:14px;border:1px solid var(--line-2);border-radius:13px;padding:16px 18px;background:var(--bg)}
+.add-panel h3{margin:0 0 12px;font:600 16px/1.3 var(--serif)}
+.add-grid{display:grid;grid-template-columns:1fr 240px;gap:12px}
+.add-grid label{display:block;font-size:12.5px;font-weight:600;color:var(--ink-2);margin-bottom:5px}
+.add-grid .field{background:var(--surface)}
+.checks{display:flex;gap:18px;margin:12px 0 0;font-size:13px;color:var(--ink-2)}
+.checks span::before{content:"✓ ";color:var(--sage);font-weight:700}
+.overlap{display:flex;gap:12px;margin-top:12px;padding:12px 14px;border-radius:10px;background:var(--amber-soft);color:var(--ink);font-size:13.5px;line-height:1.65;border:1px solid color-mix(in srgb,var(--amber) 35%,transparent)}
+.overlap .ic{flex:0 0 22px;height:22px;border-radius:50%;background:var(--amber);color:var(--surface);display:grid;place-items:center;font-weight:700;font-size:13px}
+.overlap b{color:var(--amber)}
+.overlap .mv{display:flex;align-items:center;gap:8px;margin-top:6px;font-size:13px}
+.pill{padding:1px 8px;border-radius:99px;background:var(--surface);border:1px solid var(--line-2);font-weight:500}
+.radio{display:flex;gap:16px;margin-top:8px;font-size:13px;color:var(--ink-2)}
+.radio span::before{content:"○ ";} .radio span.on::before{content:"● ";color:var(--accent)}
+.add-foot{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- 左栏：目录 -->
+  <aside class="side">
+    <div class="brand">
+      <div class="brand-mark"><i></i><i></i><i></i></div>
+      <strong>我的对话库</strong>
+      <button class="icon-btn" title="切换主题" aria-label="切换亮色/暗色" onclick="var r=document.documentElement;r.dataset.theme=r.dataset.theme==='dark'?'light':'dark'">◐</button>
+    </div>
+    <div class="side-scroll">
+      <a class="all" href="#"><span aria-hidden="true">✦</span>全部目录<b>174</b></a>
+      <div class="sec">来源目录 <a href="#" onclick="document.documentElement.dataset.view='manage';return false">管理</a></div>
+      <a class="dir cur" href="#" title="/Users/weisengao/Desktop/HTML-reader · 上次扫描 10/02 14:04">
+        <span class="dot" aria-label="正常"></span><span class="txt"><span class="name">名词解释</span><small>~/Desktop/HTML-reader</small></span><b>48</b></a>
+      <ul class="series" aria-label="名词解释中的系列"><li class="cur"><a href="#"><span>用Codex做行业研究</span><b>10</b></a></li><li class=""><a href="#"><span>基础设施</span><b>9</b></a></li><li class=""><a href="#"><span>AI产业链投资大逻辑</span><b>6</b></a></li><li class=""><a href="#"><span>AI时代，如何提问</span><b>6</b></a></li><li class=""><a href="#"><span>腾讯云ADP-FDE认证课程</span><b>4</b></a></li><li class=""><a href="#"><span>一个产品的诞生</span><b>3</b></a></li><li class=""><a href="#"><span>用Codex做跨境电商</span><b>2</b></a></li></ul>
+      <a class="dir" href="#"><span class="dot"></span><span class="txt"><span class="name">ChatGPT 对话导出</span><small>~/Documents/ChatGPT/导出</small></span><b>126</b></a>
+      <a class="dir" href="#"><span class="dot spin" aria-label="扫描中"></span><span class="txt"><span class="name">读书笔记</span><small>扫描中 24/37…</small></span><b>37</b></a>
+      <a class="dir" href="#" title="目录不存在或已被移动"><span class="dot warn" aria-label="失效"></span><span class="txt"><span class="name">工作周报</span><small>~/Documents/周报</small></span><span class="badge-warn">目录不存在</span></a>
+    </div>
+    <div class="side-foot">
+      <button class="add-btn" onclick="document.documentElement.dataset.view='manage'">＋ 添加目录</button>
+      <div class="foot-row"><button>⚙ 设置</button><button>↻ 全部重扫</button><span class="sp"></span><span>上次 10/02 14:04</span></div>
+    </div>
+  </aside>
+
+  <!-- 中栏：列表 -->
+  <section class="list">
+    <div class="list-head">
+      <div class="search"><span aria-hidden="true">⌕</span><span class="q">证据</span><button class="x" aria-label="清除">✕</button><kbd>⌘K</kbd></div>
+      <div class="scope" role="tablist"><button>当前目录 · 名词解释</button><button class="on">全部目录（3 个可用）</button></div>
+      <div class="res"><span>「证据」<strong>12</strong> 条结果 · 跨 2 个目录</span><span class="sort">排序：系列顺序 ▾</span></div>
+      <div class="chips"><span class="chip on">全部</span><span class="chip">系列</span><span class="chip">单篇</span><span class="chip">HTML</span><span class="chip">Markdown</span></div>
+    </div>
+    <div class="list-body">
+      <div class="group"><span class="crumb">名词解释 › 用Codex做行业研究</span><em>10 篇 · 按序号</em></div>
+      <ul><li class="row"><a href="#">
+  <div class="row-title">准备篇：把Codex放进一个可复查的研究项目</div>
+  <div class="row-meta"><span class="dir-tag">名词解释</span><span class="seq">01/10</span><span>MHTML</span><span>9月2日</span><span class="hits">命中 2 处</span></div>
+  <p class="row-snip">…连接命题与<mark>证据</mark>， 04-industry 至 07-analysis 保存结构、对象和判断。 08-deliverables 保存…</p></a></li>
+<li class="row"><a href="#">
+  <div class="row-title">导论：AI能写报告，但不能替你定义问题</div>
+  <div class="row-meta"><span class="dir-tag">名词解释</span><span class="seq">02/10</span><span>MHTML</span><span>9月2日</span><span class="hits">命中 23 处</span></div>
+  <p class="row-snip">…更没有说明什么<mark>证据</mark>足以支持结论。 面对这样一个空白过多的任务，AI若想继续回答，就只能替你补上这些前提。恰好生成式AI擅长补全。你没有…</p></a></li>
+<li class="row active"><a href="#">
+  <div class="row-title">第一讲：从决策出发，定义真正的研究问题</div>
+  <div class="row-meta"><span class="dir-tag">名词解释</span><span class="seq">03/10</span><span>MHTML</span><span>9月2日</span><span class="hits">命中 11 处</span></div>
+  <p class="row-snip">…为什么研究、研究到哪里、用什么<mark>证据</mark>，以及何时可以停下来。 同一个行业，可以对应完全不同的决定 有人研究数据中心液冷，是为了投资上市公司；有人要寻找供应…</p></a></li>
+<li class="row"><a href="#">
+  <div class="row-title">第二讲：先设计搜索，再开始收集资料</div>
+  <div class="row-meta"><span class="dir-tag">名词解释</span><span class="seq">04/10</span><span>MHTML</span><span>9月2日</span><span class="hits">命中 3 处</span></div>
+  <p class="row-snip">…应该去哪里找什么<mark>证据</mark>。 很多行业研究一开始就搜索行业名称。这样最容易找到的是概览文章、厂商白皮书和市场规模摘要。它们能帮你认识关键词，却…</p></a></li>
+<li class="row"><a href="#">
+  <div class="row-title">第三讲：建立命题与证据系统</div>
+  <div class="row-meta"><span class="dir-tag">名词解释</span><span class="seq">05/10</span><span>MHTML</span><span>9月2日</span><span class="hits">命中 25 处</span></div>
+  <p class="row-snip">…<mark>证据</mark>才知道放在哪里 <mark>证据</mark>账本的作用，是把“我们正在判断什么”和“现有材料能说明什么”逐条连接起来。 每个会影响决定的判断…</p></a></li>
+<li class="row"><a href="#">
+  <div class="row-title">第四讲：先理解行业怎样运转，再研究谁是竞争者</div>
+  <div class="row-meta"><span class="dir-tag">名词解释</span><span class="seq">06/10</span><span>MHTML</span><span>9月11日</span><span class="hits">命中 10 处</span></div>
+  <p class="row-snip">…<mark>证据</mark>是什么，有没有替代解释，适用于新建还是改造、超大规模还是企业数据中心、训练还是推理。 DOE的能源数据可以支持第一层…</p></a></li><li><a class="more" href="#">展开其余 4 篇（07–10，均命中）</a></li></ul>
+      <div class="group"><span class="crumb">ChatGPT 对话导出</span><em>2 条</em></div>
+      <ul><li class="row"><a href="#">
+  <div class="row-title">如何让 ChatGPT 帮我核对行业报告里的数据来源</div>
+  <div class="row-meta"><span class="dir-tag alt">ChatGPT 对话导出</span><span>HTML · MD</span><span>9月27日</span><span class="hits">命中 4 处</span><span class="demo-tag">示例</span></div>
+  <p class="row-snip">…先列出每个结论对应的<mark>证据</mark>，再标注哪些只是厂商口径，哪些有第三方来源…</p></a></li>
+<li class="row"><a href="#">
+  <div class="row-title">竞品分析：把功能表换成能力与<mark>证据</mark>矩阵</div>
+  <div class="row-meta"><span class="dir-tag alt">ChatGPT 对话导出</span><span>MD</span><span>9月19日</span><span class="hits">命中 7 处</span><span class="demo-tag">示例</span></div>
+  <p class="row-snip">…每一行写清楚判断依据和<mark>证据</mark>强度，弱<mark>证据</mark>的结论只能作为待验证假设…</p></a></li></ul>
+    </div>
+  </section>
+
+  <!-- 右栏：阅读 -->
+  <main class="reader">
+    <div class="r-bar">
+      <span class="crumbs">名词解释 › 用Codex做行业研究 › <b>第 3 / 10 篇</b></span>
+      <div class="seg" role="tablist"><button class="on">阅读视图</button><button>原网页</button></div>
+      <span class="find">「证据」11 处 <span aria-hidden="true">↑ ↓</span></span>
+      <button class="icon-btn" aria-label="字号">Aa</button>
+      <button class="icon-btn" aria-label="更多">⋯</button>
+    </div>
+    <div class="r-main">
+      <article class="article">
+        <div class="kicker">用Codex做行业研究 · 第一讲</div>
+        <h1>第一讲：从决策出发，定义真正的研究问题</h1>
+        <div class="byline"><span>newtype · 黄益贺</span><span>2026-08-31</span><span>约 10 分钟</span><span>MHTML · 1.1 MB</span></div>
+        <div class="body"><p>打开一个陌生行业时，最容易做的事是搜索，最难做的事是决定自己到底要知道什么。</p>
+<p>搜索会立刻给人一种正在推进的感觉。网页越开越多，收藏夹越堆越满，Codex也能迅速生成一份“行业概览”。</p>
+<p>但如果你还没有定义要做的决定，资料再多也只是堆在一起，无法告诉你下一步该做什么。</p>
+<p>因此，行业研究的第一份产物应该是一页Research Brief（研究简报）。它不负责介绍行业，只负责约束接下来的工作：为什么研究、研究到哪里、用什么<mark>证据</mark>，以及何时可以停下来。</p>
+<h2 id="s1">同一个行业，可以对应完全不同的决定</h2>
+<p>有人研究数据中心液冷，是为了投资上市公司；有人要寻找供应链机会；有人准备销售泵、阀、换热器或连接件；有人要建设数据中心；还有人只是想选择一个长期写作方向。</p>
+<p>题目相同，研究问题却完全不同。</p>
+<p>所以，在写下“我要研究数据中心液冷”之后，还要回答三个问题：</p>
+<ul>
+<li>研究结束后，我要做什么决定？</li>
+<li>为了做出这个决定，我必须知道哪些事实？</li>
+<li>哪些问题即使不知道，也不会影响这一轮决定？</li>
+</ul>
+<p>把决定写在前面，研究范围才会自然收紧。</p>
+<p>在本案例中，我们假设委托方是一家具有工业泵阀、换热设备和精密制造能力的企业。它当前无需给“液冷行业好不好”下总评，真正要判断的是：是否值得投入下一阶段验证，以及先验证哪个进入环节。</p>
+<p>这意味着研究至少要回答：</p>
+<ul>
+<li>AI数据中心的散热变化是否产生了足够明确、持续时间足够长的需求信号；</li>
+<li>冷板式液冷、后门换热和浸没式冷却等路线分别解决什么问题，适用范围是什么；</li>
+<li>冷板、歧管、连接件、CDU、设施侧换热和运维服务之间怎样连接；</li>
+<li>谁定义规格，谁选型，谁采购，谁承担泄漏、停机和兼容性风险；</li>
+<li>委托方现有能力距离各环节的认证、可靠性、交付和服务要求有多远；</li>
+<li>未来18个月最小成本的验证动作是什么。</li>
+</ul>
+<p>到这里，“介绍液冷行业”才被拆成了一组具体问题。这些问题既可以得到<mark>证据</mark>支持，也可能被新<mark>证据</mark>否定。</p>
+<h2 id="s2">用问题树覆盖决定</h2>
+<p>本案例可以拆成六条主线。</p>
+<p>第一条是需求驱动。计算密度、电力、空间、能效和设施改造怎样改变散热需求。</p>
+<p>第二条是技术与标准。有哪些冷却路线，系统边界在哪里，接口、流量、水质、温度、冗余和泄漏控制受到什么规范约束。</p>
+<p>第三条是产业结构。上游材料和核心部件如何进入服务器、机架和机房，系统集成由谁完成。</p>
+<p>第四条是客户与采购。运营商、云厂商、服务器厂商、工程设计方、集成商、运维方分别关心什么，谁拥有否决权。</p>
+<p>第五条是竞争与经济性。不同供应商提供单一部件、整机、系统方案还是长期服务，公开信息能支持到什么程度。</p>
+<p>第六条是进入条件。目标企业的能力、认证、客户关系、本地服务和资本投入是否匹配，怎样用小规模试验减少不确定性。</p>
+<p>问题树中的每条问题都要服务于最终决定，同时对应一类可以寻找的<mark>证据</mark>。例如，“谁承担泄漏风险”要查采购要求、合同责任或运维材料，不能靠市场规模报告回答。</p>
+<h2 id="s3">给研究画出边界</h2>
+<p>一份可执行的Research Brief至少要写清六类边界。</p>
+<p>时间边界。</p>
+<p>本案例关注截至2026年8月29日能够公开核查的市场状态，并讨论未来18个月的进入验证。</p>
+<p>地域边界。</p>
+<p>研究北美市场，其他地区的技术材料可作为参照，但监管、认证、客户和服务条件不能直接混入。</p>
+<p>对象边界。</p>
+<p>第一轮关注以AI和高密度计算为主要驱动的液冷基础设施，重点观察冷板式液冷及其回路、CDU、连接和相关集成服务。浸没式冷却、传统风冷和建筑侧冷源保留为替代路线或相邻环节，不把所有制冷设备都算进目标市场。</p>
+<p>客户边界。</p>
+<p>重点是数据中心运营方、云和算力服务商、服务器与机架系统供应商、设计施工与系统集成方。普通企业机房只有在采用相近高密度架构时才纳入。</p>
+<p><mark>证据</mark>边界。</p>
+<p>公开资料可以支持行业方向和产品能力的初步判断，不能证明未披露的订单、收入、利润、良率、客户满意度或采购意愿。</p>
+<p>任务边界。</p>
+<p>本轮不做完整投资可行性研究，不替代工程设计，也不承诺得出“进入”或“不进入”的终局答案。它只决定是否进入下一阶段，以及下一阶段验证什么。</p>
+<ul>
+<li>已画出一张带<mark>证据</mark>链接的技术与产业链地图。</li>
+<li>已识别三类以上可能进入的环节，并写清各自的客户、标准、能力要求和主要未知。</li>
+<li>已选择三至五个差异明显的公司或方案作为探索性样本，不把搜索可见度当作市场排名。</li>
+<li>已建立五至十条直接影响进入决定的核心命题，每条都保留支持、反对和缺失<mark>证据</mark>。</li>
+<li>已完成一张目标企业能力差距表。</li>
+<li>已形成“继续验证、暂缓或排除”的阶段性判断，以及三项最低成本验证动作。</li>
+<li>所有数字、公司事实和技术结论都能回到来源；无法验证的内容保持未知。</li>
+</ul>
+<ul>
+<li>研究结束后要做的决定是否明确；</li>
+<li>每个一级问题是否影响这个决定；</li>
+<li>一份材料能否稳定判断纳入或排除；</li>
+<li>完成标准是否允许项目在某个时间点停止。</li>
+</ul></div>
+      </article>
+      <aside class="toc">
+        <h4>本文目录</h4>
+        <ol><li class="cur"><a href="#">同一个行业，可以对应完全不同的决定</a></li><li class=""><a href="#">用问题树覆盖决定</a></li><li class=""><a href="#">给研究画出边界</a></li><li class=""><a href="#">先定义关键词，否则资料无法比较</a></li><li class=""><a href="#">完成标准必须能够停止研究</a></li><li class=""><a href="#">一份填好的Research Brief是什么样</a></li><li class=""><a href="#">怎样迁移到其他行业</a></li><li class=""><a href="#">在Codex里完成第一讲：从一句话到两份研究文件</a></li><li class=""><a href="#">本讲结束时检查什么</a></li></ol>
+        <div class="series-pos">系列进度：第 3 / 10 篇</div>
+        <div class="bar"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+        <div class="pn">
+          <a href="#"><small>‹ 上一篇 · [</small><span>导论：AI能写报告，但不能替你定义问题</span></a>
+          <a href="#" class="next"><small>下一篇 · ] ›</small><span>第二讲：先设计搜索，再开始收集资料</span></a>
+        </div>
+      </aside>
+    </div>
+  </main>
+</div>
+
+<!-- 目录管理弹窗 -->
+<div class="overlay" onclick="if(event.target===this)document.documentElement.dataset.view=''">
+  <div class="modal" role="dialog" aria-labelledby="mt">
+    <div class="m-head">
+      <div><h2 id="mt">来源目录管理</h2><p>只读取文件，不移动、不修改。拖动 ⠿ 调整侧栏顺序，点名称即可重命名。</p></div>
+      <span class="sp"></span>
+      <button class="btn">↻ 全部重扫</button>
+      <button class="btn primary">＋ 添加目录</button>
+      <button class="icon-btn" aria-label="关闭" onclick="document.documentElement.dataset.view=''">✕</button>
+    </div>
+    <div class="m-body">
+      <div class="tbl-head"><span></span><span>目录</span><span>状态</span><span style="text-align:right">操作</span></div>
+      <div class="d-row">
+        <span class="grip" aria-hidden="true">⠿</span>
+        <div class="d-name"><span class="dot"></span><div style="min-width:0"><strong>名词解释</strong><span class="path">/Users/weisengao/Desktop/HTML-reader</span></div></div>
+        <div class="d-stat">48 条 · 48 个文件 · 7 个系列<br>上次扫描 10/02 14:04 · 用时 1.2 秒</div>
+        <div class="d-act"><button class="btn sm">↻ 重扫</button><button class="btn sm ghost">⋯</button></div>
+      </div>
+      <div class="d-row">
+        <span class="grip" aria-hidden="true">⠿</span>
+        <div class="d-name"><span class="dot"></span><div style="min-width:0"><input value="ChatGPT 对话导出" aria-label="显示名"><span class="hint">回车保存 · Esc 取消</span><span class="path">/Users/weisengao/Documents/ChatGPT/导出</span></div></div>
+        <div class="d-stat">126 条 · 131 个文件<br><span class="warn">⚠ 2 个问题：重复 HTML（a.html/a.htm），保留 .html</span></div>
+        <div class="d-act"><button class="btn sm">↻ 重扫</button><button class="btn sm ghost">⋯</button></div>
+      </div>
+      <div class="drop-line" aria-hidden="true"></div>
+      <div class="d-row dragging">
+        <span class="grip" aria-hidden="true">⠿</span>
+        <div class="d-name"><span class="dot spin"></span><div style="min-width:0"><strong>读书笔记</strong><span class="path">/Users/weisengao/Documents/读书笔记</span></div></div>
+        <div class="d-stat">正在重扫… 24 / 37 个文件<div class="prog"><i></i></div></div>
+        <div class="d-act"><button class="btn sm" disabled style="opacity:.55">扫描中</button><button class="btn sm ghost">⋯</button></div>
+      </div>
+      <div class="d-row missing">
+        <span class="grip" aria-hidden="true">⠿</span>
+        <div class="d-name"><span class="dot warn"></span><div style="min-width:0"><strong>工作周报</strong><span class="path">/Users/weisengao/Documents/周报</span></div></div>
+        <div class="d-stat"><span class="err">目录不存在或已被移动</span><br>条目已暂时隐藏，配置保留</div>
+        <div class="d-act"><button class="btn sm danger">移除</button></div>
+        <div class="relocate">
+          <span style="font-size:13px;font-weight:600;white-space:nowrap">重新定位到</span>
+          <span class="field">/Users/weisengao/Documents/工作/周报</span>
+          <button class="btn sm">选择文件夹…</button>
+          <span class="ok">✓ 找到 23 个文件，链接不变</span>
+          <button class="btn sm primary">确认并重扫</button>
+        </div>
+      </div>
+
+      <div class="add-panel">
+        <h3>添加来源目录</h3>
+        <div class="add-grid">
+          <div><label>文件夹路径</label><div style="display:flex;gap:8px"><span class="field">/Users/weisengao/Desktop/HTML-reader/腾讯云ADP-FDE认证课程</span><button class="btn">选择文件夹…</button></div></div>
+          <div><label>显示名</label><span class="field" style="font-family:var(--sans)">腾讯云 FDE 课程</span></div>
+        </div>
+        <div class="checks"><span>路径存在</span><span>可读取</span><span>8 个可索引文件（4 HTML · 4 Markdown）</span></div>
+        <div class="overlap">
+          <span class="ic">!</span>
+          <div>
+            <div>这个目录在已有目录 <b>《名词解释》</b> 里面。按“最深的目录优先”规则，添加后 <b>有 8 条会从父目录《名词解释》移到新目录</b>，同一个文件不会出现两次；《名词解释》会自动重扫。</div>
+            <div class="mv"><span class="pill">名词解释 48 条</span>→<span class="pill">名词解释 40 条</span>＋<span class="pill">腾讯云 FDE 课程 8 条</span><span style="color:var(--ink-3)">· 系列“腾讯云ADP-FDE认证课程”随之移到新目录</span></div>
+            <div class="radio"><span class="on">最深目录优先（推荐）</span><span>不添加，改用父目录里的子文件夹浏览</span></div>
+          </div>
+        </div>
+        <div class="add-foot"><button class="btn ghost">取消</button><button class="btn primary">添加并扫描</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="wm">效果图 · 示例数据（除《名词解释》外的目录与条目均为示意）</div>
+</body>
+</html>

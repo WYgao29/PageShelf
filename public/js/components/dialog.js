@@ -1,0 +1,80 @@
+import { h, button } from "../dom.js";
+export function openDialog({
+  title,
+  content,
+  footer,
+  onClose = () => {},
+  className = "",
+}) {
+  const previous = document.activeElement,
+    dialog = h("dialog", {
+      className: "dialog " + className,
+      "aria-labelledby": "dialog-title-" + Date.now(),
+    });
+  const id = dialog.getAttribute("aria-labelledby");
+  const close = () => {
+    dialog.close();
+    dialog.remove();
+    previous?.focus();
+    onClose();
+  };
+  dialog.append(
+    h(
+      "header",
+      { className: "dialog-header" },
+      h("h2", { id }, title),
+      button("×", close, {
+        "aria-label": "关闭弹窗",
+        className: "icon-button",
+      }),
+    ),
+    h("div", { className: "dialog-body" }, content),
+  );
+  if (footer)
+    dialog.append(h("footer", { className: "dialog-footer" }, footer));
+  dialog.addEventListener("cancel", (event) => {
+    event.preventDefault();
+    close();
+  });
+  document.body.append(dialog);
+  dialog.showModal();
+  return { element: dialog, close };
+}
+export function confirmDialog({
+  title,
+  message,
+  files = [],
+  confirm = "确认",
+  danger = false,
+}) {
+  return new Promise((resolve) => {
+    let answered = false;
+    const finish = (value) => {
+      answered = true;
+      resolve(value);
+      modal.close();
+    };
+    const modal = openDialog({
+      title,
+      content: [
+        h("p", {}, message),
+        files.length
+          ? h(
+              "ul",
+              { className: "file-list" },
+              files.map((file) => h("li", {}, file)),
+            )
+          : null,
+      ],
+      footer: [
+        button("取消", () => finish(false)),
+        button(confirm, () => finish(true), {
+          className: danger ? "danger" : "primary",
+        }),
+      ],
+      onClose: () => {
+        if (!answered) resolve(false);
+      },
+    });
+  });
+}

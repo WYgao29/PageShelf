@@ -1,0 +1,150 @@
+{
+  "real": true,
+  "evidence": [
+    {
+      "name": "reader-light-1440",
+      "width": 1440,
+      "height": 900,
+      "theme": "light",
+      "side": 252,
+      "list": 384,
+      "headings": 9,
+      "tocVisible": true,
+      "overflow": false,
+      "dialogWidth": null
+    },
+    {
+      "name": "reader-dark-1440",
+      "width": 1440,
+      "height": 900,
+      "theme": "dark",
+      "side": 252,
+      "list": 384,
+      "headings": 9,
+      "tocVisible": true,
+      "overflow": false,
+      "dialogWidth": null
+    },
+    {
+      "name": "reader-light-1280",
+      "width": 1280,
+      "height": 900,
+      "theme": "light",
+      "side": 252,
+      "list": 384,
+      "headings": 9,
+      "tocVisible": true,
+      "overflow": false,
+      "dialogWidth": null
+    },
+    {
+      "name": "reader-light-1024",
+      "width": 1024,
+      "height": 900,
+      "theme": "light",
+      "side": 252,
+      "list": 384,
+      "headings": 9,
+      "tocVisible": false,
+      "overflow": false,
+      "dialogWidth": null
+    },
+    {
+      "name": "manager-light-1440",
+      "width": 1440,
+      "height": 900,
+      "theme": "light",
+      "side": 252,
+      "list": 384,
+      "headings": 9,
+      "tocVisible": true,
+      "overflow": false,
+      "dialogWidth": 1040
+    },
+    {
+      "name": "manager-dark-1440",
+      "width": 1440,
+      "height": 900,
+      "theme": "dark",
+      "side": 252,
+      "list": 384,
+      "headings": 9,
+      "tocVisible": true,
+      "overflow": false,
+      "dialogWidth": 1040
+    },
+    {
+      "name": "manager-duplicate-1440",
+      "width": 1440,
+      "height": 900,
+      "theme": "light",
+      "side": 252,
+      "list": 384,
+      "headings": 9,
+      "tocVisible": true,
+      "overflow": false,
+      "dialogWidth": 1040
+    },
+    {
+      "name": "manager-invalid-1440",
+      "width": 1440,
+      "height": 900,
+      "theme": "light",
+      "side": 252,
+      "list": 384,
+      "headings": 9,
+      "tocVisible": true,
+      "overflow": false,
+      "dialogWidth": 1040
+    },
+    {
+      "name": "manager-overlap-1440",
+      "width": 1440,
+      "height": 900,
+      "theme": "light",
+      "side": 252,
+      "list": 384,
+      "headings": 9,
+      "tocVisible": true,
+      "overflow": false,
+      "dialogWidth": 1040
+    },
+    {
+      "name": "manager-same-label-1440",
+      "width": 1440,
+      "height": 900,
+      "theme": "light",
+      "side": 252,
+      "list": 384,
+      "headings": 9,
+      "tocVisible": true,
+      "overflow": false,
+      "dialogWidth": 1040
+    },
+    {
+      "name": "manager-missing-1440",
+      "width": 1440,
+      "height": 900,
+      "theme": "light",
+      "side": 252,
+      "list": 384,
+      "headings": 9,
+      "tocVisible": true,
+      "overflow": false,
+      "dialogWidth": 1040
+    },
+    {
+      "name": "manager-scan-contract-1440",
+      "width": 1440,
+      "height": 900,
+      "theme": "light",
+      "side": 252,
+      "list": 384,
+      "headings": 9,
+      "tocVisible": true,
+      "overflow": false,
+      "dialogWidth": 1040,
+      "controlledScanContract": true
+    }
+  ]
+}

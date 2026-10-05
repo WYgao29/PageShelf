@@ -1,0 +1,102 @@
+[
+  {
+    "name": "script",
+    "html": "<script>globalThis.__xss=1</script>"
+  },
+  {
+    "name": "image event",
+    "html": "<img src=\"__EXTERNAL__\" onerror=\"globalThis.__xss=1\">"
+  },
+  {
+    "name": "iframe",
+    "html": "<iframe src=\"__EXTERNAL__\"></iframe>"
+  },
+  {
+    "name": "object",
+    "html": "<object data=\"__EXTERNAL__\"></object>"
+  },
+  {
+    "name": "embed",
+    "html": "<embed src=\"__EXTERNAL__\">"
+  },
+  {
+    "name": "svg",
+    "html": "<svg onload=\"globalThis.__xss=1\"><script>globalThis.__xss=1</script></svg>"
+  },
+  {
+    "name": "math",
+    "html": "<math><mtext><img src=\"__EXTERNAL__\" onerror=\"globalThis.__xss=1\"></mtext></math>"
+  },
+  {
+    "name": "javascript url",
+    "html": "<a href=\"javascript:globalThis.__xss=1\">click</a>"
+  },
+  {
+    "name": "data html",
+    "html": "<a href=\"data:text/html,<script>globalThis.__xss=1</script>\">click</a>"
+  },
+  {
+    "name": "style attr",
+    "html": "<div style=\"background:url(__EXTERNAL__)\">style</div>"
+  },
+  {
+    "name": "style import",
+    "html": "<style>@import \"__EXTERNAL__\";</style>"
+  },
+  {
+    "name": "stylesheet",
+    "html": "<link rel=\"stylesheet\" href=\"__EXTERNAL__\">"
+  },
+  {
+    "name": "meta refresh",
+    "html": "<meta http-equiv=\"refresh\" content=\"0;url=__EXTERNAL__\">"
+  },
+  {
+    "name": "base",
+    "html": "<base href=\"__EXTERNAL__\"><img src=\"relative\">"
+  },
+  {
+    "name": "form",
+    "html": "<form action=\"__EXTERNAL__\"><input name=\"x\" autofocus onfocus=\"globalThis.__xss=1\"></form>"
+  },
+  {
+    "name": "non checkbox",
+    "html": "<input type=\"text\" onclick=\"globalThis.__xss=1\">"
+  },
+  {
+    "name": "encoded url",
+    "html": "<a href=\"&#106;avascript:globalThis.__xss=1\">encoded</a>"
+  },
+  {
+    "name": "srcset",
+    "html": "<img srcset=\"__EXTERNAL__ 1x, __EXTERNAL__ 2x\">"
+  },
+  {
+    "name": "video",
+    "html": "<video autoplay poster=\"__EXTERNAL__\"><source src=\"__EXTERNAL__\"></video>"
+  },
+  {
+    "name": "template",
+    "html": "<template><img src=\"__EXTERNAL__\" onerror=\"globalThis.__xss=1\"></template>"
+  },
+  {
+    "name": "DOM clobber",
+    "html": "<div id=\"location\" name=\"__proto__\">clobber</div><a id=\"attributes\" name=\"constructor\"></a>"
+  },
+  {
+    "name": "foreignObject",
+    "html": "<svg><foreignObject><p onmouseover=\"globalThis.__xss=1\">x</p></foreignObject></svg>"
+  },
+  {
+    "name": "namespace mutation",
+    "html": "<math><annotation-xml encoding=\"text/html\"><svg onload=\"globalThis.__xss=1\"></svg></annotation-xml></math>"
+  },
+  {
+    "name": "svg image",
+    "html": "<img src=\"data:image/svg+xml,<svg xmlns=\"http://www.w3.org/2000/svg\" onload=\"globalThis.__xss=1\"/>\">"
+  },
+  {
+    "name": "malformed nesting",
+    "html": "<div><p><table><style><img src=\"__EXTERNAL__\" onerror=\"globalThis.__xss=1\"></table></p></div>"
+  }
+]

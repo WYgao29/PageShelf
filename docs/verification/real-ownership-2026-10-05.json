@@ -1,0 +1,47 @@
+{
+  "verifiedAt": "2026-10-05T01:38:33.057Z",
+  "items": 48,
+  "titles": 48,
+  "stableLegacyIds": 48,
+  "series": [
+    {
+      "name": "AI产业链投资大逻辑",
+      "total": 6
+    },
+    {
+      "name": "AI时代，如何提问",
+      "total": 6
+    },
+    {
+      "name": "一个产品的诞生",
+      "total": 3
+    },
+    {
+      "name": "基础设施",
+      "total": 9
+    },
+    {
+      "name": "用Codex做行业研究",
+      "total": 10
+    },
+    {
+      "name": "用Codex做跨境电商",
+      "total": 2
+    },
+    {
+      "name": "腾讯云ADP-FDE认证课程",
+      "total": 4
+    }
+  ],
+  "ownership": {
+    "initial": 48,
+    "parentAfter": 40,
+    "child": 8,
+    "restored": 48,
+    "restoredOriginalIds": true
+  },
+  "sourceFiles": 48,
+  "sourceMtimesSizesAndHashesUnchanged": true,
+  "productionConfigBytesUnchanged": true,
+  "finalSourceAndProductionConfigCheckAt": "2026-10-05T06:18:46.227Z"
+}
