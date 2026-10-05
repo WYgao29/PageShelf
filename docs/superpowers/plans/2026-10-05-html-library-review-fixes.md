@@ -53,8 +53,8 @@
 
 **Interfaces:** `register(actions)` 继续处理 body/search 的 Enter；列表中的交互控件保留浏览器默认动作。
 
-- [ ] 回归用例断言：聚焦第 4 篇按 Enter 打开第 4 篇；展开按钮按 Enter 将 6 篇展开为 10 篇且不改选文章；现有 j/k + Enter 继续工作。
-- [ ] 观察键盘用例 RED，确认由快捷键拦截导致。
-- [ ] 收窄全局 Enter 处理，保留按钮原生动作。
-- [ ] Node 与 Chrome 全套通过；vendor 与 diff 检查通过，提交 `fix: keep native Enter behavior for list buttons`。
+- [x] 回归用例断言：聚焦第 4 篇按 Enter 打开第 4 篇；展开按钮按 Enter 将 6 篇展开为 10 篇且不改选文章；现有 j/k + Enter 继续工作。
+- [x] 观察键盘用例 RED，确认由快捷键拦截导致。
+- [x] 收窄全局 Enter 处理，保留按钮原生动作。
+- [x] Node 与 Chrome 全套通过；vendor 与 diff 检查通过，提交 `fix: keep native Enter behavior for list buttons`。
 - [ ] 对 `28a5cbf..HEAD` 做只读修复审查，记录问题闭环、测试证据、剩余限制与合并结论。

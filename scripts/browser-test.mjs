@@ -288,6 +288,16 @@ await withTempFixture(async (directory) => {
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
     if (!result) throw new Error("Browser did not publish #test-result");
+    if (!process.argv.includes("--real")) {
+      const { runKeyboardRegressionTests } =
+        await import("../test/browser/keyboard-regressions.mjs");
+      await runKeyboardRegressionTests({
+        command,
+        baseUrl: "http://127.0.0.1:" + server.address().port,
+        library: server.library(),
+        result,
+      });
+    }
     if (process.argv.includes("--screenshots") && result.status === "passed") {
       const { captureAcceptance } = await import("./capture-ui.mjs");
       result.uiAudit = await captureAcceptance({

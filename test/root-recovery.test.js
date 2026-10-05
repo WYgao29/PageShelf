@@ -103,17 +103,21 @@ for (const change of [
     }));
 }
 
-test("ordinary rename and order do not enqueue scans", () =>
+test("ordinary rename and order do not enqueue scans for available roots", () =>
   withRoots(async ({ library, mutate }) => {
     const scannedAt = library.registry.get("parent").lastScan.completedAt;
-    const renamed = await mutate("/api/roots/parent", "PATCH", {
-      label: "Renamed",
-    });
-    assert.deepEqual(renamed.scan.queued, []);
-    const ordered = await mutate("/api/roots/order", "PUT", {
-      ids: ["child", "parent"],
-    });
-    assert.deepEqual(ordered.scan?.queued || [], []);
+    for (const state of ["ok", "warning", "scanning"]) {
+      library.registry.setIndexState("parent", { state });
+      const renamed = await mutate("/api/roots/parent", "PATCH", {
+        label: "Renamed " + state,
+      });
+      assert.deepEqual(renamed.scan.queued, []);
+      library.registry.setIndexState("parent", { state });
+      const ordered = await mutate("/api/roots/order", "PUT", {
+        ids: ["child", "parent"],
+      });
+      assert.deepEqual(ordered.scan.queued, []);
+    }
     assert.equal(
       library.registry.get("parent").lastScan.completedAt,
       scannedAt,

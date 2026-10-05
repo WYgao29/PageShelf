@@ -79,10 +79,7 @@ export function register(actions) {
       n: () => actions.nextHit(event.shiftKey ? -1 : 1),
       t: () => actions.cycleTheme(),
     };
-    if (
-      event.key === "Enter" &&
-      (target.closest("#list-rows") || target === document.body)
-    ) {
+    if (event.key === "Enter" && target === document.body) {
       event.preventDefault();
       actions.openFocused();
       return;
