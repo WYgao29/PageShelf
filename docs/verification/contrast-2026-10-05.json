@@ -1,0 +1,137 @@
+{
+  "minimum": 4.81,
+  "pairs": [
+    {
+      "theme": "light",
+      "foreground": "ink",
+      "background": "surface",
+      "ratio": 14.76
+    },
+    {
+      "theme": "light",
+      "foreground": "ink-2",
+      "background": "surface",
+      "ratio": 8.26
+    },
+    {
+      "theme": "light",
+      "foreground": "ink-3",
+      "background": "side",
+      "ratio": 5.13
+    },
+    {
+      "theme": "light",
+      "foreground": "ink-3",
+      "background": "bg",
+      "ratio": 5.66
+    },
+    {
+      "theme": "light",
+      "foreground": "accent",
+      "background": "accent-soft",
+      "ratio": 4.81
+    },
+    {
+      "theme": "light",
+      "foreground": "sage",
+      "background": "sage-soft",
+      "ratio": 5.36
+    },
+    {
+      "theme": "light",
+      "foreground": "amber",
+      "background": "amber-soft",
+      "ratio": 4.84
+    },
+    {
+      "theme": "light",
+      "foreground": "red",
+      "background": "red-soft",
+      "ratio": 5.14
+    },
+    {
+      "theme": "light",
+      "foreground": "blue",
+      "background": "blue-soft",
+      "ratio": 6.2
+    },
+    {
+      "theme": "light",
+      "foreground": "plum",
+      "background": "plum-soft",
+      "ratio": 6.37
+    },
+    {
+      "theme": "light",
+      "foreground": "mark-ink",
+      "background": "mark",
+      "ratio": 10.88
+    },
+    {
+      "theme": "dark",
+      "foreground": "ink",
+      "background": "surface",
+      "ratio": 13.02
+    },
+    {
+      "theme": "dark",
+      "foreground": "ink-2",
+      "background": "surface",
+      "ratio": 9.74
+    },
+    {
+      "theme": "dark",
+      "foreground": "ink-3",
+      "background": "side",
+      "ratio": 7.43
+    },
+    {
+      "theme": "dark",
+      "foreground": "ink-3",
+      "background": "bg",
+      "ratio": 7.02
+    },
+    {
+      "theme": "dark",
+      "foreground": "accent",
+      "background": "accent-soft",
+      "ratio": 6.12
+    },
+    {
+      "theme": "dark",
+      "foreground": "sage",
+      "background": "sage-soft",
+      "ratio": 6.41
+    },
+    {
+      "theme": "dark",
+      "foreground": "amber",
+      "background": "amber-soft",
+      "ratio": 7.11
+    },
+    {
+      "theme": "dark",
+      "foreground": "red",
+      "background": "red-soft",
+      "ratio": 6.18
+    },
+    {
+      "theme": "dark",
+      "foreground": "blue",
+      "background": "blue-soft",
+      "ratio": 7.69
+    },
+    {
+      "theme": "dark",
+      "foreground": "plum",
+      "background": "plum-soft",
+      "ratio": 7.15
+    },
+    {
+      "theme": "dark",
+      "foreground": "mark-ink",
+      "background": "mark",
+      "ratio": 6.92
+    }
+  ]
+}

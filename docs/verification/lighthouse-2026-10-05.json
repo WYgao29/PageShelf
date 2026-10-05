@@ -1,0 +1,12 @@
+{
+  "version": "13.5.0",
+  "fetchTime": "2026-10-05T01:44:50.219Z",
+  "url": "http://127.0.0.1:4322/?item=root-2e61579df9d2%3A07478d10756d&q=%E8%AF%81%E6%8D%AE",
+  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/154.0.0.0 Safari/537.36",
+  "categories": {
+    "accessibility": 100,
+    "best-practices": 100
+  },
+  "failures": [],
+  "command": "npx --yes --package=lighthouse@13.5.0 lighthouse [local article URL] --only-categories=accessibility,best-practices --form-factor=desktop --screenEmulation.disabled --chrome-flags='--headless=new --disable-background-networking --disable-component-update --no-first-run' --output=json"
+}
