@@ -1,7 +1,122 @@
-import assert from 'node:assert/strict';import test from 'node:test';import {mkdir,writeFile,readFile,symlink} from 'node:fs/promises';import path from 'node:path';import {withTempFixture,createLegacyFixture} from './helpers/fixture.js';import {createConfigStore} from '../src/config.js';import {createRootRegistry} from '../src/roots.js';
-test('deepest available root owns files once and dry run does not write',()=>withTempFixture(async directory=>{
- const fixture=await createLegacyFixture(directory),store=createConfigStore({dataDir:fixture.dataDir}),registry=createRootRegistry({configStore:store});await registry.load();const before=await readFile(path.join(fixture.dataDir,'config.json'),'utf8');const child=path.join(fixture.rootPath,'腾讯云ADP-FDE认证课程');const preview=await registry.preview({path:child,label:'课程'});assert.equal(preview.valid,true);assert.equal(preview.overlap.moved,8);assert.equal(preview.overlap.parentAfter,40);assert.equal(await readFile(path.join(fixture.dataDir,'config.json'),'utf8'),before);
- const result=await registry.applyChange({type:'add',input:{path:child,label:'课程'}});assert.match(result.root.id,/^root-[a-f0-9]{12}$/);assert.deepEqual(registry.get(fixture.rootId).excludes,[result.root.realPath]);assert.ok(result.affected.some(x=>x.rootId===fixture.rootId));await registry.applyChange({type:'patch',id:result.root.id,input:{enabled:false}});assert.deepEqual(registry.get(fixture.rootId).excludes,[]);assert.equal(registry.get(result.root.id).state,'disabled');
-}));
-test('paths are canonical, labels validated and order exactly covers roots',()=>withTempFixture(async directory=>{const source=path.join(directory,'a');await mkdir(source);await symlink(source,path.join(directory,'alias'));const registry=createRootRegistry({configStore:createConfigStore({dataDir:path.join(directory,'data')})});await registry.load();const first=(await registry.applyChange({type:'add',input:{path:source,label:' 同名 '}})).root;assert.equal(first.label,'同名');assert.equal((await registry.preview({path:path.join(directory,'alias')})).duplicateOf,first.id);assert.equal((await registry.preview({path:source,label:'x'.repeat(41)})).valid,false);await assert.rejects(registry.applyChange({type:'order',ids:[]}),{code:'INVALID_ORDER'});await writeFile(path.join(directory,'file'),'x');assert.equal((await registry.preview({path:path.join(directory,'file')})).valid,false);}));
-test('volume case policy is not a global lowercase comparison',async()=>{const configStore={load:async()=>({config:{version:2,roots:[{id:'a',path:'/Case/Notes',label:'A',enabled:true,options:{}}]},legacyRootIds:[]}),update:async()=>{}};const registry=createRootRegistry({configStore,inspectPath:async p=>({realPath:p,state:'ok',caseSensitive:true,dev:1})});await registry.load();assert.equal((await registry.preview({path:'/Case/notes'})).valid,true);const insensitive=createRootRegistry({configStore,inspectPath:async p=>({realPath:p,state:'ok',caseSensitive:false,dev:1})});await insensitive.load();assert.equal((await insensitive.preview({path:'/Case/notes'})).duplicateOf,'a');});
+import assert from "node:assert/strict";
+import test from "node:test";
+import { mkdir, writeFile, readFile, symlink } from "node:fs/promises";
+import path from "node:path";
+import { withTempFixture, createLegacyFixture } from "./helpers/fixture.js";
+import { createConfigStore } from "../src/config.js";
+import { createRootRegistry } from "../src/roots.js";
+test("deepest available root owns files once and dry run does not write", () =>
+  withTempFixture(async (directory) => {
+    const fixture = await createLegacyFixture(directory),
+      store = createConfigStore({ dataDir: fixture.dataDir }),
+      registry = createRootRegistry({ configStore: store });
+    await registry.load();
+    const before = await readFile(
+      path.join(fixture.dataDir, "config.json"),
+      "utf8",
+    );
+    const child = path.join(fixture.rootPath, "腾讯云ADP-FDE认证课程");
+    const preview = await registry.preview({ path: child, label: "课程" });
+    assert.equal(preview.valid, true);
+    assert.equal(preview.overlap.moved, 8);
+    assert.equal(preview.overlap.parentAfter, 40);
+    assert.equal(
+      await readFile(path.join(fixture.dataDir, "config.json"), "utf8"),
+      before,
+    );
+    const result = await registry.applyChange({
+      type: "add",
+      input: { path: child, label: "课程" },
+    });
+    assert.match(result.root.id, /^root-[a-f0-9]{12}$/);
+    assert.deepEqual(registry.get(fixture.rootId).excludes, [
+      result.root.realPath,
+    ]);
+    assert.ok(result.affected.some((x) => x.rootId === fixture.rootId));
+    await registry.applyChange({
+      type: "patch",
+      id: result.root.id,
+      input: { enabled: false },
+    });
+    assert.deepEqual(registry.get(fixture.rootId).excludes, []);
+    assert.equal(registry.get(result.root.id).state, "disabled");
+  }));
+test("paths are canonical, labels validated and order exactly covers roots", () =>
+  withTempFixture(async (directory) => {
+    const source = path.join(directory, "a");
+    await mkdir(source);
+    await symlink(source, path.join(directory, "alias"));
+    const registry = createRootRegistry({
+      configStore: createConfigStore({ dataDir: path.join(directory, "data") }),
+    });
+    await registry.load();
+    const first = (
+      await registry.applyChange({
+        type: "add",
+        input: { path: source, label: " 同名 " },
+      })
+    ).root;
+    assert.equal(first.label, "同名");
+    assert.equal(
+      (await registry.preview({ path: path.join(directory, "alias") }))
+        .duplicateOf,
+      first.id,
+    );
+    assert.equal(
+      (await registry.preview({ path: source, label: "x".repeat(41) })).valid,
+      false,
+    );
+    await assert.rejects(registry.applyChange({ type: "order", ids: [] }), {
+      code: "ORDER_MISMATCH",
+    });
+    await writeFile(path.join(directory, "file"), "x");
+    assert.equal(
+      (await registry.preview({ path: path.join(directory, "file") })).valid,
+      false,
+    );
+  }));
+test("volume case policy is not a global lowercase comparison", async () => {
+  const configStore = {
+    load: async () => ({
+      config: {
+        version: 2,
+        roots: [
+          {
+            id: "a",
+            path: "/Case/Notes",
+            label: "A",
+            enabled: true,
+            options: {},
+          },
+        ],
+      },
+      legacyRootIds: [],
+    }),
+    update: async () => {},
+  };
+  const registry = createRootRegistry({
+    configStore,
+    inspectPath: async (p) => ({
+      realPath: p,
+      state: "ok",
+      caseSensitive: true,
+      dev: 1,
+    }),
+  });
+  await registry.load();
+  assert.equal((await registry.preview({ path: "/Case/notes" })).valid, true);
+  const insensitive = createRootRegistry({
+    configStore,
+    inspectPath: async (p) => ({
+      realPath: p,
+      state: "ok",
+      caseSensitive: false,
+      dev: 1,
+    }),
+  });
+  await insensitive.load();
+  assert.equal(
+    (await insensitive.preview({ path: "/Case/notes" })).duplicateOf,
+    "a",
+  );
+});

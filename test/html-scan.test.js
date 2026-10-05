@@ -1,2 +1,12 @@
-import assert from 'node:assert/strict';import test from 'node:test';import {findElement,stripHtml} from '../src/html-scan.js';
-test('element matching skips fake tags and pairs nested same-name tags',()=>{const value='<!-- <div class="article">fake</div> --><script>"<div class=article>fake</div>"</script><div class="other article" data-x=">">A<div>B<img src="x"></div>C</div>';const result=findElement(value,{tag:'div',cls:'article'});assert.equal(result.text,'A B C');assert.match(result.innerHTML,/<div>B/);assert.equal(findElement(value,{id:'missing'}),null);assert.equal(stripHtml('x &amp; &#x1F600; &#39;'),'x & 😀 \'');});
+import assert from "node:assert/strict";
+import test from "node:test";
+import { findElement, stripHtml } from "../src/html-scan.js";
+test("element matching skips fake tags and pairs nested same-name tags", () => {
+  const value =
+    '<!-- <div class="article">fake</div> --><script>"<div class=article>fake</div>"</script><div class="other article" data-x=">">A<div>B<img src="x"></div>C</div>';
+  const result = findElement(value, { tag: "div", cls: "article" });
+  assert.equal(result.text, "A B C");
+  assert.match(result.innerHTML, /<div>B/);
+  assert.equal(findElement(value, { id: "missing" }), null);
+  assert.equal(stripHtml("x &amp; &#x1F600; &#39;"), "x & 😀 '");
+});

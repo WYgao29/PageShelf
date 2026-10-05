@@ -1,2 +1,27 @@
-import {h,button} from '../dom.js';
-export function toast(message,{error=false,action}={}) { const host=document.querySelector('#toasts');const node=h('div',{className:'toast',role:error?'alert':'status'},h('span',{},message));let timer;const close=()=>{clearTimeout(timer);node.remove();};if(action)node.append(button(action.label,()=>{close();action.run();}));node.append(button('×',close,{'aria-label':'关闭消息',className:'icon-button'}));host.append(node);while(host.children.length>3)host.firstElementChild.remove();timer=setTimeout(close,action?6000:3200); }
+import { h, button } from "../dom.js";
+export function toast(message, { error = false, action } = {}) {
+  const host = document.querySelector("#toasts");
+  const node = h(
+    "div",
+    { className: "toast", role: error ? "alert" : "status" },
+    h("span", {}, message),
+  );
+  let timer;
+  const close = () => {
+    clearTimeout(timer);
+    node.remove();
+  };
+  if (action)
+    node.append(
+      button(action.label, () => {
+        close();
+        action.run();
+      }),
+    );
+  node.append(
+    button("×", close, { "aria-label": "关闭消息", className: "icon-button" }),
+  );
+  host.append(node);
+  while (host.children.length > 3) host.firstElementChild.remove();
+  timer = setTimeout(close, action ? 6000 : 3200);
+}

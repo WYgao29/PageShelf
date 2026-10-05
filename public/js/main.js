@@ -1,34 +1,326 @@
-import {createStore} from './store.js';
-import {parseRoute,serializeRoute} from './router.js';
-import {request,pollScan} from './api.js';
-import {h,button} from './dom.js';
-import {toast} from './components/toast.js';
-import {confirmDialog,openDialog} from './components/dialog.js';
-import {mountSplitters} from './components/splitter.js';
-import {mount as mountSidebar} from './views/sidebar.js';
-import {mount as mountList} from './views/list.js';
-import {mount as mountReader} from './views/reader.js';
-import {mount as mountManager} from './views/manager.js';
-import {register} from './shortcuts.js';
-const store=createStore({roots:[],totals:{items:0,available:0},route:parseRoute(location.href),items:[],total:0,groups:[],loading:false,indexRevision:0,scan:{running:[],queued:[]},readOnly:false,startupWarning:''});
-let backgroundRoute,polling;
-function navigate(patch,{replace=false}={}){const route={...store.getState().route,...patch};history[replace?'replaceState':'pushState']({},'',serializeRoute(route));store.set({route,focusedItem:''});}
-function selectRoot(rootId){navigate({rootId,seriesKey:'',folder:'',q:'',kind:'',fmt:'',item:'',view:'reader',scope:rootId?'root':'all',sort:'updated',settings:false});}
-function selectSeries(rootId,seriesKey){navigate({rootId,seriesKey,folder:'',q:'',kind:'',item:'',view:'reader',scope:'root',sort:'series',settings:false});}
-async function refreshRoots(){const data=await request('/api/roots');store.set(data);return data;}
-async function poll(){if(polling)return polling;store.set({busyScan:true});polling=(async()=>{try{await pollScan(async scan=>{store.set({scan});await refreshRoots();});store.set(state=>({indexRevision:state.indexRevision+1}));const issues=store.getState().roots.reduce((count,root)=>count+(root.state.issues?.length||0),0);toast(issues?'扫描完成，发现 '+issues+' 个问题':'扫描完成');}catch(error){toast(error.message,{error:true});}finally{store.set({busyScan:false});polling=null;}})();return polling;}
-async function scan(id,{full=false}={}){try{await request(id?'/api/roots/'+encodeURIComponent(id)+'/scan'+(full?'?full=1':''):'/api/scan'+(full?'?full=1':''),{method:'POST'});await poll();}catch(error){toast(error.message,{error:true});}}
-async function mutate(path,method,body){const result=await request(path,{method,body});await refreshRoots();store.set(state=>({indexRevision:state.indexRevision+1}));if(result.scan?.queued?.length)await poll();return result;}
-function openManager(focus={}){if(!store.getState().route.settings)backgroundRoute={...store.getState().route};store.set({managerFocus:focus});navigate({settings:true});}
-function closeManager(){if(!store.getState().route.settings)return;const route=backgroundRoute||parseRoute('/');backgroundRoute=null;history.replaceState({},'',serializeRoute({...route,settings:false}));store.set({route:{...route,settings:false},managerFocus:null});}
-function cycleTheme(){let value='system';try{value=localStorage.getItem('ui.theme')||'system';}catch{}const next=['system','light','dark'][(['system','light','dark'].indexOf(value)+1)%3];try{localStorage.setItem('ui.theme',next);}catch{}document.documentElement.dataset.theme=next==='system'?matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light':next;toast('主题：'+({system:'跟随系统',light:'亮色',dark:'暗色'})[next]);}
-async function copyPath(path){try{await navigator.clipboard.writeText(path);toast('路径已复制');}catch(error){toast('无法复制路径：'+error.message,{error:true});}}
-const actions={navigate,selectRoot,selectSeries,openItem:id=>{if(id)navigate({item:id,view:'reader',settings:false});},openManager,closeManager,cycleTheme,refreshRoots,scan,addRoot:body=>mutate('/api/roots','POST',body),changeRoot:(id,body)=>mutate('/api/roots/'+encodeURIComponent(id),'PATCH',body),reorderRoots:async ids=>{try{await mutate('/api/roots/order','PUT',{ids});}catch(error){toast(error.message,{error:true});}},removeRoot:async root=>{if(await confirmDialog({title:'移除来源目录？',message:'将取消“'+root.label+'”的索引。源文件保留在 '+root.path+'。',confirm:'移除'})){try{await mutate('/api/roots/'+encodeURIComponent(root.id),'DELETE');if(store.getState().route.rootId===root.id)selectRoot('');toast('来源目录已移除');}catch(error){toast(error.message,{error:true});}}},reveal:async body=>{try{await request('/api/system/reveal',{method:'POST',body});}catch(error){toast(error.message,{error:true});}},copyPath,copyItemPath:async id=>{try{const detail=await request('/api/items/'+encodeURIComponent(id));await copyPath(detail.files[0]?.path||'');}catch(error){toast(error.message,{error:true});}},afterTrash:async(result,nextId)=>{await refreshRoots();store.set(state=>({indexRevision:state.indexRevision+1}));if(!result.failed.length)navigate({item:nextId||'',view:'reader'});}};
-const sidebar=mountSidebar(document.querySelector('#sidebar'),store,actions),list=mountList(document.querySelector('#list-pane'),store,actions),reader=mountReader(document.querySelector('#reader-pane'),store,actions),manager=mountManager(document.body,store,actions);
-store.subscribe(state=>{sidebar.update(state);list.update(state);reader.update(state);manager.update(state);});
-register({...actions,focusSearch:list.focusSearch,escapeSearch:list.clearSearch,move:list.move,openFocused:list.openFocused,collapseSidebar:sidebar.collapse,neighbor:reader.neighbor,nextHit:reader.nextHit,selectRootByIndex:index=>{const root=store.getState().roots[index];if(root)selectRoot(root.id);},cycleView:()=>{const detail=reader.getDetail();if(!detail)return;const choices=!detail.item.html&&!detail.item.mhtml?['reader','original']:detail.item.markdown?['reader','original','markdown']:['reader','original'];navigate({view:choices[(choices.indexOf(store.getState().route.view)+1)%choices.length]});},help:()=>openDialog({title:'键盘快捷键',content:h('table',{className:'shortcut-table'},[['⌘K 或 /','搜索'],['Esc','关闭菜单、弹窗或清空搜索'],['j / k · Enter','选择条目 · 打开'],['[ / ]','系列上一篇 / 下一篇'],['v','切换阅读视图'],['n / Shift+N','下一处 / 上一处命中'],['g a · g 1–9','全部目录 · 指定目录'],['Shift+R','全部重扫'],['Shift+M','目录管理'],['t','切换主题'],['⌘\\','折叠目录栏'],['?','显示快捷键']].map(([key,label])=>h('tr',{},h('td',{},h('kbd',{},key)),h('td',{},label))))})});
-window.addEventListener('popstate',()=>{const route=parseRoute(location.href);if(route.settings&&!backgroundRoute)backgroundRoute=parseRoute('/');store.set({route,focusedItem:''});});
-matchMedia('(prefers-color-scheme:dark)').addEventListener('change',event=>{let preference;try{preference=localStorage.getItem('ui.theme');}catch{}if(!preference||preference==='system')document.documentElement.dataset.theme=event.matches?'dark':'light';});
+import { createStore } from "./store.js";
+import { parseRoute, serializeRoute } from "./router.js";
+import { request, pollScan } from "./api.js";
+import { h, button } from "./dom.js";
+import { toast } from "./components/toast.js";
+import { confirmDialog, openDialog } from "./components/dialog.js";
+import { mountSplitters } from "./components/splitter.js";
+import { mount as mountSidebar } from "./views/sidebar.js";
+import { mount as mountList } from "./views/list.js";
+import { mount as mountReader } from "./views/reader.js";
+import { mount as mountManager } from "./views/manager.js";
+import { register } from "./shortcuts.js";
+const store = createStore({
+  roots: [],
+  totals: { items: 0, available: 0 },
+  route: parseRoute(location.href),
+  items: [],
+  total: 0,
+  groups: [],
+  loading: false,
+  indexRevision: 0,
+  scan: { running: [], queued: [] },
+  readOnly: false,
+  startupWarning: "",
+});
+let backgroundRoute, polling;
+function navigate(patch, { replace = false } = {}) {
+  const route = { ...store.getState().route, ...patch };
+  history[replace ? "replaceState" : "pushState"](
+    {},
+    "",
+    serializeRoute(route),
+  );
+  store.set({ route, focusedItem: "" });
+}
+function selectRoot(rootId) {
+  navigate({
+    rootId,
+    seriesKey: "",
+    folder: "",
+    q: "",
+    kind: "",
+    fmt: "",
+    item: "",
+    view: "reader",
+    scope: rootId ? "root" : "all",
+    sort: "updated",
+    settings: false,
+  });
+}
+function selectSeries(rootId, seriesKey) {
+  navigate({
+    rootId,
+    seriesKey,
+    folder: "",
+    q: "",
+    kind: "",
+    item: "",
+    view: "reader",
+    scope: "root",
+    sort: "series",
+    settings: false,
+  });
+}
+async function refreshRoots() {
+  const data = await request("/api/roots");
+  store.set(data);
+  return data;
+}
+async function poll() {
+  if (polling) return polling;
+  store.set({ busyScan: true });
+  polling = (async () => {
+    try {
+      await pollScan(async (scan) => {
+        store.set({ scan });
+        await refreshRoots();
+      });
+      store.set((state) => ({ indexRevision: state.indexRevision + 1 }));
+      const issues = store
+        .getState()
+        .roots.reduce(
+          (count, root) => count + (root.state.issues?.length || 0),
+          0,
+        );
+      toast(issues ? "扫描完成，发现 " + issues + " 个问题" : "扫描完成");
+    } catch (error) {
+      toast(error.message, { error: true });
+    } finally {
+      store.set({ busyScan: false });
+      polling = null;
+    }
+  })();
+  return polling;
+}
+async function scan(id, { full = false } = {}) {
+  try {
+    await request(
+      id
+        ? "/api/roots/" +
+            encodeURIComponent(id) +
+            "/scan" +
+            (full ? "?full=1" : "")
+        : "/api/scan" + (full ? "?full=1" : ""),
+      { method: "POST" },
+    );
+    await poll();
+  } catch (error) {
+    toast(error.message, { error: true });
+  }
+}
+async function mutate(path, method, body) {
+  const result = await request(path, { method, body });
+  await refreshRoots();
+  store.set((state) => ({ indexRevision: state.indexRevision + 1 }));
+  if (result.scan?.queued?.length) await poll();
+  return result;
+}
+function openManager(focus = {}) {
+  if (!store.getState().route.settings)
+    backgroundRoute = { ...store.getState().route };
+  store.set({ managerFocus: focus });
+  navigate({ settings: true });
+}
+function closeManager() {
+  if (!store.getState().route.settings) return;
+  const route = backgroundRoute || parseRoute("/");
+  backgroundRoute = null;
+  history.replaceState({}, "", serializeRoute({ ...route, settings: false }));
+  store.set({ route: { ...route, settings: false }, managerFocus: null });
+}
+function cycleTheme() {
+  let value = "system";
+  try {
+    value = localStorage.getItem("ui.theme") || "system";
+  } catch {}
+  const next = ["system", "light", "dark"][
+    (["system", "light", "dark"].indexOf(value) + 1) % 3
+  ];
+  try {
+    localStorage.setItem("ui.theme", next);
+  } catch {}
+  document.documentElement.dataset.theme =
+    next === "system"
+      ? matchMedia("(prefers-color-scheme:dark)").matches
+        ? "dark"
+        : "light"
+      : next;
+  toast("主题：" + { system: "跟随系统", light: "亮色", dark: "暗色" }[next]);
+}
+async function copyPath(path) {
+  try {
+    await navigator.clipboard.writeText(path);
+    toast("路径已复制");
+  } catch (error) {
+    toast("无法复制路径：" + error.message, { error: true });
+  }
+}
+const actions = {
+  navigate,
+  selectRoot,
+  selectSeries,
+  openItem: (id) => {
+    if (id) navigate({ item: id, view: "reader", settings: false });
+  },
+  openManager,
+  closeManager,
+  cycleTheme,
+  refreshRoots,
+  scan,
+  addRoot: (body) => mutate("/api/roots", "POST", body),
+  changeRoot: (id, body) =>
+    mutate("/api/roots/" + encodeURIComponent(id), "PATCH", body),
+  reorderRoots: async (ids) => {
+    try {
+      await mutate("/api/roots/order", "PUT", { ids });
+    } catch (error) {
+      toast(error.message, { error: true });
+    }
+  },
+  removeRoot: async (root) => {
+    if (
+      await confirmDialog({
+        title: "移除来源目录？",
+        message:
+          "将取消“" + root.label + "”的索引。源文件保留在 " + root.path + "。",
+        confirm: "移除",
+      })
+    ) {
+      try {
+        await mutate("/api/roots/" + encodeURIComponent(root.id), "DELETE");
+        if (store.getState().route.rootId === root.id) selectRoot("");
+        toast("来源目录已移除");
+      } catch (error) {
+        toast(error.message, { error: true });
+      }
+    }
+  },
+  reveal: async (body) => {
+    try {
+      await request("/api/system/reveal", { method: "POST", body });
+    } catch (error) {
+      toast(error.message, { error: true });
+    }
+  },
+  copyPath,
+  copyItemPath: async (id) => {
+    try {
+      const detail = await request("/api/items/" + encodeURIComponent(id));
+      await copyPath(detail.files[0]?.path || "");
+    } catch (error) {
+      toast(error.message, { error: true });
+    }
+  },
+  afterTrash: async (result, nextId) => {
+    await refreshRoots();
+    store.set((state) => ({ indexRevision: state.indexRevision + 1 }));
+    if (!result.failed.length) navigate({ item: nextId || "", view: "reader" });
+  },
+};
+const sidebar = mountSidebar(
+    document.querySelector("#sidebar"),
+    store,
+    actions,
+  ),
+  list = mountList(document.querySelector("#list-pane"), store, actions),
+  reader = mountReader(document.querySelector("#reader-pane"), store, actions),
+  manager = mountManager(document.body, store, actions);
+store.subscribe((state) => {
+  sidebar.update(state);
+  list.update(state);
+  reader.update(state);
+  manager.update(state);
+});
+register({
+  ...actions,
+  focusSearch: list.focusSearch,
+  escapeSearch: list.clearSearch,
+  move: list.move,
+  openFocused: list.openFocused,
+  collapseSidebar: sidebar.collapse,
+  neighbor: reader.neighbor,
+  nextHit: reader.nextHit,
+  selectRootByIndex: (index) => {
+    const root = store.getState().roots[index];
+    if (root) selectRoot(root.id);
+  },
+  cycleView: () => {
+    const detail = reader.getDetail();
+    if (!detail) return;
+    const choices =
+      !detail.item.html && !detail.item.mhtml
+        ? ["reader", "original"]
+        : detail.item.markdown
+          ? ["reader", "original", "markdown"]
+          : ["reader", "original"];
+    navigate({
+      view: choices[
+        (choices.indexOf(store.getState().route.view) + 1) % choices.length
+      ],
+    });
+  },
+  help: () =>
+    openDialog({
+      title: "键盘快捷键",
+      content: h(
+        "table",
+        { className: "shortcut-table" },
+        [
+          ["⌘K 或 /", "搜索"],
+          ["Esc", "关闭菜单、弹窗或清空搜索"],
+          ["j / k · Enter", "选择条目 · 打开"],
+          ["[ / ]", "系列上一篇 / 下一篇"],
+          ["v", "切换阅读视图"],
+          ["n / Shift+N", "下一处 / 上一处命中"],
+          ["g a · g 1–9", "全部目录 · 指定目录"],
+          ["Shift+R", "全部重扫"],
+          ["Shift+M", "目录管理"],
+          ["t", "切换主题"],
+          ["⌘\\", "折叠目录栏"],
+          ["?", "显示快捷键"],
+        ].map(([key, label]) =>
+          h("tr", {}, h("td", {}, h("kbd", {}, key)), h("td", {}, label)),
+        ),
+      ),
+    }),
+});
+window.addEventListener("popstate", () => {
+  const route = parseRoute(location.href);
+  if (route.settings && !backgroundRoute) backgroundRoute = parseRoute("/");
+  store.set({ route, focusedItem: "" });
+});
+matchMedia("(prefers-color-scheme:dark)").addEventListener(
+  "change",
+  (event) => {
+    let preference;
+    try {
+      preference = localStorage.getItem("ui.theme");
+    } catch {}
+    if (!preference || preference === "system")
+      document.documentElement.dataset.theme = event.matches ? "dark" : "light";
+  },
+);
 mountSplitters();
-const state=store.getState();sidebar.update(state);list.update(state);reader.update(state);manager.update(state);
-refreshRoots().then(async()=>{const status=await request('/api/scan/status');if(status.running.length||status.queued.length)poll();}).catch(error=>toast(error.message,{error:true,action:{label:'重试',run:()=>refreshRoots().catch(error=>toast(error.message,{error:true}))}}));
+const state = store.getState();
+sidebar.update(state);
+list.update(state);
+reader.update(state);
+manager.update(state);
+refreshRoots()
+  .then(async () => {
+    const status = await request("/api/scan/status");
+    if (status.running.length || status.queued.length) poll();
+  })
+  .catch((error) =>
+    toast(error.message, {
+      error: true,
+      action: {
+        label: "重试",
+        run: () =>
+          refreshRoots().catch((error) =>
+            toast(error.message, { error: true }),
+          ),
+      },
+    }),
+  );
