@@ -1,0 +1,151 @@
+{
+  "completedAt": "2026-10-05T15:36:06.544766+08:00",
+  "branch": "main",
+  "mergeCommit": "14118814a0e7699a3163846ab5f19590f578d255",
+  "integratedFeatureHead": "98ac5abab3e919f096375795c5a8e7ccbf3f9407",
+  "productionUrl": "http://127.0.0.1:4321",
+  "verification": {
+    "node": {
+      "passed": 77,
+      "failed": 0,
+      "skipped": 0
+    },
+    "chrome": {
+      "passed": 54,
+      "failed": 0,
+      "skipped": 0,
+      "nativeKeyboardPassed": 3
+    },
+    "vendorFilesVerified": 3,
+    "diffCheck": "passed; original supplied specs preserved verbatim",
+    "productionApi": {
+      "status": "passed",
+      "pid": 74186,
+      "items": 48,
+      "originalIdsUnchanged": true,
+      "originalFilesUnchanged": 48,
+      "configBytesUnchanged": true,
+      "rootsUnchanged": true,
+      "seriesSizes": [
+        10,
+        9,
+        6,
+        6,
+        4,
+        3,
+        2
+      ],
+      "homeStatus": 200,
+      "readerSources": [
+        {
+          "format": "html",
+          "itemId": "root-2e61579df9d2:d923903a6e61",
+          "documentBytes": 150282,
+          "sourceBytes": 150282
+        },
+        {
+          "format": "mhtml",
+          "itemId": "root-2e61579df9d2:b75f1c917e05",
+          "documentBytes": 392386,
+          "sourceBytes": 392386
+        },
+        {
+          "format": "markdown",
+          "itemId": "root-2e61579df9d2:d1dd7354dab8",
+          "documentBytes": 111,
+          "sourceBytes": 111
+        }
+      ],
+      "searchMatchedExpectedItem": true,
+      "legacyMarkdownLink": {
+        "status": 302,
+        "location": "/?item=root-2e61579df9d2%3Ad1dd7354dab8&view=markdown"
+      },
+      "keepAliveSuccessfulExit": false,
+      "permanentCheckout": "/Users/weisengao/Documents/ChatGPT/HTML 知识库"
+    },
+    "productionUi": {
+      "status": "passed",
+      "browser": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/154.0.0.0 Safari/537.36",
+      "results": [
+        {
+          "check": "production list",
+          "rows": 48
+        },
+        {
+          "check": "html reader",
+          "chars": 57372,
+          "overflow": false
+        },
+        {
+          "check": "mhtml reader",
+          "chars": 264,
+          "overflow": false
+        },
+        {
+          "check": "markdown reader",
+          "chars": 63,
+          "overflow": false
+        },
+        {
+          "check": "search UI",
+          "matchedRows": 1
+        },
+        {
+          "check": "production root manager",
+          "roots": 1
+        }
+      ],
+      "javascriptExceptions": 0,
+      "externalRequests": 0,
+      "readOnlyRequests": true
+    },
+    "stability": {
+      "status": "passed",
+      "completedAt": "2026-10-05T15:33:19.668975+08:00",
+      "observationSeconds": 222.1,
+      "pid": 74186,
+      "singleListener": true,
+      "pidUnchanged": true,
+      "launchAgentRunning": true,
+      "logDeltas": [
+        {
+          "name": "stdout.log",
+          "size": 1536,
+          "deltaBytes": 0,
+          "mtimeUnchanged": true
+        },
+        {
+          "name": "stderr.log",
+          "size": 647703,
+          "deltaBytes": 0,
+          "mtimeUnchanged": true
+        }
+      ],
+      "configBytesUnchanged": true,
+      "sourceFilesUnchanged": 48,
+      "duplicateStartExitCode": 0,
+      "duplicateStartPidUnchanged": true
+    }
+  },
+  "backup": {
+    "directory": "~/.html-library/backups/release-20261005-152556",
+    "configAndPlistPreserved": true,
+    "originalLogsPreserved": true,
+    "originalUntrackedDocumentsPreserved": 6,
+    "ignoredWorktreeFilesPreserved": 100,
+    "archiveSha256": "8959299ff813cd35f887d5e0b78aa100a216cb92465f8b9324e72871d99ee728"
+  },
+  "cleanup": {
+    "implementationWorktreeRemoved": true,
+    "managedArchiveAttachment": true,
+    "mergedFeatureBranchDeleted": true,
+    "remainingWorktrees": 1,
+    "permanentCheckout": "/Users/weisengao/Documents/ChatGPT/HTML 知识库"
+  },
+  "manualFollowUps": [
+    "Edge checks: browser not installed",
+    "Finder fallback: re-test after previous native timeout",
+    "Auto-start check after the next normal login or reboot"
+  ]
+}
