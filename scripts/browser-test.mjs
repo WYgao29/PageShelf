@@ -20,6 +20,7 @@ await withTempFixture(async directory => {
   await new Promise(resolve => probe.listen(0, '127.0.0.1', resolve));
   server.on('request', async (request, response) => {
     const url = new URL(request.url, 'http://localhost');
+    if (url.pathname === '/test/fixture-info') { response.writeHead(200, {'content-type':'application/json'}); response.end(JSON.stringify({rootPath:fixture.rootPath,childPath:path.join(fixture.rootPath,'腾讯云ADP-FDE认证课程'),dataDir:fixture.dataDir})); return; }
     if (url.pathname === '/test/probe-info') { response.writeHead(200, { 'content-type': 'application/json' }); response.end(JSON.stringify({ url: 'http://127.0.0.1:' + probe.address().port + '/attempt', count: outboundRequests })); return; }
     if (url.pathname.startsWith('/test/')) {
       const relative = url.pathname.slice(1), allowed = /^test\/(browser\/[a-zA-Z0-9-]+\.(?:html|js)|fixtures\/xss\/cases\.json)$/.test(relative);

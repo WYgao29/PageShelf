@@ -66,19 +66,22 @@ async function jsonRequest(baseUrl, route, options = {}) {
     ...options,
     headers: { "content-type": "application/json", origin: baseUrl, ...(options.headers || {}) },
   });
-  return { response, body: await response.json() };
+  const body = await response.json();
+  if (options.method === 'POST' && route === '/api/roots' && response.status === 201) { while (true) { const status = await (await fetch(baseUrl+'/api/scan/status')).json(); if (!status.running.length && !status.queued.length) break; } }
+  return { response, body };
 }
 
 test("API adds a root, scans it, searches it, and reads its source", async () => {
   await withServer(async ({ baseUrl, sourceDir }) => {
-    const added = await jsonRequest(baseUrl, "/api/settings/roots", {
+    const added = await jsonRequest(baseUrl, "/api/roots", {
       method: "POST",
       body: JSON.stringify({ path: sourceDir, label: "API 样例" }),
     });
     assert.equal(added.response.status, 201);
-    assert.equal(added.body.scan.stats.items, 1);
+    assert.ok(added.body.scan.queued.length);
+    assert.equal((await (await fetch(baseUrl + "/api/roots")).json()).totals.items, 1);
 
-    const library = await jsonRequest(baseUrl, "/api/library?q=API%20搜索");
+    const library = await jsonRequest(baseUrl, "/api/items?q=API%20搜索");
     assert.equal(library.response.status, 200);
     assert.equal(library.body.items.length, 1);
     const item = library.body.items[0];
@@ -94,12 +97,13 @@ test("API opens MHTML as HTML and keeps the original archive for download", asyn
   await withServer(async ({ baseUrl, sourceDir }) => {
     const content = mhtmlFixture();
     await writeFile(path.join(sourceDir, "离线页面.mhtml"), content);
-    const added = await jsonRequest(baseUrl, "/api/settings/roots", {
+    const added = await jsonRequest(baseUrl, "/api/roots", {
       method: "POST",
       body: JSON.stringify({ path: sourceDir, label: "MHTML" }),
     });
-    assert.equal(added.body.scan.items.length, 2);
-    const item = added.body.scan.items.find((entry) => entry.mhtml);
+    const indexed = (await jsonRequest(baseUrl, "/api/items")).body;
+    assert.equal(indexed.items.length, 2);
+    const item = indexed.items.find((entry) => entry.mhtml);
     assert.equal(item.title, "MHTML 服务");
 
     const source = await fetch(baseUrl + "/api/items/" + encodeURIComponent(item.id) + "/source/mhtml");
@@ -114,19 +118,19 @@ test("API opens MHTML as HTML and keeps the original archive for download", asyn
     assert.equal(download.headers.get("content-type"), 'multipart/related; type="text/html"; boundary="mhtml-boundary"');
     assert.match(await download.text(), /MHTML 服务/);
 
-    const htmlRecords = await jsonRequest(baseUrl, "/api/library?format=html");
+    const htmlRecords = await jsonRequest(baseUrl, "/api/items?fmt=html");
     assert.equal(htmlRecords.body.items.some((entry) => entry.id === item.id), true);
   });
 });
 
 test("API rejects invalid roots and unknown source formats", async () => {
   await withServer(async ({ baseUrl }) => {
-    const invalid = await jsonRequest(baseUrl, "/api/settings/roots", {
+    const invalid = await jsonRequest(baseUrl, "/api/roots", {
       method: "POST",
       body: JSON.stringify({ path: path.join(os.tmpdir(), "does-not-exist") }),
     });
     assert.equal(invalid.response.status, 400);
-    assert.match(invalid.body.error, /目录|路径/);
+    assert.match(invalid.body.error.message, /目录|路径/);
 
     const unknown = await fetch(baseUrl + "/api/items/nope/source/html");
     assert.equal(unknown.status, 404);
@@ -140,45 +144,45 @@ test("serves the unified library app shell", async () => {
     const html = await response.text();
     assert.match(html, /我的对话库/);
     assert.doesNotMatch(html, /itemDialog|打开记录/);
-    const app = await (await fetch(baseUrl + "/assets/app.js")).text();
-    assert.match(app, /HTML 打开/);
-    assert.match(app, /Markdown 打开/);
+    const app = await (await fetch(baseUrl + "/assets/js/main.js")).text();
+    assert.match(app, /mountReader/);
+    assert.equal((await fetch(baseUrl + "/assets/app.js")).status, 404);
   });
 });
 
 test("API removes a root without touching its source files", async () => {
   await withServer(async ({ baseUrl, sourceDir }) => {
-    const added = await jsonRequest(baseUrl, "/api/settings/roots", {
+    const added = await jsonRequest(baseUrl, "/api/roots", {
       method: "POST",
       body: JSON.stringify({ path: sourceDir, label: "待移除" }),
     });
     const rootId = added.body.root.id;
-    const removed = await fetch(baseUrl + "/api/settings/roots/" + encodeURIComponent(rootId), { method: "DELETE", headers: { origin: baseUrl, "content-type": "application/json" }, body: "{}" });
+    const removed = await fetch(baseUrl + "/api/roots/" + encodeURIComponent(rootId), { method: "DELETE", headers: { origin: baseUrl, "content-type": "application/json" }, body: "{}" });
     assert.equal(removed.status, 200);
-    const settings = await (await fetch(baseUrl + "/api/settings")).json();
+    const settings = await (await fetch(baseUrl + "/api/roots")).json();
     assert.equal(settings.roots.length, 0);
-    assert.equal((await (await fetch(baseUrl + "/api/library")).json()).items.length, 0);
+    assert.equal((await (await fetch(baseUrl + "/api/items")).json()).items.length, 0);
   });
 });
 
 test("API deletes a record's source file and index entry", async () => {
   await withServer(async ({ baseUrl, sourceDir }) => {
-    const added = await jsonRequest(baseUrl, "/api/settings/roots", {
+    const added = await jsonRequest(baseUrl, "/api/roots", {
       method: "POST",
       body: JSON.stringify({ path: sourceDir, label: "待删除" }),
     });
-    const item = added.body.scan.items[0];
-    const deleted = await fetch(baseUrl + "/api/items/" + encodeURIComponent(item.id), { method: "DELETE", headers: { origin: baseUrl, "content-type": "application/json" }, body: "{}" });
+    const item = (await jsonRequest(baseUrl, "/api/items")).body.items[0];
+    const deleted = await fetch(baseUrl + "/api/items/" + encodeURIComponent(item.id) + "/trash", { method: "POST", headers: { origin: baseUrl, "content-type": "application/json" }, body: "{\"confirm\":true}" });
     assert.equal(deleted.status, 200);
-    assert.equal((await deleted.json()).scan.stats.items, 0);
+    assert.equal((await deleted.json()).trashed.length, 1);
     await assert.rejects(access(path.join(sourceDir, "远程阅读.html")), { code: "ENOENT" });
-    assert.equal((await (await fetch(baseUrl + "/api/library")).json()).items.length, 0);
+    assert.equal((await (await fetch(baseUrl + "/api/items")).json()).items.length, 0);
   });
 });
 
 test("protected servers reject unauthenticated requests and support token bootstrap", async () => {
   await withConfiguredServer({ authToken: "review-secret" }, async ({ baseUrl }) => {
-    const denied = await fetch(baseUrl + "/api/settings");
+    const denied = await fetch(baseUrl + "/api/roots");
     assert.equal(denied.status, 401);
 
     const bootstrap = await fetch(baseUrl + "/?token=review-secret", { redirect: "manual" });
@@ -186,18 +190,18 @@ test("protected servers reject unauthenticated requests and support token bootst
     assert.match(bootstrap.headers.get("set-cookie"), /html_library_token=review-secret/);
 
     const cookie = bootstrap.headers.get("set-cookie").split(";", 1)[0];
-    const allowed = await fetch(baseUrl + "/api/settings", { headers: { cookie } });
+    const allowed = await fetch(baseUrl + "/api/roots", { headers: { cookie } });
     assert.equal(allowed.status, 200);
   });
 });
 
 test("source responses prevent executable HTML and unknown formats are not server errors", async () => {
   await withServer(async ({ baseUrl, sourceDir }) => {
-    const added = await jsonRequest(baseUrl, "/api/settings/roots", {
+    const added = await jsonRequest(baseUrl, "/api/roots", {
       method: "POST",
       body: JSON.stringify({ path: sourceDir }),
     });
-    const item = added.body.scan.items[0];
+    const item = (await jsonRequest(baseUrl, "/api/items")).body.items[0];
     const source = await fetch(baseUrl + "/api/items/" + encodeURIComponent(item.id) + "/source/html");
     assert.equal(source.status, 200);
     assert.match(source.headers.get("content-security-policy"), /sandbox/);
@@ -211,7 +215,7 @@ test("source responses prevent executable HTML and unknown formats are not serve
 
 test("API rejects null JSON bodies with a client error", async () => {
   await withServer(async ({ baseUrl }) => {
-    const response = await fetch(baseUrl + "/api/settings/roots", {
+    const response = await fetch(baseUrl + "/api/roots", {
       method: "POST",
       headers: { "content-type": "application/json", origin: baseUrl },
       body: "null",
@@ -227,7 +231,7 @@ test("startup ignores invalid persisted roots instead of crashing", async () => 
   await assert.doesNotReject(server.ready);
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   try {
-    const response = await fetch("http://127.0.0.1:" + server.address().port + "/api/settings");
+    const response = await fetch("http://127.0.0.1:" + server.address().port + "/api/roots");
     assert.equal(response.status, 200);
     assert.deepEqual((await response.json()).roots, []);
   } finally {
@@ -289,3 +293,7 @@ test('v2 document APIs use text/plain ETags safe images sandbox and series detai
 });
 
 test('vendored ES modules have executable JavaScript MIME',async()=>withServer(async({baseUrl})=>{const response=await fetch(baseUrl+'/assets/vendor/dompurify-3.4.16/purify.es.mjs');assert.match(response.headers.get('content-type'),/^text\/javascript/);}));
+test('history deep links use shell while missing assets and unknown API stay 404',async()=>withServer(async({baseUrl})=>{const deep=await fetch(baseUrl+'/r/root-test?item=abc');assert.equal(deep.status,200);assert.match(deep.headers.get('content-security-policy'),/script-src 'self'/);assert.match(await deep.text(),/reader-pane/);assert.equal((await fetch(baseUrl+'/assets/nope.js')).status,404);assert.equal((await fetch(baseUrl+'/api/not-real')).status,404);}));
+
+test('system reveal accepts only known IDs and uses fixed argv',async()=>{const calls=[];await withConfiguredServer({systemExecFile:async(...args)=>{calls.push(args);}},async({baseUrl})=>{const allowed=await jsonRequest(baseUrl,'/api/system/reveal',{method:'POST',body:'{"trash":true}'});assert.equal(allowed.response.status,200);assert.equal(calls[0][0],'/usr/bin/open');assert.deepEqual(calls[0][1],['-a','Finder',path.join(os.homedir(),'.Trash')]);const refused=await jsonRequest(baseUrl,'/api/system/reveal',{method:'POST',body:'{"path":"/etc/passwd"}'});assert.equal(refused.response.status,400);assert.equal(calls.length,1);});});
+test('legacy endpoints retire while Markdown source links redirect safely',async()=>withServer(async({baseUrl,sourceDir})=>{await writeFile(path.join(sourceDir,'笔记.md'),'# 笔记');await jsonRequest(baseUrl,'/api/roots',{method:'POST',body:JSON.stringify({path:sourceDir})});const md=(await jsonRequest(baseUrl,'/api/items?fmt=markdown')).body.items[0];for(const route of ['/api/settings','/api/library'])assert.equal((await fetch(baseUrl+route)).status,404);const source='/api/items/'+encodeURIComponent(md.id)+'/source/markdown';const valid=await fetch(baseUrl+'/assets/markdown-viewer.html?source='+encodeURIComponent(source),{redirect:'manual'});assert.equal(valid.status,302);assert.match(valid.headers.get('location'),/view=markdown/);for(const bad of ['https://evil.test'+source,source+'?x=1','/etc/passwd'])assert.equal((await fetch(baseUrl+'/assets/markdown-viewer.html?source='+encodeURIComponent(bad),{redirect:'manual'})).status,400);}));

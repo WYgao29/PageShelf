@@ -123,8 +123,8 @@ export function createLibrary({ roots = [], rootRegistry, scanFile, trashService
   }
   const scheduler = createScheduler({ scanRoot, concurrency: 2 });
   function getSnapshot() {
-    const visible = registry.list().filter(rootAvailable), items = visible.flatMap(root => [...(indexes.get(root.id)?.itemsMap.values() || [])].map(item => ({ ...item, rootLabel: root.label, rootOrder: root.order }))), series = visible.flatMap(root => [...(indexes.get(root.id)?.seriesMap.values() || [])]);
-    return { items, series, roots: registry.list(), fileCount: visible.reduce((total, root) => total + (indexes.get(root.id)?.filesMap.size || 0), 0) };
+    const visible = registry.list().filter(rootAvailable), items = visible.flatMap(root => [...(indexes.get(root.id)?.itemsMap.values() || [])].filter(item=>!root.excludes.some(exclude=>item.sourceFiles.some(source=>contains(exclude,source.path)))).map(item => ({ ...item, rootLabel: root.label, rootOrder: root.order }))), series = visible.flatMap(root => [...(indexes.get(root.id)?.seriesMap.values() || [])]).filter(series=>series.itemIds.filter(id=>items.some(item=>item.id===id)).length>=2);
+    return { items, series, roots: registry.list(), fileCount: visible.reduce((total, root) => total + [...(indexes.get(root.id)?.filesMap.keys()||[])].filter(file=>!root.excludes.some(exclude=>contains(exclude,file))).length, 0) };
   }
   async function scan(options = {}) { await initialized; registry.list().forEach(root => scheduler.enqueue(root.id, options)); await scheduler.waitForIdle(); return { items: getSnapshot().items.map(publicItem), stats: lastScan.stats, errors: lastScan.errors }; }
   function search(query = '', filters = {}) { return searchItems(getSnapshot(), { q: query, roots: filters.rootId, fmt: filters.format, limit: 500, sort: 'updated' }).items; }
@@ -142,6 +142,7 @@ export function createLibrary({ roots = [], rootRegistry, scanFile, trashService
     const index = indexes.get(root.id);
     if (!result.failed.length) { index?.itemsMap.delete(id); for (const source of item.sourceFiles) index?.filesMap.delete(source.path); registry.setIndexState(root.id, { counts: { ...root.counts, items: index?.itemsMap.size || 0, files: index?.filesMap.size || 0 } }); }
     else { await scanRoot(root.id); }
+    recomputeMetadata(root.id);
     return result;
   }
   async function deleteItem(id) { const item = getItem(id); if (!item) throw sourceNotFound(); return { ...publicItem(item), trashResult: await trashItem(id) }; }

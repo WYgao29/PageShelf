@@ -4,7 +4,7 @@ export function rootResponse(root, library) {
   if (!root) return null;
   const items = library.getSnapshot().items.filter(item => item.rootId === root.id);
   return { ...root, displayPath: root.path.startsWith(os.homedir() + '/') ? '~' + root.path.slice(os.homedir().length) : root.path,
-    counts: { items: items.length, files: root.counts?.files || 0, series: root.counts?.series || 0, html: items.filter(x => x.html).length, mhtml: items.filter(x => x.mhtml).length, markdown: items.filter(x => x.markdown).length },
+    counts: { items: items.length, files: library.getSnapshot().items.filter(item=>item.rootId===root.id).reduce((count,item)=>count+item.sourceFiles.length,0), series: root.counts?.series || 0, html: items.filter(x => x.html).length, mhtml: items.filter(x => x.mhtml).length, markdown: items.filter(x => x.markdown).length },
     state: { status: root.state, message: root.message || null, excludes: root.excludes, lastScan: root.lastScan || null, issues: root.issues || [] } };
 }
 function previewResponse(preview, registry) {

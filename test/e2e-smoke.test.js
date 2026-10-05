@@ -17,13 +17,14 @@ test("end-to-end flow indexes and serves a paired conversation", async () => {
   const baseUrl = "http://127.0.0.1:" + port;
 
   try {
-    const add = await fetch(baseUrl + "/api/settings/roots", {
+    const add = await fetch(baseUrl + "/api/roots", {
       method: "POST",
       headers: { "content-type": "application/json", origin: baseUrl },
       body: JSON.stringify({ path: sourceDir, label: "生活" }),
     });
     assert.equal(add.status, 201);
-    const indexed = await (await fetch(baseUrl + "/api/library?q=海边")).json();
+    await server.library().scheduler.waitForIdle();
+    const indexed = await (await fetch(baseUrl + "/api/items?q=海边")).json();
     assert.equal(indexed.items.length, 1);
     assert.equal(indexed.items[0].html.extension, ".html");
     assert.equal(indexed.items[0].markdown.extension, ".md");

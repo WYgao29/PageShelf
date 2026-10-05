@@ -16,6 +16,7 @@ import { handle as handleSystem } from "./routes/system.js";
 
 const currentDirectory = path.dirname(fileURLToPath(import.meta.url));
 const publicDirectory = path.resolve(currentDirectory, "..", "public");
+export const MAIN_CSP = "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; frame-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'";
 const contentTypes = {
   ".css": "text/css; charset=utf-8",
   ".html": "text/html; charset=utf-8",
@@ -135,7 +136,7 @@ async function chooseFolderWithNativeDialog() {
 }
 
 async function serveStatic(response, pathname) {
-  const requestedPath = pathname === "/" ? "index.html" : pathname.replace(/^\/assets\//, "");
+  const requestedPath = pathname.startsWith("/assets/") ? pathname.slice(8) : "index.html";
   const filePath = path.resolve(publicDirectory, requestedPath);
   const relative = path.relative(publicDirectory, filePath);
   if (relative.startsWith(".." + path.sep) || path.isAbsolute(relative)) {
@@ -145,14 +146,14 @@ async function serveStatic(response, pathname) {
   try {
     const content = await readFile(filePath);
     const contentType = contentTypes[path.extname(filePath).toLowerCase()] || "application/octet-stream";
-    response.writeHead(200, { "content-type": contentType, "cache-control": "no-cache" });
+    response.writeHead(200, { "content-type": contentType, "cache-control": pathname.startsWith("/assets/vendor/") ? "public, max-age=31536000, immutable" : "no-cache", "content-security-policy": MAIN_CSP, "x-content-type-options": "nosniff" });
     response.end(content);
   } catch {
     sendError(response, 404, "页面不存在");
   }
 }
 
-export function createServer({ dataDir = path.join(os.homedir(), ".html-library"), library, authToken = "", chooseDirectory = chooseFolderWithNativeDialog, trashService } = {}) {
+export function createServer({ dataDir = path.join(os.homedir(), ".html-library"), library, authToken = "", chooseDirectory = chooseFolderWithNativeDialog, trashService, systemExecFile = execFile } = {}) {
   const activeDataDir = path.resolve(dataDir);
   let activeLibrary = library;
 
@@ -184,67 +185,20 @@ export function createServer({ dataDir = path.join(os.homedir(), ".html-library"
         body = await readJsonBody(request);
         if (!body || typeof body !== 'object' || Array.isArray(body)) throw Object.assign(new Error('请求需要 JSON 对象'), { code: 'INVALID_JSON', status: 400 });
       }
-      const context = { request, response, url: requestUrl, library: activeLibrary, registry, configStore, sendJson, body, decode: decodeRoutePart, chooseDirectory, cache };
+      const context = { request, response, url: requestUrl, library: activeLibrary, registry, configStore, sendJson, body, decode: decodeRoutePart, chooseDirectory, cache, systemExecFile };
       if (await handleRoots(context) || await handleSystem(context) || await handleItems(context)) return;
 
-      if (pathname === "/api/settings" && method === "GET") {
-        sendJson(response, 200, activeLibrary.getSettings());
-        return;
+      if (pathname === '/assets/markdown-viewer.html' && method === 'GET') {
+        const expectedOrigin='http://'+request.headers.host;
+        const source=requestUrl.searchParams.get('source');let link;
+        try { if(!source)throw Error();link=new URL(source,expectedOrigin); } catch { throw Object.assign(new Error('旧阅读链接无效'),{code:'INVALID_PATH'}); }
+        const match=link.pathname.match(/^\/api\/items\/([^/]+)\/source\/markdown$/);
+        if(link.origin!==expectedOrigin||!match||link.search||link.hash)throw Object.assign(new Error('旧阅读链接无效'),{code:'INVALID_PATH'});
+        const item=activeLibrary.getItem(decodeRoutePart(match[1]));if(!item?.markdown)throw Object.assign(new Error('源文件不存在'),{code:'SOURCE_NOT_FOUND'});
+        response.writeHead(302,{location:'/?'+new URLSearchParams({item:item.id,view:'markdown'}),'cache-control':'no-store'});response.end();return;
       }
 
-      const itemMatch = pathname.match(/^\/api\/items\/([^/]+)$/);
-      if (itemMatch && method === "DELETE") {
-        const item = await activeLibrary.deleteItem(decodeRoutePart(itemMatch[1]));
-        const scan = await activeLibrary.scan();
-        sendJson(response, item.trashResult?.failed.length ? 207 : 200, { item, scan, ...item.trashResult });
-        return;
-      }
-
-      if (pathname === "/api/library" && method === "GET") {
-        const format = requestUrl.searchParams.get("format") || "";
-        if (format && !["html", "mhtml", "markdown"].includes(format)) {
-          sendError(response, 400, "格式筛选无效");
-          return;
-        }
-        sendJson(response, 200, {
-          items: activeLibrary.search(requestUrl.searchParams.get("q") || "", {
-            rootId: requestUrl.searchParams.get("rootId") || "",
-            format,
-          }),
-          stats: activeLibrary.getSettings().lastScan.stats,
-        });
-        return;
-      }
-
-      if (pathname === "/api/settings/roots" && method === "POST") {
-        if (
-          !body ||
-          typeof body !== "object" ||
-          Array.isArray(body) ||
-          typeof body.path !== "string" ||
-          !body.path.trim() ||
-          (body.label !== undefined && typeof body.label !== "string")
-        ) {
-          sendError(response, 400, "请提供有效的扫描目录路径");
-          return;
-        }
-        const root = await activeLibrary.addRoot(body.path.trim(), body.label);
-        const scan = await activeLibrary.scan();
-        sendJson(response, 201, { root, scan });
-        return;
-      }
-
-      const rootMatch = pathname.match(/^\/api\/settings\/roots\/([^/]+)$/);
-      if (rootMatch && method === "DELETE") {
-        const removed = await activeLibrary.removeRoot(decodeRoutePart(rootMatch[1]));
-        if (!removed) {
-          sendError(response, 404, "扫描目录不存在");
-          return;
-        }
-        sendJson(response, 200, await activeLibrary.scan());
-        return;
-      }
-
+      if (pathname.startsWith("/api/")) { sendJson(response, 404, { error: { code: "NOT_FOUND", message: "接口不存在", details: {} } }); return; }
       if (method === "GET") {
         await serveStatic(response, pathname);
         return;
@@ -252,9 +206,8 @@ export function createServer({ dataDir = path.join(os.homedir(), ".html-library"
 
       sendError(response, 404, "接口不存在");
     } catch (error) {
-      const legacy = request.url?.startsWith('/api/settings') || request.url?.startsWith('/api/library') || request.method === 'DELETE' && /^\/api\/items\/[^/]+$/.test(request.url || '');
       const status = error.status || (['ROOT_NOT_FOUND','SOURCE_NOT_FOUND'].includes(error.code) ? 404 : error.code === 'CONFIG_READ_ONLY' ? 409 : /^(ROOT_|INVALID_|LABEL_|ORDER_)/.test(error.code || '') ? 400 : errorStatus(error));
-      sendJson(response, status, { error: legacy ? error.message : { code: error.code || 'INTERNAL_ERROR', message: error.message || '服务器内部错误', details: error.details || {} } });
+      sendJson(response, status, { error: { code: error.code || 'INTERNAL_ERROR', message: error.message || '服务器内部错误', details: error.details || {} } });
     }
   });
 

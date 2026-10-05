@@ -63,7 +63,7 @@ export function createRootRegistry({ configStore, inspectPath: inspect = inspect
   async function load() {
     configLoad = await configStore.load();
     roots = await Promise.all(configLoad.config.roots.map(async root => { const inspected = await inspect(root.path); return { ...root, ...inspected, state: root.enabled === false ? 'disabled' : inspected.state, excludes: [], counts: { items: 0, files: 0, series: 0 }, issues: [] }; }));
-    for (const id of configLoad.legacyRootIds || []) if (!algorithms.has(id)) algorithms.set(id, 'v1');
+    for (const id of configLoad.legacyRootIds || []) if (!algorithms.has(id)) algorithms.set(id, 'pending');
     for (const root of roots) { revisionMap.set(root.id, revisionMap.get(root.id) || 0); if (root.options?.idAlgo === 'v1') algorithms.set(root.id, 'v1'); }
     recompute(); return list();
   }
@@ -71,8 +71,8 @@ export function createRootRegistry({ configStore, inspectPath: inspect = inspect
   function get(id) { return roots.find(root => root.id === id); }
   function revision(id) { return revisionMap.get(id) || 0; }
   function invalidate(id) { revisionMap.set(id, revision(id) + 1); }
-  function resolveIdAlgorithm(id, { nfcChanges }) { const root = get(id); if (root?.options?.idAlgo === 'v1' || nfcChanges) algorithms.set(id, 'v1'); else algorithms.set(id, 'nfc'); return algorithms.get(id); }
-  function idAlgorithm(id) { return algorithms.get(id) || 'nfc'; }
+  function resolveIdAlgorithm(id, { nfcChanges }) { const root=get(id);if(root?.options?.idAlgo==='v1')algorithms.set(id,'v1');else if(algorithms.get(id)==='pending')algorithms.set(id,nfcChanges?'v1':'nfc');else if(!algorithms.has(id))algorithms.set(id,'nfc');return algorithms.get(id); }
+  function idAlgorithm(id) { return algorithms.get(id)==='pending'?'v1':algorithms.get(id)||'nfc'; }
   async function refresh(id) {
     const root = get(id); if (!root) return [];
     const before = new Map(roots.map(root => [root.id, JSON.stringify([root.state, root.excludes])]));
@@ -111,7 +111,7 @@ export function createRootRegistry({ configStore, inspectPath: inspect = inspect
       if (change.type === 'order' && (!Array.isArray(change.ids) || new Set(change.ids).size !== roots.length || change.ids.length !== roots.length || change.ids.some(id => !get(id)))) throw fail('INVALID_ORDER', '排序必须包含全部目录且不能重复');
       const now = new Date().toISOString();
       configLoad = await configStore.update(config => {
-        for (const root of config.roots) { if (algorithms.get(root.id) === 'v1') root.options = { ...root.options, idAlgo: 'v1' }; }
+        for (const root of config.roots) { if (['v1','pending'].includes(algorithms.get(root.id))) root.options = { ...root.options, idAlgo: 'v1' }; }
         if (change.type === 'add') { changedId = 'root-' + randomBytes(6).toString('hex'); config.roots.push({ id: changedId, path: checked.path, label: checked.label, enabled: true, addedAt: now, updatedAt: now, options: { series: 'auto' } }); }
         else if (change.type === 'patch') { const root = config.roots.find(x => x.id === change.id), input = change.input;
           if (input.label !== undefined) root.label = labelFor(input.label, root.path);
@@ -132,6 +132,7 @@ export function createRootRegistry({ configStore, inspectPath: inspect = inspect
           if (root) affected.push({ rootId: id, full: !old || old.path !== root.path, subtree: old?.excludes.find(x => !root.excludes.includes(x)) });
         } else {
           Object.assign(root, { counts: old.counts, issues: old.issues, lastScan: old.lastScan });
+          if(old.options?.series!==root.options?.series)invalidate(id);
         }
       }
       return { root: get(changedId) ? structuredClone(get(changedId)) : null, affected };

@@ -1,0 +1,1 @@
+export function createStore(initial = {}) { let state = initial; const subscribers = new Set(); return { getState: () => state, set(patch) { state = { ...state, ...(typeof patch === 'function' ? patch(state) : patch) }; subscribers.forEach(callback => callback(state)); }, subscribe(callback) { subscribers.add(callback); return () => subscribers.delete(callback); } }; }
