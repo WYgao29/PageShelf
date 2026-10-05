@@ -46,7 +46,8 @@ function setView(view, rootId = "") {
   document.querySelectorAll(".nav-item[data-view]").forEach((button) => button.classList.toggle("active", button.dataset.view === view));
   elements.libraryView.classList.toggle("hidden", view === "settings"); elements.settingsView.classList.toggle("hidden", view !== "settings");
   const titles = { all: ["全部内容", "把散落的对话，重新放回一个顺手的入口。"], html: ["HTML 阅读", "保留原始页面的结构、样式和阅读体验。"], markdown: ["Markdown", "适合搜索、迁移和长期保存的原始版本。"], settings: ["设置", "管理内容来源，让新对话自动出现在这里。"] };
-  elements.viewTitle.textContent = titles[view][0]; elements.viewDescription.textContent = titles[view][1];
+  elements.viewTitle.textContent = rootId ? state.settings?.roots.find(root=>root.id===rootId)?.label || titles[view][0] : titles[view][0];
+  renderRoots(); elements.viewDescription.textContent = titles[view][1];
   document.querySelectorAll(".filter-chip").forEach((button) => button.classList.toggle("active", button.dataset.format === state.format));
   if (view !== "settings") loadLibrary();
 }
@@ -54,7 +55,7 @@ function renderRoots() {
   const roots = state.settings?.roots || []; elements.rootList.replaceChildren(); elements.settingsRootList.replaceChildren(); elements.rootCount.textContent = roots.length + " 个目录";
   if (!roots.length) { elements.rootList.innerHTML = "<div class=\"sidebar-empty\">还没有扫描目录<br>去设置里添加一个吧</div>"; elements.settingsRootList.innerHTML = "<div class=\"sidebar-empty\">添加第一个扫描目录后，内容会自动出现在这里。</div>"; return; }
   for (const root of roots) {
-    const nav = document.createElement("button"); nav.className = "root-button"; nav.innerHTML = "<span class=\"root-glyph\"></span><span></span>"; nav.lastElementChild.textContent = root.label; nav.addEventListener("click", () => setView("all", root.id)); elements.rootList.append(nav);
+    const nav = document.createElement("button"); nav.className = "root-button" + (state.rootId === root.id ? " active" : ""); nav.innerHTML = "<span class=\"root-glyph\"></span><span></span>"; nav.lastElementChild.textContent = root.label; nav.addEventListener("click", () => setView("all", root.id)); elements.rootList.append(nav);
     const row = document.createElement("div"); row.className = "settings-root-row"; row.innerHTML = "<div class=\"root-info\"><strong></strong><span></span></div><button class=\"remove-root\">移除</button>"; row.querySelector("strong").textContent = root.label; row.querySelector("span").textContent = root.path; row.querySelector(".remove-root").addEventListener("click", () => removeRoot(root.id)); elements.settingsRootList.append(row);
   }
 }
@@ -85,11 +86,13 @@ async function loadLibrary() {
   }
 }
 async function loadSettings() {
-  state.settings = await api("/api/settings"); renderRoots(); const items = await api("/api/library"); const all = items.items; updateCounts(all); state.items = all; renderCards();
+  state.settings = await api("/api/settings"); elements.lastSynced.textContent = state.settings.lastScan?.completedAt ? "上次扫描 " + formatDate(state.settings.lastScan.completedAt) : "等待首次扫描"; renderRoots(); const items = await api("/api/library"); const all = items.items; updateCounts(all); state.items = all; renderCards();
 }
 async function refresh() {
+  if (elements.refreshButton.disabled) return;
+  elements.refreshButton.disabled = true;
   elements.refreshButton.classList.add("is-refreshing");
-  try { const result = await api("/api/scan", { method: "POST" }); updateCounts(result.items); state.settings = await api("/api/settings"); renderRoots(); await loadLibrary(); notifyScan(result); } catch (error) { showToast(error.message); } finally { elements.refreshButton.classList.remove("is-refreshing"); }
+  try { const result = await api("/api/scan", { method: "POST" }); updateCounts(result.items); state.settings = await api("/api/settings"); renderRoots(); await loadLibrary(); notifyScan(result); } catch (error) { showToast(error.message); } finally { elements.refreshButton.disabled = false; elements.refreshButton.classList.remove("is-refreshing"); }
 }
 async function addRoot(event) {
   event.preventDefault(); elements.settingsMessage.textContent = "正在验证并扫描目录…";
@@ -117,7 +120,7 @@ async function removeRoot(id) {
   try { const result = await api("/api/settings/roots/" + encodeURIComponent(id), { method: "DELETE" }); updateCounts(result.items); state.settings = await api("/api/settings"); renderRoots(); await loadLibrary(); notifyScan(result, "扫描目录已移除，扫描完成"); } catch (error) { showToast(error.message); }
 }
 async function deleteItem(item, trigger) {
-  if (!window.confirm("确定删除“" + item.title + "”吗？\n这会同时删除对应的源文件，且无法恢复。")) return;
+  if (!window.confirm("确定删除“" + item.title + "”吗？\n这会将全部关联源文件移入 macOS 废纸篓，可在访达中放回原处。")) return;
   trigger.disabled = true;
   try {
     const result = await api("/api/items/" + encodeURIComponent(item.id), { method: "DELETE" });
@@ -125,7 +128,8 @@ async function deleteItem(item, trigger) {
     state.settings = await api("/api/settings");
     renderRoots();
     await loadLibrary();
-    notifyScan(result.scan, "记录已删除，扫描完成");
+    if (result.failed?.length) showToast("部分文件未能移入废纸篓：" + result.failed.map(x=>x.message).join("；"));
+    else notifyScan(result.scan, "已移入废纸篓");
   } catch (error) {
     showToast(error.message);
   } finally {

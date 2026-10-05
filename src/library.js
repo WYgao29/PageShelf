@@ -1,8 +1,9 @@
 import { createHash } from "node:crypto";
 import { constants as fsConstants } from "node:fs";
-import { lstat, open, readdir, readFile, realpath, stat, unlink } from "node:fs/promises";
+import { lstat, open, readdir, readFile, realpath, stat } from "node:fs/promises";
 import path from "node:path";
 
+import { createTrashService } from "./trash.js";
 const SUPPORTED_EXTENSIONS = new Set([".html", ".htm", ".mhtml", ".mht", ".md"]);
 const FORMAT_EXTENSIONS = {
   html: new Set([".html", ".htm"]),
@@ -283,7 +284,7 @@ function publicItem(item) {
   };
 }
 
-export function createLibrary({ roots = [] } = {}) {
+export function createLibrary({ roots = [], trashService = createTrashService() } = {}) {
   let configuredRoots = roots.map(normalizeRoot);
   let items = new Map();
   let lastScan = {
@@ -466,17 +467,12 @@ export function createLibrary({ roots = [] } = {}) {
       throw error;
     }
 
-    for (const source of item.sourceFiles) {
-      try {
-        await unlink(source.path);
-      } catch (error) {
-        if (["ENOENT", "ELOOP", "ENOTDIR"].includes(error.code)) throw sourceNotFound();
-        throw error;
-      }
-    }
-    items.delete(id);
-    return publicItem(item);
+    const result = await trashService.trashFiles({rootPath: root.path, paths: item.sourceFiles.map(source=>source.path)});
+    if (result.failed.length) await scan(); else items.delete(id);
+    return { ...publicItem(item), trashResult: result };
   }
+
+  async function trashItem(id) { return (await deleteItem(id)).trashResult; }
 
   function getSettings() {
     return {
@@ -554,6 +550,7 @@ export function createLibrary({ roots = [] } = {}) {
     addRoot,
     removeRoot,
     deleteItem,
+    trashItem,
     getSettings,
     readSource,
     readMhtmlView,

@@ -27,7 +27,7 @@ test("creates a local-only LaunchAgent plist with stable paths", () => {
   assert.match(plist, /<key>HOST<\/key>\s*<string>127\.0\.0\.1<\/string>/);
   assert.match(plist, /<key>PORT<\/key>\s*<string>4321<\/string>/);
   assert.match(plist, /<key>RunAtLoad<\/key>\s*<true\/>/);
-  assert.match(plist, /<key>KeepAlive<\/key>\s*<true\/>/);
+  assert.match(plist, /<key>KeepAlive<\/key>\s*<dict>\s*<key>SuccessfulExit<\/key>\s*<false\/>/);
   assert.match(plist, /HTML Library/);
   assert.doesNotMatch(plist, /<string>0\.0\.0\.0<\/string>/);
 });

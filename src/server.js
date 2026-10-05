@@ -177,13 +177,13 @@ async function serveStatic(response, pathname) {
   }
 }
 
-export function createServer({ dataDir = path.join(os.homedir(), ".html-library"), library, authToken = "", chooseDirectory = chooseFolderWithNativeDialog } = {}) {
+export function createServer({ dataDir = path.join(os.homedir(), ".html-library"), library, authToken = "", chooseDirectory = chooseFolderWithNativeDialog, trashService } = {}) {
   const activeDataDir = path.resolve(dataDir);
   let activeLibrary = library;
 
   const ready = (async () => {
     if (!activeLibrary) {
-      activeLibrary = createLibrary({ roots: await readConfig(activeDataDir) });
+      activeLibrary = createLibrary({ roots: await readConfig(activeDataDir), trashService });
     }
     await activeLibrary.scan();
   })();
@@ -223,7 +223,7 @@ export function createServer({ dataDir = path.join(os.homedir(), ".html-library"
       if (itemMatch && method === "DELETE") {
         const item = await activeLibrary.deleteItem(decodeRoutePart(itemMatch[1]));
         const scan = await activeLibrary.scan();
-        sendJson(response, 200, { item, scan });
+        sendJson(response, item.trashResult?.failed.length ? 207 : 200, { item, scan, ...item.trashResult });
         return;
       }
 
@@ -318,7 +318,11 @@ if (isMain) {
   if (!["127.0.0.1", "localhost", "::1"].includes(host) && !authToken) {
     throw new Error("HOST 非本机地址时必须设置 AUTH_TOKEN");
   }
-  const server = createServer({ authToken });
+  const server = createServer({ authToken, dataDir: process.env.HTML_LIBRARY_DATA_DIR || path.join(os.homedir(), ".html-library") });
+  server.on("error", (error) => {
+    if (error.code === "EADDRINUSE") { console.log("服务已在运行（端口 " + port + "）"); process.exitCode = 0; }
+    else { console.error(error.message); process.exitCode = 1; }
+  });
   await server.ready;
   server.listen(port, host, () => {
     console.log("HTML Library listening on http://" + host + ":" + port);

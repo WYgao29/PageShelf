@@ -3,6 +3,7 @@ import { access, mkdtemp, mkdir, rename, symlink, unlink, writeFile } from "node
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { testTrashService } from "./helpers/fixture.js";
 import { createLibrary } from "../src/library.js";
 
 async function createFixture() {
@@ -145,9 +146,9 @@ test("readSource rejects unknown formats and files removed after scanning", asyn
   );
 });
 
-test("deleteItem removes all source files for a record and its index entry", async () => {
+test("deleteItem moves all source files to trash and removes the index entry", async () => {
   const root = await createFixture();
-  const library = createLibrary({ roots: [{ id: "root-a", path: root, label: "我的对话" }] });
+  const library = createLibrary({ trashService: testTrashService, roots: [{ id: "root-a", path: root, label: "我的对话" }] });
   await library.scan();
 
   const item = library.search("统一入口")[0];
@@ -155,6 +156,7 @@ test("deleteItem removes all source files for a record and its index entry", asy
 
   await assert.rejects(access(path.join(root, "统一入口.html")), { code: "ENOENT" });
   await assert.rejects(access(path.join(root, "统一入口.md")), { code: "ENOENT" });
+  await access(path.join(root, "统一入口.html.trashed-test"));
   assert.equal(library.search("统一入口").length, 0);
 });
 

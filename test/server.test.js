@@ -3,6 +3,7 @@ import { access, mkdtemp, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { testTrashService } from "./helpers/fixture.js";
 import { createServer } from "../src/server.js";
 
 async function withServer(callback) {
@@ -12,7 +13,7 @@ async function withServer(callback) {
     path.join(sourceDir, "远程阅读.html"),
     "<html><head><title>远程阅读</title></head><body><p>这是 API 搜索内容。</p></body></html>",
   );
-  const server = createServer({ dataDir });
+  const server = createServer({ dataDir, trashService: testTrashService });
   await server.ready;
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   const address = server.address();
@@ -222,7 +223,7 @@ test("API rejects null JSON bodies with a client error", async () => {
 test("startup ignores invalid persisted roots instead of crashing", async () => {
   const dataDir = await mkdtemp(path.join(os.tmpdir(), "html-library-invalid-config-"));
   await writeFile(path.join(dataDir, "config.json"), JSON.stringify({ roots: [null, { label: "缺路径" }] }));
-  const server = createServer({ dataDir });
+  const server = createServer({ dataDir, trashService: testTrashService });
   await assert.doesNotReject(server.ready);
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   try {
@@ -248,4 +249,15 @@ test("API reports when the native folder picker is cancelled", async () => {
     assert.equal(response.status, 200);
     assert.deepEqual(await response.json(), { cancelled: true });
   });
+});
+
+test('occupied port exits successfully without repeated errors', async()=>{
+ const { createServer: createHttpServer }=await import('node:http');const { spawn }=await import('node:child_process');
+ const blocker=createHttpServer();await new Promise(resolve=>blocker.listen(0,'127.0.0.1',resolve));
+ const dataDir=await mkdtemp(path.join(os.tmpdir(),'html-library-port-'));const port=blocker.address().port;
+ try {
+  const child=spawn(process.execPath,['src/server.js'],{env:{...process.env,HOST:'127.0.0.1',PORT:String(port),HTML_LIBRARY_DATA_DIR:dataDir}});let output='',errors='';child.stdout.on('data',x=>output+=x);child.stderr.on('data',x=>errors+=x);
+  const timer=setTimeout(()=>child.kill(),5000);const code=await new Promise(resolve=>child.on('exit',resolve));clearTimeout(timer);
+  assert.equal(code,0);assert.match(output,new RegExp('服务已在运行.*'+port));assert.equal(errors,'');
+ }finally{await new Promise(resolve=>blocker.close(resolve));}
 });
