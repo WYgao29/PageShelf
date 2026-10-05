@@ -57,4 +57,4 @@
 - [x] 观察键盘用例 RED，确认由快捷键拦截导致。
 - [x] 收窄全局 Enter 处理，保留按钮原生动作。
 - [x] Node 与 Chrome 全套通过；vendor 与 diff 检查通过，提交 `fix: keep native Enter behavior for list buttons`。
-- [ ] 对 `28a5cbf..HEAD` 做只读修复审查，记录问题闭环、测试证据、剩余限制与合并结论。
+- [x] 对 `28a5cbf..5dfab04` 做只读修复审查，记录问题闭环、测试证据、剩余限制与合并结论，见 [复审记录](../../verification/html-library-review-fixes-2026-10-05.md)。
