@@ -1,13 +1,15 @@
 import { createHash } from "node:crypto";
-import { constants as fsConstants } from "node:fs";
-import { lstat, open, readdir, readFile, realpath, stat } from "node:fs/promises";
 import path from "node:path";
 
 import { createRootRegistry, listSourceFiles, rootAvailable, contains } from "./roots.js";
 import { createScheduler } from "./scheduler.js";
 import { readSafeFile, validateSourceFile } from "./source-files.js";
+import { parseHtml } from "./formats/html.js";
+import { parseMhtml, renderMhtml, mhtmlContentType } from "./formats/mhtml.js";
+import { parseMarkdown, markdownText } from "./formats/markdown.js";
+import { extractCandidates, finalizeRootMetadata } from "./metadata.js";
+import { publicItem, searchItems } from "./search.js";
 import { createTrashService } from "./trash.js";
-const SUPPORTED_EXTENSIONS = new Set([".html", ".htm", ".mhtml", ".mht", ".md"]);
 const FORMAT_EXTENSIONS = {
   html: new Set([".html", ".htm"]),
   mhtml: new Set([".mhtml", ".mht"]),
@@ -49,242 +51,10 @@ function isMhtmlExtension(extension) {
   return extension === ".mhtml" || extension === ".mht";
 }
 
-function parseMimeHeaders(value) {
-  const headers = {};
-  let currentName = "";
-  for (const line of value.replace(/\r\n?/g, "\n").split("\n")) {
-    if (/^[ \t]/.test(line) && currentName) {
-      headers[currentName] += " " + line.trim();
-      continue;
-    }
-    const separator = line.indexOf(":");
-    if (separator < 1) continue;
-    currentName = line.slice(0, separator).trim().toLowerCase();
-    headers[currentName] = line.slice(separator + 1).trim();
-  }
-  return headers;
-}
-
-function decodeMhtmlPart(value, transferEncoding = "") {
-  const encoding = transferEncoding.toLowerCase();
-  if (encoding === "base64") {
-    return Buffer.from(value.replace(/\s/g, ""), "base64").toString("utf8");
-  }
-  if (encoding === "quoted-printable") {
-    if (!/=([0-9a-f]{2})|=\r?\n/i.test(value)) return value;
-    const binary = value
-      .replace(/=\r?\n/g, "")
-      .replace(/=([0-9a-f]{2})/gi, (_, hex) => String.fromCharCode(Number.parseInt(hex, 16)));
-    return Buffer.from(binary, "latin1").toString("utf8");
-  }
-  return value;
-}
-
-function decodeMhtmlPartBuffer(value, transferEncoding = "") {
-  const encoding = transferEncoding.toLowerCase();
-  if (encoding === "base64") {
-    return Buffer.from(value.replace(/\s/g, ""), "base64");
-  }
-  if (encoding === "quoted-printable") {
-    const binary = value
-      .replace(/=\r?\n/g, "")
-      .replace(/=([0-9a-f]{2})/gi, (_, hex) => String.fromCharCode(Number.parseInt(hex, 16)));
-    return Buffer.from(binary, "latin1");
-  }
-  return Buffer.from(value, "latin1");
-}
-
-function extractMhtmlHtml(content) {
-  const normalized = content.replace(/\r\n?/g, "\n");
-  const headerEnd = normalized.indexOf("\n\n");
-  if (headerEnd < 0) return content;
-  const headers = parseMimeHeaders(normalized.slice(0, headerEnd));
-  const boundaryMatch = headers["content-type"]?.match(/boundary\s*=\s*(?:"([^"]+)"|([^;\s]+))/i);
-  if (!boundaryMatch) return content;
-  const boundary = boundaryMatch[1] || boundaryMatch[2];
-  for (const part of normalized.slice(headerEnd + 2).split("--" + boundary)) {
-    if (!part.trim() || part.trim() === "--") continue;
-    const partHeaderEnd = part.indexOf("\n\n");
-    if (partHeaderEnd < 0) continue;
-    const partHeaders = parseMimeHeaders(part.slice(0, partHeaderEnd));
-    if (/^text\/html\b/i.test(partHeaders["content-type"] || "")) {
-      return decodeMhtmlPart(part.slice(partHeaderEnd + 2).replace(/\n--?\s*$/g, ""), partHeaders["content-transfer-encoding"]);
-    }
-  }
-  return content;
-}
-
-function mhtmlContentType(content) {
-  const text = (Buffer.isBuffer(content) ? content.toString("latin1", 0, 64 * 1024) : content).replace(/\r\n?/g, "\n");
-  const headerEnd = text.indexOf("\n\n");
-  if (headerEnd < 0) return "multipart/related";
-  const contentType = parseMimeHeaders(text.slice(0, headerEnd))["content-type"] || "";
-  const boundaryMatch = contentType.match(/boundary\s*=\s*(?:"([^"]+)"|([^;\s]+))/i);
-  const boundary = boundaryMatch?.[1] || boundaryMatch?.[2];
-  if (!boundary || /[\r\n"]/.test(boundary)) return "multipart/related";
-  return 'multipart/related; type="text/html"; boundary="' + boundary + '"';
-}
-
-function parseMhtmlArchive(content) {
-  const raw = Buffer.isBuffer(content) ? content.toString("latin1") : content;
-  const normalized = raw.replace(/\r\n?/g, "\n");
-  const headerEnd = normalized.indexOf("\n\n");
-  if (headerEnd < 0) return { headers: {}, parts: [] };
-  const headers = parseMimeHeaders(normalized.slice(0, headerEnd));
-  const boundaryMatch = headers["content-type"]?.match(/boundary\s*=\s*(?:"([^"]+)"|([^;\s]+))/i);
-  if (!boundaryMatch) return { headers, parts: [] };
-  const boundary = boundaryMatch[1] || boundaryMatch[2];
-  const parts = [];
-  for (const part of normalized.slice(headerEnd + 2).split("--" + boundary)) {
-    if (!part.trim() || part.trim() === "--") continue;
-    const partHeaderEnd = part.indexOf("\n\n");
-    if (partHeaderEnd < 0) continue;
-    const partHeaders = parseMimeHeaders(part.slice(0, partHeaderEnd));
-    let body = part.slice(partHeaderEnd + 2);
-    body = body.replace(/\n$/, "");
-    parts.push({ headers: partHeaders, body: decodeMhtmlPartBuffer(body, partHeaders["content-transfer-encoding"]) });
-  }
-  return { headers, parts };
-}
-
-function resourceKey(value, baseLocation = "") {
-  if (!value) return "";
-  const trimmed = value.trim();
-  if (/^cid:/i.test(trimmed)) return "cid:" + trimmed.slice(4).replace(/^<|>$/g, "").toLowerCase();
-  try {
-    return new URL(trimmed, baseLocation || undefined).href;
-  } catch {
-    return trimmed;
-  }
-}
-
-function rewriteCssResources(value, baseLocation, resources) {
-  return value.replace(/url\(\s*(["']?)([^)"']+)\1\s*\)/gi, (match, quote, reference) => {
-    const replacement = resources.get(resourceKey(reference, baseLocation));
-    return replacement ? "url(\"" + replacement + "\")" : match;
-  });
-}
-
-function renderMhtml(content) {
-  const archive = parseMhtmlArchive(content);
-  const htmlPart = archive.parts.find((part) => /^text\/html\b/i.test(part.headers["content-type"] || ""));
-  if (!htmlPart) return Buffer.isBuffer(content) ? content.toString("utf8") : content;
-  const htmlLocation = htmlPart.headers["content-location"] || "";
-  const resources = new Map();
-  for (const part of archive.parts) {
-    if (part === htmlPart) continue;
-    const contentType = (part.headers["content-type"] || "application/octet-stream").split(";", 1)[0].trim();
-    const dataUri = "data:" + contentType + ";base64," + part.body.toString("base64");
-    const location = part.headers["content-location"];
-    const contentId = part.headers["content-id"];
-    if (location) resources.set(resourceKey(location, htmlLocation), dataUri);
-    if (contentId) resources.set(resourceKey("cid:" + contentId, htmlLocation), dataUri);
-  }
-  let html = htmlPart.body.toString("utf8");
-  html = html.replace(/<base\b[^>]*>/gi, "");
-  html = html.replace(/(\b(?:src|href|poster|background)\s*=\s*)(["'])([^"']+)\2/gi, (match, prefix, quote, reference) => {
-    const replacement = resources.get(resourceKey(reference, htmlLocation));
-    return replacement ? prefix + quote + replacement + quote : match;
-  });
-  html = html.replace(/(\bstyle\s*=\s*)(["'])([\s\S]*?)\2/gi, (match, prefix, quote, style) => prefix + quote + rewriteCssResources(style, htmlLocation, resources) + quote);
-  html = html.replace(/(<style\b[^>]*>)([\s\S]*?)(<\/style>)/gi, (match, open, style, close) => open + rewriteCssResources(style, htmlLocation, resources) + close);
-  return html;
-}
-
-function decodeEntities(value) {
-  return value
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">")
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;/gi, "'");
-}
-
-function stripHtml(value) {
-  return decodeEntities(
-    value
-      .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, " ")
-      .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, " ")
-      .replace(/<[^>]+>/g, " ")
-      .replace(/\s+/g, " ")
-      .trim(),
-  );
-}
-
-function markdownText(value) {
-  return value
-    .replace(/\x60\x60\x60[\s\S]*?\x60\x60\x60/g, " ")
-    .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1")
-    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
-    .replace(/[#>*_\x60~-]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function extractTitle(extension, content, fallback) {
-  if (extension === ".md") {
-    const heading = content.match(/^\s{0,3}#\s+(.+?)\s*$/m);
-    return heading?.[1].replace(/[*_\x60]/g, "").trim() || fallback;
-  }
-
-  const htmlContent = isMhtmlExtension(extension) ? extractMhtmlHtml(content) : content;
-  const title = htmlContent.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i);
-  if (title?.[1]) return stripHtml(title[1]);
-  const heading = htmlContent.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/i);
-  return heading?.[1] ? stripHtml(heading[1]) : fallback;
-}
-
 function relativeStem(rootPath, filePath) {
   const relative = path.relative(rootPath, filePath);
   const extension = path.extname(relative);
   return relative.slice(0, -extension.length).split(path.sep).join("/");
-}
-
-function isInsideRoot(rootPath, candidatePath) {
-  const relative = path.relative(rootPath, candidatePath);
-  return relative === "" || (relative !== ".." && !relative.startsWith(".." + path.sep) && !path.isAbsolute(relative));
-}
-
-async function walkDirectory(directory) {
-  const entries = await readdir(directory, { withFileTypes: true });
-  const files = [];
-  for (const entry of entries) {
-    const entryPath = path.join(directory, entry.name);
-    if (entry.isDirectory()) {
-      files.push(...(await walkDirectory(entryPath)));
-    } else if (entry.isFile() && SUPPORTED_EXTENSIONS.has(path.extname(entry.name).toLowerCase())) {
-      files.push(entryPath);
-    }
-  }
-  return files;
-}
-
-function publicSource(source) {
-  if (!source) return null;
-  return {
-    extension: source.extension,
-    filename: source.filename,
-    size: source.size,
-    updatedAt: source.updatedAt,
-  };
-}
-
-function publicItem(item) {
-  return {
-    id: item.id,
-    title: item.title,
-    relativePath: item.relativePath,
-    directory: item.directory,
-    rootId: item.rootId,
-    rootLabel: item.rootLabel,
-    html: publicSource(item.html),
-    mhtml: publicSource(item.mhtml),
-    markdown: publicSource(item.markdown),
-    updatedAt: item.updatedAt,
-    size: item.size,
-    snippet: item.snippet,
-  };
 }
 
 export function createLibrary({ roots = [], rootRegistry, scanFile, trashService = createTrashService() } = {}) {
@@ -294,8 +64,8 @@ export function createLibrary({ roots = [], rootRegistry, scanFile, trashService
   const indexes = new Map();
   let lastScan = { completedAt: null, durationMs: 0, stats: { roots: 0, files: 0, items: 0 }, errors: [] };
   async function defaultScanFile(file, { rootPath }) {
-    const { buffer } = await readSafeFile(rootPath, file), extension = path.extname(file).toLowerCase(), content = buffer.toString('utf8');
-    return { title: extractTitle(extension, content, path.basename(file, extension)), bodyText: extension === '.md' ? markdownText(content) : stripHtml(isMhtmlExtension(extension) ? renderMhtml(buffer) : content) };
+    const { buffer } = await readSafeFile(rootPath, file), extension = path.extname(file).toLowerCase(), parsed = extension === '.md' ? parseMarkdown(buffer) : isMhtmlExtension(extension) ? parseMhtml(buffer) : parseHtml(buffer);
+    return extractCandidates({ html: parsed.html, markdown: extension === '.md' ? parsed : null, format: extension === '.md' ? 'markdown' : isMhtmlExtension(extension) ? 'mhtml' : 'html', filename: path.basename(file, extension) });
   }
   async function scanRoot(rootId, options = {}) {
     await initialized;
@@ -340,12 +110,13 @@ export function createLibrary({ roots = [], rootRegistry, scanFile, trashService
     for (const [relativePath, group] of groups) {
       const preferred = group.html || group.mhtml || group.markdown, title = preferred.title || path.basename(relativePath), bodyText = group.files.map(source => source.bodyText).filter(Boolean).join(' '), id = rootId + ':' + createId(relativePath);
       itemsMap.set(id, { id, title, titleRaw: title, relativePath, directory: path.dirname(relativePath) === '.' ? '/' : path.dirname(relativePath).split(path.sep).join('/'), rootId, rootLabel: root.label, rootOrder: root.order,
-        html: group.html || null, mhtml: group.mhtml || null, markdown: group.markdown || null, sourceFiles: group.files, formats: ['html', 'mhtml', 'markdown'].filter(format => group[format]),
-        updatedAt: group.files.map(source => source.updatedAt).sort().at(-1), size: group.files.reduce((total, source) => total + source.size, 0), snippet: bodyText.slice(0, 220), excerpt: [...bodyText].slice(0, 120).join(''), searchText: bodyText, tags: [], headings: [], readingMinutes: Math.max(1, Math.ceil([...bodyText].length / 500)), series: null });
+        candidates: [preferred, ...(group.markdown && group.markdown !== preferred ? [group.markdown] : [])].flatMap(source => source.candidates || []).sort((a,b)=>a.priority-b.priority), bodyText: preferred.bodyText || bodyText, site: preferred.site || null, author: preferred.author || null, publishedAt: preferred.publishedAt || null, html: group.html || null, mhtml: group.mhtml || null, markdown: group.markdown || null, sourceFiles: group.files, formats: ['html', 'mhtml', 'markdown'].filter(format => group[format]),
+        updatedAt: group.files.map(source => source.updatedAt).sort().at(-1), size: group.files.reduce((total, source) => total + source.size, 0), snippet: bodyText.slice(0, 220), excerpt: [...bodyText].slice(0, 120).join(''), searchText: bodyText, tags: [...new Set(group.files.flatMap(source=>source.tags || []))], headings: preferred.headings || [], readingMinutes: Math.max(1, Math.ceil([...bodyText].length / 500)), series: null });
     }
     if (registry.revision(rootId) !== revision || !registry.get(rootId)) { if (registry.get(rootId)) scheduler.enqueue(rootId, {}); return; }
-    indexes.set(rootId, { itemsMap, filesMap, seriesMap: new Map(), state: issues.length ? 'warning' : 'ok' });
-    registry.setIndexState(rootId, { state: issues.length ? 'warning' : 'ok', issues, counts: { items: itemsMap.size, files: filesMap.size, series: 0 }, lastScan: { completedAt: new Date().toISOString(), durationMs: Date.now() - started } });
+    const finalized = finalizeRootMetadata(itemsMap, { rootId, seriesMode: root.options?.series || 'auto' });
+    indexes.set(rootId, { itemsMap: finalized.items, filesMap, seriesMap: finalized.series, state: issues.length ? 'warning' : 'ok' });
+    registry.setIndexState(rootId, { state: issues.length ? 'warning' : 'ok', issues, counts: { items: itemsMap.size, files: filesMap.size, series: finalized.series.size }, lastScan: { completedAt: new Date().toISOString(), durationMs: Date.now() - started } });
     const snapshot = getSnapshot();
     lastScan = { completedAt: new Date().toISOString(), durationMs: Date.now() - started, stats: { roots: registry.list().length, files: snapshot.fileCount, items: snapshot.items.length }, errors: registry.list().flatMap(root => root.issues || []) };
     return snapshot;
@@ -356,10 +127,7 @@ export function createLibrary({ roots = [], rootRegistry, scanFile, trashService
     return { items, series, roots: registry.list(), fileCount: visible.reduce((total, root) => total + (indexes.get(root.id)?.filesMap.size || 0), 0) };
   }
   async function scan(options = {}) { await initialized; registry.list().forEach(root => scheduler.enqueue(root.id, options)); await scheduler.waitForIdle(); return { items: getSnapshot().items.map(publicItem), stats: lastScan.stats, errors: lastScan.errors }; }
-  function search(query = '', filters = {}) {
-    const terms = query.toLowerCase().trim().split(/\s+/).filter(Boolean);
-    return getSnapshot().items.filter(item => (!filters.rootId || item.rootId === filters.rootId) && (!filters.format || (filters.format === 'html' ? item.html || item.mhtml : item[filters.format])) && terms.every(term => [item.title, item.relativePath, item.rootLabel, item.searchText].join(' ').toLowerCase().includes(term))).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).map(publicItem);
-  }
+  function search(query = '', filters = {}) { return searchItems(getSnapshot(), { q: query, roots: filters.rootId, fmt: filters.format, limit: 500, sort: 'updated' }).items; }
   function getItem(id) { return getSnapshot().items.find(item => item.id === id) || null; }
   async function addRoot(rootPath, label) { await initialized; return (await registry.applyChange({ type: 'add', input: { path: rootPath, label } })).root; }
   async function removeRoot(id) { await initialized; if (!registry.get(id)) return false; await registry.applyChange({ type: 'remove', id }); indexes.delete(id); return true; }
@@ -385,5 +153,6 @@ export function createLibrary({ roots = [], rootRegistry, scanFile, trashService
     return { content: format === 'mhtml' ? buffer : buffer.toString('utf8'), buffer, stat: info, path: canonical, contentType: format === 'html' ? 'text/html; charset=utf-8' : format === 'mhtml' ? mhtmlContentType(buffer) : 'text/plain; charset=utf-8', fileName: source.filename };
   }
   async function readMhtmlView(id) { const source = await readSource(id, 'mhtml'); return { ...source, content: renderMhtml(source.buffer), contentType: 'text/html; charset=utf-8', fileName: source.fileName.replace(/\.(?:mhtml|mht)$/i, '.html') }; }
-  return { scan, scanRoot, scheduler, registry, getSnapshot, search, getItem, addRoot, removeRoot, deleteItem, trashItem, readSource, readMhtmlView, getSettings: () => ({ roots: registry.list(), lastScan }), invalidateRoot: id => registry.invalidate(id), refreshItem: async id => { const item = getItem(id); if (item) await scanRoot(item.rootId); return getItem(id); } };
+  function recomputeMetadata(id) { const index = indexes.get(id), root = registry.get(id); if (!index || !root) return; const finalized = finalizeRootMetadata(index.itemsMap, { rootId: id, seriesMode: root.options?.series || 'auto' }); index.itemsMap = finalized.items; index.seriesMap = finalized.series; registry.setIndexState(id, { counts: { ...root.counts, series: finalized.series.size } }); }
+  return { scan, scanRoot, recomputeMetadata, scheduler, registry, getSnapshot, search, getItem, addRoot, removeRoot, deleteItem, trashItem, readSource, readMhtmlView, getSettings: () => ({ roots: registry.list(), lastScan }), invalidateRoot: id => registry.invalidate(id), refreshItem: async id => { const item = getItem(id); if (item) await scanRoot(item.rootId); return getItem(id); } };
 }

@@ -10,6 +10,8 @@ import { createLibrary } from "./library.js";
 import { createConfigStore } from "./config.js";
 import { createRootRegistry } from "./roots.js";
 import { handle as handleRoots } from "./routes/roots.js";
+import { createDocumentCache } from "./cache.js";
+import { handle as handleItems } from "./routes/items.js";
 import { handle as handleSystem } from "./routes/system.js";
 
 const currentDirectory = path.dirname(fileURLToPath(import.meta.url));
@@ -18,6 +20,7 @@ const contentTypes = {
   ".css": "text/css; charset=utf-8",
   ".html": "text/html; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
+  ".mjs": "text/javascript; charset=utf-8",
   ".json": "application/json; charset=utf-8",
 };
 const execFile = promisify(execFileCallback);
@@ -155,6 +158,7 @@ export function createServer({ dataDir = path.join(os.homedir(), ".html-library"
 
   const configStore = createConfigStore({ dataDir: activeDataDir });
   let registry;
+  const cache = createDocumentCache({ directory: path.join(activeDataDir, "cache", "doc") });
   const ready = (async () => {
     if (!activeLibrary) {
       registry = createRootRegistry({ configStore }); await registry.load();
@@ -180,8 +184,8 @@ export function createServer({ dataDir = path.join(os.homedir(), ".html-library"
         body = await readJsonBody(request);
         if (!body || typeof body !== 'object' || Array.isArray(body)) throw Object.assign(new Error('请求需要 JSON 对象'), { code: 'INVALID_JSON', status: 400 });
       }
-      const context = { request, response, url: requestUrl, library: activeLibrary, registry, configStore, sendJson, body, decode: decodeRoutePart, chooseDirectory };
-      if (await handleRoots(context) || await handleSystem(context)) return;
+      const context = { request, response, url: requestUrl, library: activeLibrary, registry, configStore, sendJson, body, decode: decodeRoutePart, chooseDirectory, cache };
+      if (await handleRoots(context) || await handleSystem(context) || await handleItems(context)) return;
 
       if (pathname === "/api/settings" && method === "GET") {
         sendJson(response, 200, activeLibrary.getSettings());
@@ -238,25 +242,6 @@ export function createServer({ dataDir = path.join(os.homedir(), ".html-library"
           return;
         }
         sendJson(response, 200, await activeLibrary.scan());
-        return;
-      }
-
-      const sourceMatch = pathname.match(/^\/api\/items\/([^/]+)\/(source|download)\/([^/]+)$/);
-      if (sourceMatch && method === "GET") {
-        const itemId = decodeRoutePart(sourceMatch[1]);
-        const format = decodeRoutePart(sourceMatch[3]);
-        const source = format === "mhtml" && sourceMatch[2] === "source"
-          ? await activeLibrary.readMhtmlView(itemId)
-          : await activeLibrary.readSource(itemId, format);
-        const disposition = sourceMatch[2] === "download" ? "attachment" : "inline";
-        response.writeHead(200, {
-          "content-type": source.contentType,
-          "content-disposition": disposition + "; filename*=UTF-8''" + encodeURIComponent(source.fileName),
-          "cache-control": "no-store",
-          "content-security-policy": "sandbox; default-src 'none'; img-src data: blob:; style-src 'unsafe-inline' data:; font-src data:; script-src 'none'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'",
-          "x-content-type-options": "nosniff",
-        });
-        response.end(source.content);
         return;
       }
 

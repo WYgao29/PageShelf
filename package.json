@@ -13,6 +13,9 @@
     "service:status": "node src/service.js status",
     "service:stop": "node src/service.js stop",
     "service:uninstall": "node src/service.js uninstall",
-    "test": "node --test"
+    "test": "node --test test/*.test.js",
+    "check": "node scripts/check-vendor.mjs",
+    "test:browser": "node scripts/browser-test.mjs",
+    "benchmark:search": "node scripts/benchmark-search.mjs"
   }
 }
