@@ -6,6 +6,7 @@ import {
   mkdtemp,
   rm,
   realpath,
+  mkdir,
 } from "node:fs/promises";
 import { createServer as createHttpServer } from "node:http";
 import path from "node:path";
@@ -16,6 +17,7 @@ import {
   withTempFixture,
   createLegacyFixture,
   testTrashService,
+  html,
 } from "../test/helpers/fixture.js";
 const root = fileURLToPath(new URL("../", import.meta.url));
 const chrome =
@@ -39,6 +41,13 @@ if (!process.argv.includes("--serve")) {
 }
 await withTempFixture(async (directory) => {
   const fixture = await createLegacyFixture(directory);
+  const trashFixturePath = path.join(directory, "trash-regressions");
+  await mkdir(trashFixturePath);
+  for (let index = 1; index <= 4; index++)
+    await writeFile(
+      path.join(trashFixturePath, `审查回归_0${index}_章节${index}.html`),
+      html(`回归章节${index}`),
+    );
   if (process.argv.includes("--real"))
     await writeFile(
       path.join(fixture.dataDir, "config.json"),
@@ -124,6 +133,7 @@ await withTempFixture(async (directory) => {
             path.join(fixture.rootPath, "腾讯云ADP-FDE认证课程"),
           ),
           dataDir: fixture.dataDir,
+          trashFixturePath,
         }),
       );
       return;

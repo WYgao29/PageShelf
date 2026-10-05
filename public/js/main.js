@@ -215,7 +215,8 @@ const actions = {
   afterTrash: async (result, nextId) => {
     await refreshRoots();
     store.set((state) => ({ indexRevision: state.indexRevision + 1 }));
-    if (!result.failed.length) navigate({ item: nextId || "", view: "reader" });
+    if (!result.failed.length && store.getState().route.item === result.itemId)
+      navigate({ item: nextId || "", view: "reader" });
   },
 };
 const sidebar = mountSidebar(

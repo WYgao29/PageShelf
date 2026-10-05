@@ -42,10 +42,10 @@
 
 **Interfaces:** `afterTrash(result,nextId)` 始终更新资料状态；仅当前条目仍等于 `result.itemId` 且全部成功时导航。
 
-- [ ] 延迟真实临时 Trash 响应，关闭弹窗后打开 B；另延迟 Trash 完成后的 roots 刷新，刷新期间打开 B；断言响应处理后仍显示 B。补仍选中 A 时进入下一篇的正向用例。
-- [ ] `npm run test:browser`：迟到导航用例 RED，其他现有用例保留。
-- [ ] 刷新后核对当前条目，保持 207/500 的原处理路径。
-- [ ] `npm run test:browser` 全通过，提交 `fix: preserve reader selection after delayed trash responses`。
+- [x] 延迟真实临时 Trash 响应，关闭弹窗后打开 B；另延迟 Trash 完成后的 roots 刷新，刷新期间打开 B；断言响应处理后仍显示 B。补仍选中 A 时进入下一篇的正向用例。
+- [x] `npm run test:browser`：迟到导航用例 RED，其他现有用例保留。
+- [x] 刷新后核对当前条目，保持 207/500 的原处理路径。
+- [x] `npm run test:browser` 全通过，提交 `fix: preserve reader selection after delayed trash responses`。
 
 ### Task 3: Enter 保留按钮行为
 

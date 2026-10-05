@@ -528,4 +528,6 @@ export async function runLibraryUiTests({ test, result }) {
   });
   result.uiRows = doc.querySelectorAll("[data-item-id]").length;
   frame.remove();
+  const { runTrashRegressionTests } = await import("./trash-regressions.js");
+  await runTrashRegressionTests({ test, until });
 }
