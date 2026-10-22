@@ -26,7 +26,6 @@ import {
   search,
   trashItem,
 } from "../src/services/items.js";
-import { SOURCE_CSP as routeSourceCsp } from "../src/routes/items.js";
 import {
   assertKnownRoot,
   listRoots,
@@ -129,7 +128,7 @@ test("root services preview, add, scan, and remove without changing source bytes
     assert.equal(source.headers["x-content-type-options"], "nosniff");
     assert.match(source.headers["content-disposition"], /^inline; filename\*=UTF-8''/);
     assert.match(String(source.body), /远程阅读/);
-    assert.equal(routeSourceCsp, SOURCE_CSP);
+    assert.match(SOURCE_CSP, /script-src 'none'/);
 
     const queued = scanAll({ library, registry, full: false });
     assert.equal(queued.status, 202);

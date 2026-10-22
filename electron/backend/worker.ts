@@ -11,7 +11,6 @@ const parentPort = (process as NodeJS.Process & { parentPort?: ParentPort })
 
 if (!parentPort) throw new Error("库进程必须由主进程启动");
 
-delete process.env.AUTH_TOKEN;
 delete process.env.PORT;
 delete process.env.HOST;
 

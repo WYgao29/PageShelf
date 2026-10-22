@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { resolveWikilink } from "../public/js/reader/wiki.js";
+import { resolveWikilink } from "../src-ui/src/reader/wiki.js";
 test("wikilinks prefer same folder then unique root and reject ambiguous missing or outside", () => {
   const item = { rootId: "r", relativePath: "notes/a" };
   const items = [

@@ -1,9 +1,9 @@
 import readabilityUrl from "../../vendor/readability-0.6.0/Readability.js?url";
 import DOMPurify from "../../vendor/dompurify-3.4.16/purify.es.mjs";
-import { matchSite, selectorString } from "../shared/site-rules.js";
+import { matchSite, selectorString } from "../../../shared/site-rules.js";
 import { renderMarkdown } from "./markdown.js";
 import { createFind } from "./find.js";
-import { stripPresentation } from "../shared/html-source.js";
+import { stripPresentation } from "../../../shared/html-source.js";
 export const PURIFY_CONFIG = {
   ALLOWED_TAGS: [
     "p",

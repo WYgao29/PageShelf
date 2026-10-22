@@ -1,4 +1,4 @@
-import { attributes } from "../src-ui/src/shared/html-source.js";
+import { attributes } from "../shared/html-source.js";
 import { externalUrlDecision, isItemId } from "../shared/pageshelf-contract.js";
 
 export function sourceExternalLink(url) {

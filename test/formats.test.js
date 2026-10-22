@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { parseMhtml, renderMhtml } from "../src/formats/mhtml.js";
-import { parseMarkdownSource } from "../public/js/shared/markdown-source.js";
+import { parseMarkdownSource } from "../shared/markdown-source.js";
 import { stripPresentation } from "../src/html-scan.js";
 test("presentation pre-pass preserves quoted text, code and selector attributes", () => {
   const source =

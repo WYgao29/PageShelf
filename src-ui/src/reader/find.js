@@ -1,4 +1,4 @@
-import { findRanges, parseQuery } from "../shared/text-search.js";
+import { findRanges, parseQuery } from "../../../shared/text-search.js";
 export function createFind({ article, query = "", onChange = () => {} }) {
   const nodes = [],
     walker = document.createTreeWalker(article, NodeFilter.SHOW_TEXT, {

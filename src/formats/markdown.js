@@ -1,4 +1,4 @@
-import { parseMarkdownSource } from "../../public/js/shared/markdown-source.js";
+import { parseMarkdownSource } from "../../shared/markdown-source.js";
 export const parseMarkdown = (content) =>
   parseMarkdownSource(
     Buffer.isBuffer(content) ? content.toString("utf8") : content,

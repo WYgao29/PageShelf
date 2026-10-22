@@ -1,0 +1,23 @@
+{
+  "mode": "Electron utilityProcess",
+  "baselineKind": "same corpus, current Node process; M0 has no recorded benchmark",
+  "baseline": {
+    "items": 500,
+    "bodyCharacters": 1500,
+    "iterations": 20,
+    "medianMs": 21.39183300000002,
+    "p95Ms": 23.314959,
+    "node": "v24.22.0",
+    "cpu": "Apple M1 Max"
+  },
+  "worker": {
+    "items": 500,
+    "bodyCharacters": 1500,
+    "iterations": 20,
+    "medianMs": 19.004332999999974,
+    "p95Ms": 19.375166999999976,
+    "node": "v24.22.0",
+    "cpu": "Apple M1 Max"
+  },
+  "p95Ratio": 0.8310187034856023
+}

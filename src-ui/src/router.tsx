@@ -1,42 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 
-export type Route = {
-  rootId: string; seriesKey: string; folder: string; q: string;
-  scope: "root" | "all"; fmt: string; kind: string;
-  sort: string; item: string; view: "reader" | "original" | "markdown"; settings: boolean;
-};
-
-const decode = (value: string) => { try { return decodeURIComponent(value); } catch { return ""; } };
-export function parseRoute(input = "/"): Route {
-  let url: URL;
-  try { url = new URL(input.replace(/^#/, "") || "/", "https://local"); }
-  catch { url = new URL("https://local/"); }
-  const match = url.pathname.match(/^\/r\/([^/]+)(?:\/(s|f)\/(.+))?$/);
-  const rootId = match ? decode(match[1]) : "";
-  const seriesKey = match?.[2] === "s" ? decode(match[3]) : "";
-  const p = url.searchParams;
-  const q = (p.get("q") || "").slice(0, 500);
-  const allowed = (key: string, values: string[], fallback = "") => values.includes(p.get(key) || "") ? p.get(key)! : fallback;
-  return {
-    rootId, seriesKey, folder: match?.[2] === "f" ? decode(match[3]) : "", q,
-    scope: rootId && p.get("scope") !== "all" ? "root" : "all",
-    fmt: allowed("fmt", ["html", "mhtml", "markdown"]), kind: allowed("kind", ["series", "single"]),
-    sort: allowed("sort", ["relevance", "updated", "title", "series"], q ? "relevance" : seriesKey ? "series" : "updated"),
-    item: p.get("item") || "", view: allowed("view", ["original", "markdown"], "reader") as Route["view"],
-    settings: p.get("settings") === "roots" || url.pathname === "/settings/roots",
-  };
-}
-
-export function serializeRoute(route: Route) {
-  const pathname = route.rootId ? "/r/" + encodeURIComponent(route.rootId) +
-    (route.seriesKey ? "/s/" + encodeURIComponent(route.seriesKey) : route.folder ? "/f/" + route.folder.split("/").map(encodeURIComponent).join("/") : "") : "/";
-  const p = new URLSearchParams();
-  for (const key of ["q", "fmt", "kind", "item", "sort"] as const) if (route[key]) p.set(key, route[key]);
-  if (route.rootId && route.scope === "all") p.set("scope", "all");
-  if (route.view !== "reader") p.set("view", route.view);
-  if (route.settings) p.set("settings", "roots");
-  return pathname + (p.size ? "?" + p : "");
-}
+import { parseRoute, serializeRoute, type Route } from "../../shared/routes.js";
+export { parseRoute, serializeRoute };
+export type { Route };
 
 type RouterValue = { route: Route; navigate: (patch: Partial<Route>, replace?: boolean) => void };
 const Router = createContext<RouterValue | null>(null);

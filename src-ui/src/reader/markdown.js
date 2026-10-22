@@ -1,5 +1,5 @@
 import { Marked } from "../../vendor/marked-18.0.14/marked.esm.js";
-import { parseMarkdownSource } from "../shared/markdown-source.js";
+import { parseMarkdownSource } from "../../../shared/markdown-source.js";
 import { resolveWikilink } from "./wiki.js";
 const escape = (text) =>
   String(text).replace(

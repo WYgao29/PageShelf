@@ -5,7 +5,7 @@ import {
   normalizeWithMap,
   findRanges,
   parseQuery,
-} from "../public/js/shared/text-search.js";
+} from "../shared/text-search.js";
 const make = (id, title, body, extra = {}) => ({
   id,
   title,

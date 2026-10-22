@@ -4,7 +4,7 @@ import {
   findRanges,
   normalizeText,
   parseQuery,
-} from "../public/js/shared/text-search.js";
+} from "../shared/text-search.js";
 export function publicItem(item) {
   const source = (format) =>
     item[format]

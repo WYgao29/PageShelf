@@ -388,13 +388,10 @@ export function externalUrlDecision(url, { confirmed } = {}) {
 
 export function desktopWorkerEnv(baseEnv, dataDir) {
   const env = {};
-  for (const [key, value] of Object.entries(baseEnv || {})) {
-    if (typeof value === "string") env[key] = value;
+  for (const key of ["PATH", "HOME", "TMPDIR", "TEMP", "TMP", "LANG", "LC_ALL", "LC_CTYPE", "TZ", "USER", "LOGNAME", "SHELL", "FORCE_COLOR", "NO_COLOR", "PAGESHELF_TEST", "PAGESHELF_TEST_TRASH"]) {
+    if (typeof baseEnv?.[key] === "string") env[key] = baseEnv[key];
   }
   env.HTML_LIBRARY_DATA_DIR = dataDir;
-  delete env.AUTH_TOKEN;
-  delete env.PORT;
-  delete env.HOST;
   if (env.FORCE_COLOR) delete env.NO_COLOR;
   return env;
 }

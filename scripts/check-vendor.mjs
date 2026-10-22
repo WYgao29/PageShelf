@@ -6,7 +6,7 @@ const argument = process.argv.indexOf("--vendor-dir");
 const directory =
   argument >= 0
     ? process.argv[argument + 1]
-    : fileURLToPath(new URL("../public/vendor/", import.meta.url));
+    : fileURLToPath(new URL("../src-ui/vendor/", import.meta.url));
 const files = {
   "marked-18.0.14/marked.esm.js":
     "528a1b88bef88fc27277e06036ce7f4afb6a220b18110ba57c09e292b24a7ce0",

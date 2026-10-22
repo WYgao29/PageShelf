@@ -6,4 +6,4 @@ export {
   stripElements,
   stripHtml,
   stripPresentation,
-} from "../public/js/shared/html-source.js";
+} from "../shared/html-source.js";

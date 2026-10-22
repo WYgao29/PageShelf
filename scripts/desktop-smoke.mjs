@@ -14,7 +14,6 @@ const electronPath = createRequire(import.meta.url)("electron");
 
 function cleanEnv(extra = {}) {
   const env = { ...process.env, ...extra };
-  delete env.AUTH_TOKEN;
   delete env.PORT;
   delete env.HOST;
   delete env.ELECTRON_RUN_AS_NODE;

@@ -35,7 +35,7 @@ function boot(options: {
     },
   };
   vm.runInNewContext(
-    readFileSync(path.join(process.cwd(), "src-ui/public/theme-boot.js"), "utf8"),
+    readFileSync(path.join(process.cwd(), "src-ui/static/theme-boot.js"), "utf8"),
     context,
   );
   return root;

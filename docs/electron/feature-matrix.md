@@ -404,3 +404,13 @@ M4 新增或改写：`src-ui/src/library.ts`、`library-context.tsx`、`sidebar.
 - `scripts/make-icon.sh` 从原 1024 PNG 生成 `.icns`，反解后逐文件校验 10 个尺寸（16–1024 px）；打包图标与生成图标的 SHA-256 相同。打包器提示可选的新版 `.icon` 文件不存在，实际 `.icns` 已正确写入并由 plist 引用。
 - `npm run test:package`：PACKAGE_SMOKE_OK，真实生产协议加载，1440/1280/960 × 亮暗共六组布局；5 个应用进程都无监听端口，退出后全部消失，无 WORKER_STOPPED 日志。node:test 97/97；构建、图标与许可证检查通过。没有截图。
 - 应用未签名/未公证；在 Finder 中可右键“打开”。最终交付包会在 M9/M10 后重建。
+
+## M9 移除旧浏览器版（2026-10-22）
+
+- 旧网页目录、HTTP 路由/服务、launchd 安装脚本、浏览器专用测试/截图脚本均已删除，逐文件清单见 `removed-web-files.txt`；README 已改为桌面应用安装、功能、数据、恢复和开发说明。
+- 公共纯逻辑集中到 `shared/`，新 UI 的静态首帧脚本放在 `src-ui/static/`。按用户 2026-10-22 的明确批准，仅修改 `formats.test.js`、`markdown.test.js`、`search.test.js` 的导入路径，内容与断言不变。其他受保护纯模块测试与 main 相同。
+- 原 `ui.test.js` 的三个窗格/首帧主题覆盖由 App/主题 boot Vitest 和真实布局检查接管；四个 launchd 专属测试随已删除的产品 API 退役；旧 store 不再存在，其订阅测试退役，路由往返断言仍保留并运行共享实现。服务测试不再比较已删除 HTTP 壳的 CSP 再导出，改为直接验证服务 CSP 的脚本禁止规则。
+- 最终脚本只保留 dev/build/test/check/icons/package:mac/benchmark:search。`npm test` 统一执行 node:test 91/91、Vitest 79/79、构建与 Electron E2E 11/11；vendor 检查通过。
+- 产品代码扫描 `AUTH_TOKEN|127\.0\.0\.1:4321|createServer|public/` 无匹配。测试仍保留用来证明旧令牌不会传给 worker、不会启动服务的负向断言文字；历史文档不是运行代码。worker 环境改为明确的环境变量白名单。
+- 搜索基准已在真实 Electron utilityProcess 执行，完整数据见 `search-benchmark.json`。M0 未测量性能，故本次提供同一 500×1500 字语料的 Node 进程对照，不冒充 M0 历史数据。
+- 用户随后明确授权删除不用的旧服务：已 bootout `gui/501/com.local.html-conversation-library`、删除 LaunchAgent plist；复查 launchctl 返回 113、plist 不存在、旧 PID 25682 已消失。资料库配置和源文章保留。

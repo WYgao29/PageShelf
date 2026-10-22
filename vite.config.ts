@@ -3,6 +3,7 @@ import { defineConfig } from "vite";
 
 export default defineConfig({
   root: "src-ui",
+  publicDir: "static",
   base: "./",
   server: {
     host: "127.0.0.1",

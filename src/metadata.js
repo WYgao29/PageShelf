@@ -6,7 +6,7 @@ import {
   stripElements,
   stripHtml,
 } from "./html-scan.js";
-import { SITE_RULES, matchSite } from "../public/js/shared/site-rules.js";
+import { SITE_RULES, matchSite } from "../shared/site-rules.js";
 import { markdownText } from "./formats/markdown.js";
 export function seriesParts(stem) {
   const name = path.posix.basename(stem),

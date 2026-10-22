@@ -15,7 +15,6 @@ const FILLER_ROOTS = 36;
 
 function cleanEnv(extra = {}) {
   const env = { ...process.env, ...extra };
-  delete env.AUTH_TOKEN;
   delete env.PORT;
   delete env.HOST;
   delete env.ELECTRON_RUN_AS_NODE;
