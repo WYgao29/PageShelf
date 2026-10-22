@@ -96,7 +96,7 @@ html[data-titlebar="hidden"] {
   --titlebar-height: 0px;
 }
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-duration: 1ms !important; transition-duration: 1ms !important; }
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
 
 body { font: var(--fw-regular) var(--fs-14)/22px var(--font-ui); -webkit-font-smoothing: antialiased; }

@@ -14,6 +14,17 @@ function menuRoot() {
   return document.querySelector("dialog[open]") ?? document.body;
 }
 
+export function menuPosition({ x, y, width, height, viewportWidth, viewportHeight, anchorTop }: {
+  x: number; y: number; width: number; height: number; viewportWidth: number; viewportHeight: number; anchorTop?: number;
+}) {
+  const margin = 16;
+  const left = Math.max(margin, Math.min(x, viewportWidth - width - margin));
+  const below = y + (anchorTop === undefined ? 0 : 4);
+  const above = (anchorTop ?? y) - height - (anchorTop === undefined ? 0 : 4);
+  const top = Math.max(margin, Math.min(below + height > viewportHeight - margin && above >= margin ? above : below, viewportHeight - height - margin));
+  return { left, top, origin: `${Math.max(0, Math.min(width, x - left))}px ${top < y ? height : 0}px` };
+}
+
 export function Menu({
   items,
   x,
@@ -37,10 +48,13 @@ export function Menu({
     const menu = ref.current;
     if (!menu) return;
     const rect = menu.getBoundingClientRect();
-    const margin = 16;
-    menu.style.left = Math.max(margin, Math.min(x, window.innerWidth - rect.width - margin)) + "px";
-    menu.style.top = Math.max(margin, Math.min(y, window.innerHeight - rect.height - margin)) + "px";
-  }, [x, y, items]);
+    const anchor = returnFocus?.getBoundingClientRect();
+    const position = menuPosition({ x, y, width: menu.offsetWidth || rect.width, height: menu.offsetHeight || rect.height, viewportWidth: window.innerWidth, viewportHeight: window.innerHeight, ...(anchor && Math.abs(anchor.bottom - y) < 2 ? { anchorTop: anchor.top } : {}) });
+    menu.style.left = position.left + "px";
+    menu.style.top = position.top + "px";
+    menu.style.setProperty("--menu-origin", position.origin);
+    menu.style.setProperty("--menu-enter-direction", position.top < y ? "1" : "-1");
+  }, [x, y, items, returnFocus]);
 
   useEffect(() => {
     const close = () => closeRef.current();

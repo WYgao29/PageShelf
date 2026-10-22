@@ -217,12 +217,12 @@ export function Sidebar() {
         })}
       </div>
       <footer className="sidebar-footer">
-        <button type="button" className="add-source" onClick={() => library.openManager({ focusAdd: true })}>
-          ＋ 添加目录
+        <button type="button" className="add-source" aria-label="添加来源目录" onClick={() => library.openManager({ focusAdd: true })}>
+          <Icon name="plus" /> 添加目录
         </button>
         <div className="sidebar-bottom">
           <button type="button" className="text-button" onClick={() => library.openManager()}>
-            ⚙ 设置
+            <Icon name="settings" /> 设置
           </button>
           <button
             type="button"
@@ -230,7 +230,7 @@ export function Sidebar() {
             disabled={library.busy}
             onClick={() => void library.rescan().catch((error) => library.toast(errorMessage(error), true))}
           >
-            ↻ 全部重扫
+            <Icon name="refresh" /> 全部重扫
           </button>
           <span className="last-scanned">{library.busy ? "扫描中" : "上次 " + formatDate(latestScan(roots))}</span>
         </div>

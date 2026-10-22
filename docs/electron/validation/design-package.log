@@ -1,0 +1,41 @@
+
+> html-conversation-library@0.1.0 package:mac
+> npm run build && npm run icons && node scripts/package-mac.mjs
+
+
+> html-conversation-library@0.1.0 build
+> tsc -p tsconfig.ui.json --noEmit && vite build && node scripts/build-notices.mjs && tsc -p tsconfig.electron.json --noEmit && node scripts/build-electron.mjs
+
+vite v8.3.5 building client environment for production...
+transforming...
+✓ 51 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                                     0.44 kB │ gzip:   0.27 kB
+dist/assets/pageshelf-mark-C8s1nbeH.svg             0.54 kB │ gzip:   0.22 kB
+dist/assets/pageshelf-mark-dark-AxyLMK95.svg        0.54 kB │ gzip:   0.22 kB
+dist/assets/pageshelf-logo-DYbpa1LB.svg             4.19 kB │ gzip:   1.55 kB
+dist/assets/pageshelf-logo-dark-CPd51x12.svg        4.19 kB │ gzip:   1.56 kB
+dist/assets/SpaceGrotesk-Variable-CzOCAti0.woff2   49.25 kB
+dist/assets/Readability-DeYwLZA3.js                89.98 kB
+dist/assets/InterVariable-DiVDrmQJ.woff2          352.24 kB
+dist/assets/index-BpynxccQ.css                     32.96 kB │ gzip:   6.98 kB
+dist/assets/index-CyQfBLfp.js                     377.30 kB │ gzip: 120.56 kB
+
+✓ built in 94ms
+LICENSES_PACKAGED 6 notices
+
+  dist-electron/backend/worker.js      106.6kb
+  dist-electron/main.js                 57.2kb
+  dist-electron/backend/worker.js.map  209.5kb
+  dist-electron/main.js.map            127.1kb
+
+⚡ Done in 9ms
+
+> html-conversation-library@0.1.0 icons
+> bash scripts/make-icon.sh
+
+ICON_VERIFIED 10 sizes (16–1024 px)
+Packaging app for platform darwin arm64 using electron v45.0.0
+WARNING: Could not find icon "/Users/weisengao/Documents/ChatGPT/HTML 知识库/build/icon.icns" with extension ".icon", skipping this app icon format
+PACKAGED /Users/weisengao/Documents/ChatGPT/HTML 知识库/release/PageShelf-darwin-arm64/PageShelf.app

@@ -49,7 +49,7 @@ try {
   });
   await check("production custom-protocol shell and native-folder preflight", async () => {
     assert.ok(page.url().startsWith("pageshelf://app/"));
-    await page.getByRole("button", { name: "＋ 添加目录" }).click();
+    await page.getByRole("button", { name: "添加来源目录" }).click();
     const manager = page.getByRole("dialog", { name: "目录管理" });
     await manager.getByLabel("目录路径", { exact: true }).fill(source);
     await manager.getByLabel("新目录显示名").fill("验收夹具");
@@ -92,6 +92,67 @@ try {
     await page.getByRole("radio", { name: "跟随系统", exact: true }).click();
     await page.getByRole("tab", { name: "阅读视图", exact: true }).click();
   });
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.evaluate(() => {
+    globalThis.__motionSamples = [];
+    const seen = new WeakSet();
+    globalThis.__motionObserver = new MutationObserver(() => {
+      for (const element of document.querySelectorAll(".menu, dialog[open]")) {
+        if (seen.has(element)) continue;
+        seen.add(element);
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          if (!element.isConnected) return;
+          globalThis.__motionSamples.push({ kind: element.matches(".menu") ? "menu" : "dialog", input: document.documentElement.dataset.input,
+            animations: element.getAnimations().map(animation => ({ property: animation.transitionProperty, duration: animation.effect.getTiming().duration })),
+            transform: getComputedStyle(element).transform, origin: getComputedStyle(element).transformOrigin });
+        }));
+      }
+    });
+    globalThis.__motionObserver.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ["open"] });
+  });
+  await check("pointer overlays have short compositor transitions and anchored menu origins", async () => {
+    await page.getByLabel("文章操作", { exact: true }).click();
+    await expect.poll(() => page.evaluate(() => globalThis.__motionSamples.filter(sample => sample.kind === "menu").length)).toBeGreaterThan(0);
+    const menu = await page.evaluate(() => globalThis.__motionSamples.filter(sample => sample.kind === "menu").at(-1));
+    assert.equal(menu.input, "pointer");
+    assert.ok(menu.animations.some(animation => animation.property === "transform" && animation.duration === 160), JSON.stringify(menu));
+    assert.ok(menu.animations.every(animation => ["transform", "opacity"].includes(animation.property)), JSON.stringify(menu));
+    const position = await page.getByRole("menu").evaluate(menu => ({ box: menu.getBoundingClientRect().toJSON(), origin: getComputedStyle(menu).transformOrigin }));
+    assert.ok(position.box.left >= 15 && position.box.right <= 1440 - 15 && position.box.width <= 280, JSON.stringify(position));
+    await page.getByRole("menuitem", { name: "条目信息" }).click();
+    await expect.poll(() => page.evaluate(() => globalThis.__motionSamples.filter(sample => sample.kind === "dialog").length)).toBeGreaterThan(0);
+    const dialog = await page.evaluate(() => globalThis.__motionSamples.filter(sample => sample.kind === "dialog").at(-1));
+    assert.equal(dialog.input, "pointer");
+    assert.deepEqual(dialog.animations, [{ property: "opacity", duration: 200 }]);
+    await page.getByRole("button", { name: "关闭弹窗" }).click();
+  });
+  await check("keyboard commands open overlays instantly without animation", async () => {
+    await page.keyboard.press("Shift+m");
+    const dialog = page.getByRole("dialog", { name: "目录管理" });
+    await expect(dialog).toBeVisible();
+    assert.equal(await page.locator("html").getAttribute("data-input"), "keyboard");
+    assert.equal(await dialog.evaluate(node => node.getAnimations().length), 0);
+    assert.equal(await dialog.evaluate(node => getComputedStyle(node).transitionDuration), "0s");
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+  });
+  await check("reduced motion keeps pointer overlays free of movement", async () => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    const button = page.getByLabel("文章操作", { exact: true });
+    const box = await button.boundingBox();
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    assert.equal(await button.evaluate(node => getComputedStyle(node).transform), "none");
+    await page.mouse.up();
+    const menu = page.getByRole("menu");
+    await expect(menu).toBeVisible();
+    const animations = await menu.evaluate(node => node.getAnimations().map(animation => ({ property: animation.transitionProperty, duration: animation.effect.getTiming().duration })));
+    assert.ok(animations.every(animation => animation.property === "opacity" && animation.duration <= 100), JSON.stringify(animations));
+    assert.equal(await menu.evaluate(node => getComputedStyle(node).transform), "none");
+    await page.keyboard.press("Escape");
+    await page.emulateMedia({ reducedMotion: null });
+  });
+  await page.evaluate(() => globalThis.__motionObserver.disconnect());
   await check("all three original-page entry points open a restricted application window", async () => {
     await open("HTML 样例");
     async function verify(trigger) {

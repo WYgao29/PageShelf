@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Icon } from "./components/icons";
 import { Dialog } from "./components/dialog";
 import { Menu } from "./components/menu";
 import { invoke, type Item, type ItemDetail, type SearchResult } from "./items";
@@ -146,14 +147,14 @@ export function Reader() {
     if (accepted) try { await window.pageshelf?.openExternal(href, true); } catch (reason) { library.toast(errorMessage(reason), true); }
   }
 
-  if (!itemId) return <div className="empty-state"><h2>选择一篇资料</h2><p>正文、目录和系列导航会在这里展开。</p><p>j / k 选择 · Enter 打开 · / 搜索</p><button type="button" onClick={() => document.querySelector<HTMLInputElement>("#search-input")?.focus()}>搜索资料</button></div>;
+  if (!itemId) return <div className="empty-state"><span className="empty-symbol" aria-hidden="true"><Icon name="library" /></span><h2>选择一篇资料</h2><p>正文、目录和系列导航会在这里展开。</p><p>j / k 选择 · Enter 打开 · / 搜索</p><button type="button" onClick={() => document.querySelector<HTMLInputElement>("#search-input")?.focus()}>搜索资料</button></div>;
   if (error) return <div className="empty-state" role="alert"><h2>正文加载失败</h2><p>{error}</p><button onClick={() => setRetry(value => value + 1)}>重试</button></div>;
   return <>
     <div className="reader-toolbar" aria-label="阅读工具栏">
       <div role="tablist" aria-label="阅读视图" className="view-tabs">{views.map(([value, label], index) => <button type="button" key={value} role="tab" aria-selected={view === value} tabIndex={view === value ? 0 : -1} data-view={value} onClick={() => navigate({ view: value })} onKeyDown={event => { if (!["ArrowLeft", "ArrowRight"].includes(event.key)) return; event.preventDefault(); const next = (index + (event.key === "ArrowRight" ? 1 : views.length - 1)) % views.length; navigate({ view: views[next][0] }); event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>("button")[next]?.focus(); }}>{label}</button>)}</div>
-      <button type="button" title="本页目录" aria-label="本页目录" disabled={!reading?.toc.length} onClick={() => setTocOpen(true)}>目录</button>
+      <button type="button" title="本页目录" aria-label="本页目录" disabled={!reading?.toc.length} onClick={() => setTocOpen(true)}><Icon name="series" /><span>目录</span></button>
       <button type="button" className="icon-button" title="调整正文字号" aria-label="调整正文字号" aria-expanded={menu?.kind === "font"} onClick={event => openMenu(event, "font")}>Aa</button>
-      <button type="button" className="icon-button" title="文章操作" aria-label="文章操作" aria-expanded={menu?.kind === "actions"} disabled={!detail} onClick={event => openMenu(event, "actions")}>⋯</button>
+      <button type="button" className="icon-button" title="文章操作" aria-label="文章操作" aria-expanded={menu?.kind === "actions"} disabled={!detail} onClick={event => openMenu(event, "actions")}><Icon name="more" /></button>
     </div>
     {query && reading?.find ? <div className="reader-hits"><span>{hit || 0}/{reading.find.total} 处正文命中</span><button type="button" aria-label="上一个正文命中" disabled={!reading.find.total} onClick={() => reading.find?.next(-1)}>↑</button><button type="button" aria-label="下一个正文命中" disabled={!reading.find.total} onClick={() => reading.find?.next(1)}>↓</button></div> : null}
     <div ref={scroll} className="reader-scroll" tabIndex={0} aria-label="正文滚动区" aria-busy={loading}>

@@ -215,10 +215,10 @@ describe("来源侧栏与目录管理", () => {
     await user.click(within(manager).getByRole("button", { name: "完成" }));
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "目录管理" })).toBeNull());
 
-    const add = await openManager(user, "＋ 添加目录");
+    const add = await openManager(user, "添加来源目录");
     expect(within(add).getByLabelText("目录路径")).toHaveFocus();
     await user.click(within(add).getByRole("button", { name: "完成" }));
-    await openManager(user, "⚙ 设置");
+    await openManager(user, "设置");
     expect(screen.getByRole("dialog", { name: "目录管理" })).toBeInTheDocument();
     expect(fetchSpy).not.toHaveBeenCalled();
     fetchSpy.mockRestore();
@@ -308,7 +308,7 @@ describe("来源侧栏与目录管理", () => {
     const user = userEvent.setup();
     render(<App />);
     await screen.findByText("甲");
-    const dialog = await openManager(user, "＋ 添加目录");
+    const dialog = await openManager(user, "添加来源目录");
     const path = within(dialog).getByLabelText("目录路径");
     const label = within(dialog).getByLabelText("新目录显示名");
     const add = within(dialog).getByRole("button", { name: "添加目录" });
@@ -344,7 +344,7 @@ describe("来源侧栏与目录管理", () => {
     expect(line).toHaveAttribute("data-nav-root", "root-a");
     expect(api.calls.some((call) => call.method === "roots.add")).toBe(false);
 
-    const again = await openManager(user, "＋ 添加目录");
+    const again = await openManager(user, "添加来源目录");
     fireEvent.change(within(again).getByLabelText("目录路径"), { target: { value: "/tmp/shift" } });
     expect(await within(again).findByText("2 个文件 · 1 条资料")).toBeInTheDocument();
     const addAgain = within(again).getByRole("button", { name: "添加目录" });
@@ -442,7 +442,7 @@ describe("来源侧栏与目录管理", () => {
     const user = userEvent.setup();
     render(<App />);
     await screen.findByText("甲");
-    const dialog = await openManager(user, "＋ 添加目录");
+    const dialog = await openManager(user, "添加来源目录");
     fireEvent.change(within(dialog).getByLabelText("目录路径"), { target: { value: "/tmp/impact" } });
     expect(await screen.findByText("6 个文件 · 5 条资料")).toBeInTheDocument();
     expect(screen.getByText(/将重新计算：系列甲（2 篇）/)).toBeInTheDocument();
@@ -467,7 +467,7 @@ describe("来源侧栏与目录管理", () => {
     const user = userEvent.setup();
     render(<App />);
     await screen.findByText("甲");
-    const dialog = await openManager(user, "＋ 添加目录");
+    const dialog = await openManager(user, "添加来源目录");
     fireEvent.change(within(dialog).getByLabelText("目录路径"), { target: { value: "/tmp/books" } });
     expect(await screen.findByText("2 个文件 · 1 条资料")).toBeInTheDocument();
     const add = within(dialog).getByRole("button", { name: "添加目录" });
@@ -492,7 +492,7 @@ describe("来源侧栏与目录管理", () => {
     const user = userEvent.setup();
     render(<App />);
     await screen.findByText("甲");
-    const dialog = await openManager(user, "＋ 添加目录");
+    const dialog = await openManager(user, "添加来源目录");
     await user.click(within(dialog).getByRole("button", { name: "选择文件夹…" }));
     await waitFor(() => expect(api.pickFolder).toHaveBeenCalledTimes(1));
     await new Promise((resolve) => setTimeout(resolve, 400));
@@ -598,7 +598,7 @@ describe("来源侧栏与目录管理", () => {
     await user.click(screen.getByRole("menuitem", { name: "在访达中显示" }));
     await waitFor(() => expect(api.revealInFinder).toHaveBeenCalledWith({ rootId: "root-a" }));
 
-    await user.click(screen.getByRole("button", { name: "全部重扫" }));
+    await user.click(within(screen.getByRole("dialog", { name: "目录管理" })).getByRole("button", { name: "全部重扫" }));
     await user.click(screen.getByRole("button", { name: "全量重扫" }));
     await waitFor(() => expect(api.calls.some((call) => call.method === "scan.all" && call.params?.full === true)).toBe(true));
     expect(api.calls.some((call) => call.method === "scan.all" && call.params?.full === false)).toBe(true);

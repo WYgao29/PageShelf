@@ -1,6 +1,6 @@
 # PageShelf Electron 交付验收
 
-本页保留 M0–M10 的阶段记录。后续 MHTML 图片修复、当前完整测试与最新应用包指纹见 [mhtml-images-fix.md](mhtml-images-fix.md)。
+本页保留 M0–M10 的阶段记录。后续图片修复见 [mhtml-images-fix.md](mhtml-images-fix.md)；最新界面与动效、完整测试和交付包指纹见 [design-polish.md](design-polish.md)。
 
 日期：2026-10-22。分支：`electron-react`。桌面功能开发、旧网页版删除和 arm64 打包已完成。功能清单 23/23 通过；设计清单 20/21 通过，剩余的是 Dock 图标的独立目视检查，详见第 20 项。本次继续开发没有调用 Grok，也没有使用子 Agent。
 

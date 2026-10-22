@@ -1,0 +1,7 @@
+
+> html-conversation-library@0.1.0 check
+> node scripts/check-vendor.mjs
+
+Verified marked-18.0.14/marked.esm.js
+Verified dompurify-3.4.16/purify.es.mjs
+Verified readability-0.6.0/Readability.js

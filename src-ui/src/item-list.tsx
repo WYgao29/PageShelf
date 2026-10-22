@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import emptyLogo from "../assets/brand/pageshelf-logo.svg";
 import emptyLogoDark from "../assets/brand/pageshelf-logo-dark.svg";
+import { Icon } from "./components/icons";
+import { SelectField } from "./components/select-field";
 import { Menu, closeOpenMenu } from "./components/menu";
 import { errorMessage, formatDate, selectionLabel } from "./library";
 import { useLibrary } from "./library-context";
@@ -83,7 +85,7 @@ export function ItemList() {
       }}
       onContextMenu={event => { event.preventDefault(); setMenu({ x: event.clientX, y: event.clientY, item, target: event.currentTarget }); }}>
       <span className="item-title"><Highlight text={item.title} ranges={title?.ranges} /></span>
-      <span className="item-meta">{item.rootLabel} · {Object.keys(item.formats).filter(key => item.formats[key as keyof Item["formats"]]).map(key => key === "markdown" ? "MD" : key.toUpperCase()).join(" / ")} · {formatDate(item.updatedAt)}{route.q ? ` · 命中 ${item.hits || 0} 处` : ""}</span>
+      <span className="item-meta"><span className="item-source" title={item.rootLabel}>{item.rootLabel}</span><span className="item-format">{Object.keys(item.formats).filter(key => item.formats[key as keyof Item["formats"]]).map(key => key === "markdown" ? "MD" : key.toUpperCase()).join(" / ")}</span><span className="item-date">{formatDate(item.updatedAt)}</span>{route.q ? <span className="item-hits">命中 {item.hits || 0} 处</span> : null}</span>
       <span className="item-excerpt"><Highlight text={body?.text || item.excerpt || "暂无摘要"} ranges={body?.ranges} /></span>
     </button>;
   }
@@ -99,21 +101,21 @@ export function ItemList() {
 
   return <>
     <header className="pane-header list-toolbar">
-      <div className="search-box"><span aria-hidden="true">⌕</span><input ref={searchRef} id="search-input" type="search" aria-label="搜索资料" placeholder="搜索标题、正文、标签…" maxLength={500} value={draft} onChange={event => setDraft(event.target.value)} />
-        {draft ? <button type="button" className="icon-button" aria-label="清空搜索" onClick={() => { setDraft(""); navigate({ q: "", sort: "updated" }, true); searchRef.current?.focus(); }}>×</button> : <kbd>⌘K</kbd>}
+      <div className="search-box"><Icon name="search" /><input ref={searchRef} id="search-input" type="search" aria-label="搜索资料" placeholder="搜索标题、正文、标签…" maxLength={500} value={draft} onChange={event => setDraft(event.target.value)} />
+        {draft ? <button type="button" className="icon-button" aria-label="清空搜索" onClick={() => { setDraft(""); navigate({ q: "", sort: "updated" }, true); searchRef.current?.focus(); }}><Icon name="close" /></button> : <kbd>⌘K</kbd>}
       </div>
     </header>
     <div className="list-controls">
       <p className="status-line" data-nav-kind={library.selection.kind} data-nav-root={route.rootId} data-nav-series={route.seriesKey}>{selectionLabel(library.selection, library.snapshot.roots, library.seriesName)}</p>
       <div className="filter-line">
-        <label>范围<select aria-label="搜索范围" value={route.scope} onChange={event => navigate({ scope: event.target.value as "all" | "root" })}><option value="all">全部目录</option><option value="root" disabled={!route.rootId}>当前目录</option></select></label>
-        <label>格式<select aria-label="格式" value={route.fmt} onChange={event => navigate({ fmt: event.target.value })}><option value="">全部格式</option><option value="html">HTML（含 MHTML）</option><option value="mhtml">MHTML</option><option value="markdown">Markdown</option></select></label>
-        <label>类型<select aria-label="类型" value={route.kind} onChange={event => navigate({ kind: event.target.value })}><option value="">全部类型</option><option value="series">系列</option><option value="single">单篇</option></select></label>
+        <SelectField label="搜索范围" caption="范围" value={route.scope} onChange={value => navigate({ scope: value as "all" | "root" })}><option value="all">全部目录</option><option value="root" disabled={!route.rootId}>当前目录</option></SelectField>
+        <SelectField label="格式" value={route.fmt} onChange={value => navigate({ fmt: value })}><option value="">全部格式</option><option value="html">HTML（含 MHTML）</option><option value="mhtml">MHTML</option><option value="markdown">Markdown</option></SelectField>
+        <SelectField label="类型" value={route.kind} onChange={value => navigate({ kind: value })}><option value="">全部类型</option><option value="series">系列</option><option value="single">单篇</option></SelectField>
       </div>
-      <div className="result-line"><span role="status">{loading ? "正在搜索…" : `${result?.total || 0} 篇 · ${result?.roots || 0} 个来源`}</span><select aria-label="排序" value={route.sort} onChange={event => navigate({ sort: event.target.value })}><option value="updated">最近更新</option><option value="title">标题</option><option value="series">系列顺序</option><option value="relevance">相关度</option></select></div>
+      <div className="result-line"><span role="status">{loading ? "正在搜索…" : `${result?.total || 0} 篇 · ${result?.roots || 0} 个来源`}</span><SelectField compact label="排序" value={route.sort} onChange={value => navigate({ sort: value })}><option value="updated">最近更新</option><option value="title">标题</option><option value="series">系列顺序</option><option value="relevance">相关度</option></SelectField></div>
     </div>
     <div id="list-rows" className="list-scroll" data-query={resultQuery} role="listbox" aria-label="文章结果" aria-busy={loading} onScroll={event => { const node = event.currentTarget; if (result && result.items.length < result.total && node.scrollHeight - node.scrollTop - node.clientHeight < 160) void fetchPage(false, result); }}>
-      {error ? <div className="empty-state" role="alert"><h2>资料加载失败</h2><p>{error}</p><button onClick={() => void fetchPage(true)}>重试</button></div> : result?.items.length ? rows : skeleton ? <div aria-label="正在加载资料" className="list-skeleton">{[1, 2, 3, 4].map(index => <div className="skeleton-row" key={index}><span /><span /><span /></div>)}</div> : <div className="empty-state">{!library.snapshot.roots.length ? <><img className="empty-logo empty-logo-light" src={emptyLogo} alt="" /><img className="empty-logo empty-logo-dark" src={emptyLogoDark} alt="" /></> : <span className="empty-symbol" aria-hidden="true">⌕</span>}<h2>{emptyTitle}</h2><p>{library.error || (route.q ? `查询“${route.q}”。支持空格 AND、"短语"、-排除词。` : root?.state.message || "支持 HTML、MHTML 和 Markdown。")}</p>{!loading ? <button onClick={() => library.error ? void library.reload() : filtered ? navigate({ q: "", fmt: "", kind: "", folder: "" }) : root && !root.enabled ? void library.updateRoot(root.id, { enabled: true }) : library.openManager(root ? !["ok", "warning", "scanning"].includes(root.state.status) ? { relocateId: root.id } : {} : { focusAdd: true })}>{library.error ? "重试" : filtered ? "清除筛选" : root && !root.enabled ? "启用目录" : root ? "管理目录" : "添加目录"}</button> : null}</div>}
+      {error ? <div className="empty-state" role="alert"><h2>资料加载失败</h2><p>{error}</p><button onClick={() => void fetchPage(true)}>重试</button></div> : result?.items.length ? rows : skeleton ? <div aria-label="正在加载资料" className="list-skeleton">{[1, 2, 3, 4].map(index => <div className="skeleton-row" key={index}><span /><span /><span /></div>)}</div> : <div className="empty-state">{!library.snapshot.roots.length ? <><img className="empty-logo empty-logo-light" src={emptyLogo} alt="" /><img className="empty-logo empty-logo-dark" src={emptyLogoDark} alt="" /></> : <span className="empty-symbol" aria-hidden="true"><Icon name="search" /></span>}<h2>{emptyTitle}</h2><p>{library.error || (route.q ? `查询“${route.q}”。支持空格 AND、"短语"、-排除词。` : root?.state.message || "支持 HTML、MHTML 和 Markdown。")}</p>{!loading ? <button onClick={() => library.error ? void library.reload() : filtered ? navigate({ q: "", fmt: "", kind: "", folder: "" }) : root && !root.enabled ? void library.updateRoot(root.id, { enabled: true }) : library.openManager(root ? !["ok", "warning", "scanning"].includes(root.state.status) ? { relocateId: root.id } : {} : { focusAdd: true })}>{library.error ? "重试" : filtered ? "清除筛选" : root && !root.enabled ? "启用目录" : root ? "管理目录" : "添加目录"}</button> : null}</div>}
       {result && result.items.length < result.total ? <button type="button" className="load-more" disabled={loading} onClick={() => void fetchPage(false, result)}>{loading ? "正在加载…" : "加载更多（100 篇）"}</button> : null}
     </div>
     {menu ? <Menu x={menu.x} y={menu.y} returnFocus={menu.target} onClose={() => setMenu(null)} items={[{ kind: "item", id: "original", label: "在新窗口打开原网页" }, { kind: "item", id: "reveal", label: "在访达中显示" }, { kind: "item", id: "copy", label: "复制路径" }]} onSelect={id => {

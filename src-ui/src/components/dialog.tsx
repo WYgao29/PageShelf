@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef } from "react";
 import { closeOpenMenu } from "./menu";
+import { Icon } from "./icons";
 
 function showDialog(dialog: HTMLDialogElement) {
   if (typeof dialog.showModal === "function") {
@@ -66,7 +67,7 @@ export function Dialog({
           title="关闭弹窗"
           onClick={() => onCloseRef.current()}
         >
-          <span aria-hidden="true">×</span>
+          <Icon name="close" />
         </button>
       </header>
       <div className="dialog-body">{children}</div>

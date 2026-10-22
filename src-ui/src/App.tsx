@@ -1,6 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { COMMANDS } from "../../shared/commands.js";
 import { Dialog } from "./components/dialog";
+import { Icon } from "./components/icons";
+import { installInputModality, keyboardInteraction } from "./input-modality";
 import { registerShortcuts } from "./shortcuts";
 import logo from "../assets/brand/pageshelf-logo.svg";
 import logoDark from "../assets/brand/pageshelf-logo-dark.svg";
@@ -60,6 +62,8 @@ function Shell() {
   const [schemeDark, setSchemeDark] = useState(prefersDark);
   const [panes, setPanes] = useState<[number, number]>(() => readPaneWidths(localStorage));
   const [windowWidth, setWindowWidth] = useState(() => window.innerWidth);
+
+  useLayoutEffect(installInputModality, []);
 
   useEffect(() => {
     const media = window.matchMedia("(prefers-color-scheme: dark)");
@@ -122,7 +126,7 @@ function Shell() {
   const commandRef = useRef(dispatch);
   commandRef.current = dispatch;
   useEffect(() => {
-    const run = (command: string) => commandRef.current(command);
+    const run = (command: string) => { keyboardInteraction(); commandRef.current(command); };
     const offKeys = registerShortcuts(run);
     const offMenu = window.pageshelf?.on("command", payload => {
       if (payload && typeof payload === "object" && "command" in payload && typeof payload.command === "string") run(payload.command);
@@ -237,7 +241,7 @@ function Shell() {
         </section>
         <main id="reader-pane" className="reader-pane" tabIndex={-1} aria-label="阅读区">
           <header className="pane-header">
-            <button type="button" className="icon-button" title="折叠或显示侧栏" aria-label="折叠或显示侧栏" aria-expanded={!layout.collapsed} onClick={() => dispatch("toggle-sidebar")}>☰</button>
+            <button type="button" className="icon-button" title="折叠或显示侧栏" aria-label="折叠或显示侧栏" aria-expanded={!layout.collapsed} onClick={() => dispatch("toggle-sidebar")}><Icon name="sidebar" /></button>
             <h2 className="pane-title">阅读</h2>
             <div className="theme-picker" role="radiogroup" aria-label="主题">
               {THEME_OPTIONS.map(([value, label]) => <button key={value} type="button" className="theme-option" role="radio" data-theme={value} aria-checked={preference === value} tabIndex={preference === value ? 0 : -1} onClick={() => setPreference(value)} onKeyDown={onThemeKey}>{label}</button>)}

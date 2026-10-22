@@ -23,8 +23,8 @@
 | `npm run package:mac` | arm64 构建完成，图标 10 个尺寸通过 | [打包](validation/mhtml-images-package.log) |
 | macOS LaunchServices 启动 | 六组布局通过，5 个进程无监听，退出后全部结束 | [系统启动](validation/mhtml-images-launch-services.log) |
 | `npm run check` | 三个固定 vendor SHA-256 校验通过 | [vendor](validation/mhtml-images-vendor.log) |
-| 当前编译产物与应用包 | UI、主进程、worker、preload 逐个 SHA-256 相同 | [最新包指纹](validation/mhtml-images-build.json) |
+| 修复时的编译产物与应用包 | UI、主进程、worker、preload 逐个 SHA-256 相同 | [修复包指纹](validation/mhtml-images-build.json) |
 
 实际归档验证使用 `node scripts/mhtml-image-smoke.mjs <本地归档路径> --packaged`。不传路径时使用合成测试归档；指定 `--packaged` 时运行交付 `.app`，否则运行当前开发构建。
 
-当前分支仍为 `electron-react`，没有 push 或修改 `main`。M0–M10 的历史记录见 [acceptance.md](acceptance.md)；最新包指纹以上表为准。
+当前分支仍为 `electron-react`，没有 push 或修改 `main`。M0–M10 的历史记录见 [acceptance.md](acceptance.md)；本次修复的包指纹见上表，后续界面调整与最新交付包记录见 [design-polish.md](design-polish.md)。
