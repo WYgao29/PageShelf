@@ -206,6 +206,16 @@ describe("PageShelf shell", () => {
     await user.tab();
     expect(document.activeElement).toHaveTextContent("跳到阅读区");
     await user.tab();
+    expect(document.activeElement).toHaveTextContent("全部来源");
+    await user.tab();
+    expect(document.activeElement).toHaveTextContent("管理");
+    await user.tab();
+    expect(document.activeElement).toHaveTextContent("＋ 添加目录");
+    await user.tab();
+    expect(document.activeElement).toHaveTextContent("⚙ 设置");
+    await user.tab();
+    expect(document.activeElement).toHaveTextContent("↻ 全部重扫");
+    await user.tab();
     expect(document.activeElement).toHaveTextContent("跟随系统");
     await user.tab();
     expect(document.activeElement).toHaveAttribute("aria-label", "调整目录栏宽度");

@@ -1,6 +1,6 @@
 # PageShelf Electron 功能保留矩阵（M0）
 
-盘点日期以任务说明为准：2026-10-22。工作树 `/Users/weisengao/Documents/ChatGPT/HTML 知识库`，分支 `electron-react`。M0 编写时 HEAD 为 `a556edb7fe7b732698907e1bbe0302cc9a8af2c7`。M1 已由 Codex 提交为 `363aa45b840bed65807a639236988b44e5e96c31`。M2 在该提交之上增补实现；本文件里的 M2 证据尚未提交。M3 从 M2 HEAD `d4b696f4664ddf9d3ea4b0eb538b395d56eae0a5` 继续，证据同样尚未提交。
+盘点日期以任务说明为准：2026-10-22。工作树 `/Users/weisengao/Documents/ChatGPT/HTML 知识库`，分支 `electron-react`。M0 编写时 HEAD 为 `a556edb7fe7b732698907e1bbe0302cc9a8af2c7`。M1 已提交为 `363aa45b840bed65807a639236988b44e5e96c31`，M2 为 `d4b696f4664ddf9d3ea4b0eb538b395d56eae0a5`，M3 为 `32f4a9674c45b4c8d1779df82a7fe09e0164554e`。M4 从 M3 HEAD 继续，只做来源侧栏、目录管理和扫描进度；本文件记录各里程碑对应的证据。
 
 M0 编写时仓库没有 `electron/`、`src-ui/` 或 `pageshelf://`。M1 增加 `src/services/`。M2 增加 `electron/`、`shared/`、`src-ui/` 与 `pageshelf://`。各行「状态」仍是保留类别，不是通过标记。「目标侧验证」的范围不因补证据而扩大或缩小。某一行没有写到的测试，不表示该行已经通过。
 
@@ -92,20 +92,44 @@ Codex 审查后的定向修复复跑（无截图）：
 | `npm run build:desktop` | 通过。Vite 8.3.5 在 75ms 写出 `dist/`（`index-BNv8hcYE.css` 8.83 kB，`index-BWDUjCX6.js` 226.41 kB）。esbuild 写出 `dist-electron/main.js` 41.9kb 与 `dist-electron/backend/worker.js` 104.8kb。 |
 | `node scripts/desktop-smoke.mjs` | 退出码 0，打印 `SMOKE_OK`。无截图。六组仍通过。1440/1280 的可见标题条在侧栏，左 0、顶 0、高 52px、宽 251px，资料栏头起点 0。960 的可见标题条在列表栏，左 0、顶 0、高 52px、宽 383px，资料栏头起点 52，阅读区 576，侧栏宽度 1 且隐藏。`SMOKE_PIDS 45641 45645`，`WORKER_GONE 45645`。`LSOF_MAIN empty`，`LSOF_WORKER empty`。 |
 
+## M4 证据
+
+状态列仍是保留类别。本节只记来源侧栏、系列导航、目录管理、预检、两套菜单、排序和扫描进度。搜索、资料列表、阅读器、全局快捷键、打包和删除旧 Web UI 都没做。用户已决定：M4 的性能自查只验证大目录扫描期间窗口移动、标题条拖动和列表滚动仍响应；搜索响应度随 M5 搜索一起验收。本里程碑没有实现搜索，也没有改 `ELECTRON_PLAN.md`。没有生成截图。
+
+M4 新增或改写：`src-ui/src/library.ts`、`library-context.tsx`、`sidebar.tsx`、`manager.tsx`、`components/{dialog,menu,toast,icons}.tsx`、`styles/library.css`、`library-ui.test.tsx`，以及 `App.tsx` 里的选择状态。`electron/scan-smoke.js` 与 `scripts/desktop-scan-smoke.mjs` 只在 `PAGESHELF_SMOKE=1` 且 `PAGESHELF_SCAN_SMOKE=1` 时测量扫描中的窗口。空库 `desktop-smoke` 仍走原来的 `watchSmoke`。IPC 契约、调度器并发和 `public/` 未改。
+
+本次在 M4 工作树上实际运行：
+
+| 命令 | 结果 |
+|---|---|
+| `npx vitest run src-ui/src/library-ui.test.tsx src-ui/src/App.test.tsx` | 2 files passed，24 tests passed，Duration 6.30s。含三个入口、系列、预检，以及路径/计数/`moved`/`parentAfter` 不变时父目录、系列和子目录变化仍须再确认且不调用 `roots.add`/`roots.update`。 |
+| `npm test` | 94 passed，0 failed，`duration_ms` 419.525625。含原有归属、改名排序不入队、调度器并发 2、增量/全量扫描和 reveal argv 用例。 |
+| `npm run test:ui` | Vitest 5.0.5：4 files passed，33 tests passed，Duration 6.24s。文件含 `preferences.test.ts`、`theme-boot.test.ts`、`App.test.tsx`、`library-ui.test.tsx`。 |
+| `npm run build:ui` | 通过。`tsc -p tsconfig.ui.json --noEmit` 后 Vite 8.3.5 在 75ms 写出 `dist/`（`index-BOLDC1KO.css` 15.63 kB，`index-BTCzW9rr.js` 259.82 kB）。 |
+| `npm run build:electron` | 通过。`tsc -p tsconfig.electron.json --noEmit` 后 esbuild 在 10ms 写出 `dist-electron/main.js` 47.4kb 与 `dist-electron/backend/worker.js` 104.8kb。 |
+| `npm run check` | 通过。`Verified marked-18.0.14/marked.esm.js`、`Verified dompurify-3.4.16/purify.es.mjs`、`Verified readability-0.6.0/Readability.js`。 |
+| `node scripts/desktop-smoke.mjs` | 退出码 0，打印 `SMOKE_OK`。无截图。空库文本含「还没有来源目录」和「PageShelf」。六组布局仍通过：1440/1280 侧栏 252、列表 384，阅读区 804 与 644；960 侧栏隐藏且 `inert`，阅读区 576。`SMOKE_PIDS 50260 50264`，`WORKER_GONE 50264`。`LSOF_MAIN empty`，`LSOF_WORKER empty`。Vite 监听 `127.0.0.1:5173`。 |
+| `node scripts/desktop-scan-smoke.mjs` | 退出码 0，打印 `SCAN_SMOKE_OK` 和 `NO_SCREENSHOTS`。无截图。2200 个 HTML 的大目录先显示 `476/2200`；窗口移动、标题条拖动和侧栏滚动之后进度仍在，总量仍是 2200，并前进到 `600/2200`。`electron/scan-smoke.js` 与本脚本都断言交互后进度存在、总量相同且 `done` 增大。`executeJavaScript` 返回 `responded: true`。窗口从 `[240,30]` 移到 `[276,54]`。侧栏标题条计算样式 `-webkit-app-region` 为 `drag`。侧栏 `.pane-body` 的 `scrollTop` 从 0 变为 2601（`scrollHeight` 3306，`clientHeight` 705）。`SMOKE_PIDS 50327 50331`，`WORKER_GONE 50331`。`LSOF_MAIN empty`，`LSOF_WORKER empty`。没有搜索框，也没有为搜索响应度计时。 |
+| `git diff --check` | 通过，无输出。`ELECTRON_PLAN.md` 仍未跟踪，本里程碑没有改它。 |
+
+`src-ui/src/styles/library.css` 的颜色、字号、字重、间距、圆角、阴影和层级都用 `tokens.css` 已有变量。裸尺寸只剩对话框 `min(480px, 90vw)`（规范对话框基线）和管理对话框 `min(var(--form-width), 90vw)`（`--form-width` 已是 640px）。`padding: 0` 与 `border: 0` 是清零，不是另一套间距。没有十六进制或 `rgb()`。
+
+渲染器只通过 `window.pageshelf` 调用现有方法并订阅 `scan-progress`、`library-changed`、`worker-status`。加载和 worker 状态变化时重新取 `roots.list` 与 `scan.status`。没有轮询循环，也没有从渲染器发 HTTP。扫描进度是额外一行 `done/total`，不替换错误或停用状态。改名和排序只调用 `roots.update` / `roots.order`。调度器仍是来源内串行、全局最多 2 个并发，本里程碑没有改 `src/scheduler.js`。
+
 ## §4 来源目录
 
 复选框 1：侧栏「添加目录」「管理」；原生选择文件夹或粘贴路径；1–40 字显示名；添加前预检（路径、重复、文件数、条目数、重叠影响），不通过不保存。
 
 | ID | 验收项 | 现有行为与证据 | 目标侧验证 | 状态 |
 |---|---|---|---|---|
-| 4.1a | 侧栏「添加目录」「管理」 | 侧栏标题行按钮「管理」调用 `openManager()`（`public/js/views/sidebar.js`，`data-open-manager`）。页脚「＋ 添加目录」以 `focusAdd: true` 打开同一管理对话框。页脚还有「⚙ 设置」，同样打开管理对话框。管理对话框标题为「目录管理」（`public/js/views/manager.js`）。浏览器用例 `manager opens, duplicate preview blocks add and source rename keeps root id` 点击 `[data-open-manager]`。 | M4：侧栏仍能打开添加与目录管理。两个现行入口（「管理」和「＋ 添加目录」）以及额外的「设置」入口都要保留，除非后续验收明确合并。本矩阵不合并它们。 | 保留 |
-| 4.1b | 原生选择文件夹或粘贴路径 | 管理表单有路径输入框，占位「粘贴文件夹的完整路径」（`#root-path`）。「选择文件夹…」POST `/api/system/choose-folder`。macOS 上 `src/server.js` 的 `chooseFolderWithNativeDialog` 用 `osascript` `choose folder`。用户取消时该函数返回 `null`，`src/routes/system.js` 把它写成 `{ cancelled: true }`。非 macOS 抛 `FOLDER_PICKER_UNAVAILABLE`。`src/routes/system.js` 处理该路由。node:test：`worker returns the folder selected by the injected picker`、`worker reports when the folder picker is cancelled`。生产选文件夹在主进程用 `dialog.showOpenDialog` 后再调 M1 服务；这套 worker 测试注入的是选择函数，不覆盖系统对话框。 | M4：`dialog.showOpenDialog` 选文件夹，仍可粘贴路径。验证的是选中的路径进入预检，不是继续使用 `osascript`。 | 替换 |
-| 4.1c | 显示名 1–40 字 | `src/roots.js` `labelFor` 用码点长度，空或超过 40 抛 `LABEL_INVALID`（「目录名称需为 1–40 个字符」）。留空时用目录基名。node:test：`paths are canonical, labels validated and order exactly covers roots`。侧栏内联输入和添加框的 `maxlength` 是 80（`sidebar.js`、`manager.js`）；保存前仍走 `labelFor`。40 字规则以注册表校验为准。 | 服务层预检继续拒绝 0 字和 41 字及以上。不要把输入框 `maxlength` 80 当成放宽后的规则。 | 保留 |
-| 4.1d | 预检路径 | `registry.preview` 要求非空路径，`path.resolve` 后 `inspect`。不可用时 `valid: false`，检查码来自目录状态（如缺失、不是目录）。node:test：`worker rejects invalid roots and unknown source formats`（不存在的路径被拒绝，断言的是错误文案而不是 HTTP 400）、`root contract exposes scan totals, affected series, and validation codes`、`deepest available root owns files once and dry run does not write`。 | 服务层预检仍返回路径类失败且不写配置。IPC 错误码对应现行 400，而不是新开一套语义。 | 保留 |
-| 4.1e | 预检重复来源 | 同一规范化路径视为重复，码 `ROOT_EXISTS`，文案「该目录已经添加」。浏览器用例见 4.1a（预检文本含「已经添加」，`#add-root` 禁用）。 | 重复路径不能保存。同名不同路径不走这条，见 4.3d。 | 部分 |
-| 4.1f | 预检文件数与条目数 | 预检在可用目录上 `listSourceFiles`，返回 `counts.files` 与按 NFC 主干去重的 `counts.items`（`roots.js` `itemCount`）。扩展名见 4.2a。浏览器用例 `child-root preview and add-remove preserve single ownership in the manager` 检查预检里的条数。 | 预检结果仍包含文件数和合并后的条目数。 | 部分 |
-| 4.1g | 预检重叠影响 | 预检计算父目录、子目录、`moved` 与 `parentAfter`，并生成重叠说明。`src/routes/roots.js` `previewResponse` 附带受影响系列。浏览器用例同上，预检文本含条数与父目录剩余。node:test：`root contract exposes scan totals, affected series, and validation codes`。 | 重叠预检仍说明迁移条数、父目录剩余和受影响系列，且本身不写配置。 | 部分 |
-| 4.1h | 预检不通过不保存 | `applyChange` 在 add 和改路径时先 `preview`，`valid === false` 则抛出，不进入 `configStore.update`。添加按钮在无效或只读时禁用（`manager.js`）。浏览器用例见 4.1a。 | 服务层失败路径不调用配置写入。对照测试保留「未写入」断言。 | 保留 |
+| 4.1a | 侧栏「添加目录」「管理」 | 侧栏标题行按钮「管理」调用 `openManager()`（`public/js/views/sidebar.js`，`data-open-manager`）。页脚「＋ 添加目录」以 `focusAdd: true` 打开同一管理对话框。页脚还有「⚙ 设置」，同样打开管理对话框。管理对话框标题为「目录管理」（`public/js/views/manager.js`）。浏览器用例 `manager opens, duplicate preview blocks add and source rename keeps root id` 点击 `[data-open-manager]`。 | M4：侧栏仍能打开添加与目录管理。两个现行入口（「管理」和「＋ 添加目录」）以及额外的「设置」入口都要保留，除非后续验收明确合并。本矩阵不合并它们。UI 测试点过这三个按钮，都打开「目录管理」；「＋ 添加目录」聚焦路径框。管理页脚仍有「打开废纸篓」和「清除缓存」。 | 保留 |
+| 4.1b | 原生选择文件夹或粘贴路径 | 管理表单有路径输入框，占位「粘贴文件夹的完整路径」（`#root-path`）。「选择文件夹…」POST `/api/system/choose-folder`。macOS 上 `src/server.js` 的 `chooseFolderWithNativeDialog` 用 `osascript` `choose folder`。用户取消时该函数返回 `null`，`src/routes/system.js` 把它写成 `{ cancelled: true }`。非 macOS 抛 `FOLDER_PICKER_UNAVAILABLE`。`src/routes/system.js` 处理该路由。node:test：`worker returns the folder selected by the injected picker`、`worker reports when the folder picker is cancelled`。生产选文件夹在主进程用 `dialog.showOpenDialog` 后再调 M1 服务；这套 worker 测试注入的是选择函数，不覆盖系统对话框。 | M4：`dialog.showOpenDialog` 选文件夹，仍可粘贴路径。验证的是选中的路径进入预检，不是继续使用 `osascript`。UI 测试里取消 `pickFolder` 不预检，选中的绝对路径写入路径框并预检。生产选择器仍在主进程，本里程碑没有另开系统对话框。 | 替换 |
+| 4.1c | 显示名 1–40 字 | `src/roots.js` `labelFor` 用码点长度，空或超过 40 抛 `LABEL_INVALID`（「目录名称需为 1–40 个字符」）。留空时用目录基名。node:test：`paths are canonical, labels validated and order exactly covers roots`。侧栏内联输入和添加框的 `maxlength` 是 80（`sidebar.js`、`manager.js`）；保存前仍走 `labelFor`。40 字规则以注册表校验为准。 | 服务层预检继续拒绝 0 字和 41 字及以上。不要把输入框 `maxlength` 80 当成放宽后的规则。添加框没有 `maxlength`。41 个「书」显示「目录名称需为 1–40 个字符」且不能添加；40 个可以。留空时 `roots.add` 不带 label，基名仍由服务决定。 | 保留 |
+| 4.1d | 预检路径 | `registry.preview` 要求非空路径，`path.resolve` 后 `inspect`。不可用时 `valid: false`，检查码来自目录状态（如缺失、不是目录）。node:test：`worker rejects invalid roots and unknown source formats`（不存在的路径被拒绝，断言的是错误文案而不是 HTTP 400）、`root contract exposes scan totals, affected series, and validation codes`、`deepest available root owns files once and dry run does not write`。 | 服务层预检仍返回路径类失败且不写配置。IPC 错误码对应现行 400，而不是新开一套语义。UI 对「不是文件夹」禁用添加且不调用 `roots.add`。原服务测试随本次 `npm test` 通过。 | 保留 |
+| 4.1e | 预检重复来源 | 同一规范化路径视为重复，码 `ROOT_EXISTS`，文案「该目录已经添加」。浏览器用例见 4.1a（预检文本含「已经添加」，`#add-root` 禁用）。 | 重复路径不能保存。同名不同路径不走这条，见 4.3d。预检文案「该目录已经添加」时添加按钮保持禁用。 | 部分 |
+| 4.1f | 预检文件数与条目数 | 预检在可用目录上 `listSourceFiles`，返回 `counts.files` 与按 NFC 主干去重的 `counts.items`（`roots.js` `itemCount`）。扩展名见 4.2a。浏览器用例 `child-root preview and add-remove preserve single ownership in the manager` 检查预检里的条数。 | 预检结果仍包含文件数和合并后的条目数。有效预检在界面显示「N 个文件 · M 条资料」。 | 部分 |
+| 4.1g | 预检重叠影响 | 预检计算父目录、子目录、`moved` 与 `parentAfter`，并生成重叠说明。`src/routes/roots.js` `previewResponse` 附带受影响系列。浏览器用例同上，预检文本含条数与父目录剩余。node:test：`root contract exposes scan totals, affected series, and validation codes`。 | 重叠预检仍说明迁移条数、父目录剩余和受影响系列，且本身不写配置。UI 展示重叠说明、受影响系列和仍独立的子目录。「不添加，查看父目录」只切换选择，不调用 `roots.add`。父目录 ID 与名称、受影响系列、子目录 ID 与名称都进入预检指纹。 | 部分 |
+| 4.1h | 预检不通过不保存 | `applyChange` 在 add 和改路径时先 `preview`，`valid === false` 则抛出，不进入 `configStore.update`。添加按钮在无效或只读时禁用（`manager.js`）。浏览器用例见 4.1a。 | 服务层失败路径不调用配置写入。对照测试保留「未写入」断言。路径或显示名一改，添加按钮立即禁用。与上次预检指纹不同时提示「目录内容或归属已变化…」且不调用 `roots.add`，再次确认后才添加。指纹包含有效性、路径、显示名、文件数与条目数、错误、重名、重叠说明、`moved`、`parentAfter`、父目录 ID 与名称、受影响系列和子目录 ID 与名称。这些归属变化而路径、计数、`moved`、`parentAfter` 不变时，第一次提交只更新预检，不调用 `roots.add` 或 `roots.update`。 | 保留 |
 
 复选框 2：支持 .html/.htm/.mhtml/.mht/.md；同路径同主干多格式合并；HTML 筛选含 MHTML。
 
@@ -119,19 +143,19 @@ Codex 审查后的定向修复复跑（无截图）：
 
 | ID | 验收项 | 现有行为与证据 | 目标侧验证 | 状态 |
 |---|---|---|---|---|
-| 4.3a | 最深可用目录归属，不重复计数 | `recompute` 把更深层可用目录写入父级 `excludes`。`getSnapshot` 丢掉落在 exclude 内的条目。node:test：`deepest available root owns files once and dry run does not write`、`new roots always use NFC ids while overlap transfer never duplicates published items`、`legacy fixture retains all ids and ownership goes 48 to 40+8 to 48`。 | 原 `roots.test.js` 与 `library.test.js` 不改并通过。快照里同一文件只出现一次。 | 保留 |
-| 4.3b | 停用、失效或移除后父目录回收 | 停用和 inspect 失败会使子目录不可用，父级 exclude 随之消失。移除子目录后父级重新索引。node:test：`legacy fixture retains all ids and ownership goes 48 to 40+8 to 48`、`restored child root is indexed after rename`、`restored child root is indexed after order`。浏览器用例 `child-root preview and add-remove preserve single ownership in the manager` 在移除子目录后看到父目录回到 48 条。 | 停用、目录缺失、移除三条路径都要看到父目录收回条目，且不把同一条目算两次。 | 保留 |
-| 4.3c | 移除来源只取消索引，源文件保留 | 删除来源走注册表 remove，不删除磁盘上的源文件。node:test：`worker removes a root without touching its source files`。确认框文案说明源文件仍留在原路径（`main.js` `removeRoot`）。这与条目「移入废纸篓」不同，见 §4 废纸篓。 | 服务层 remove 后源文件字节不变。不要把 launchd plist 的 `unlink`（`src/service.js`，只删 plist）当成源文件删除。 | 保留 |
-| 4.3d | 同名来源用路径区分 | 预检 `duplicateLabel` 只标记同名，不因此失败。管理行显示 `displayPath`，同名时加「显示名相同」徽章（`manager.js`）。ID 与路径分离，见 4.4a。 | 两个同名、不同路径的来源可以同时存在，界面能看出路径差异。 | 部分 |
+| 4.3a | 最深可用目录归属，不重复计数 | `recompute` 把更深层可用目录写入父级 `excludes`。`getSnapshot` 丢掉落在 exclude 内的条目。node:test：`deepest available root owns files once and dry run does not write`、`new roots always use NFC ids while overlap transfer never duplicates published items`、`legacy fixture retains all ids and ownership goes 48 to 40+8 to 48`。 | 原 `roots.test.js` 与 `library.test.js` 不改并通过。快照里同一文件只出现一次。本次 `npm test` 94 passed，含上述归属用例。界面没有改归属算法。 | 保留 |
+| 4.3b | 停用、失效或移除后父目录回收 | 停用和 inspect 失败会使子目录不可用，父级 exclude 随之消失。移除子目录后父级重新索引。node:test：`legacy fixture retains all ids and ownership goes 48 to 40+8 to 48`、`restored child root is indexed after rename`、`restored child root is indexed after order`。浏览器用例 `child-root preview and add-remove preserve single ownership in the manager` 在移除子目录后看到父目录回到 48 条。 | 停用、目录缺失、移除三条路径都要看到父目录收回条目，且不把同一条目算两次。本次 `npm test` 仍通过所列回收用例。M4 界面没有另做一条父子条目计数。 | 保留 |
+| 4.3c | 移除来源只取消索引，源文件保留 | 删除来源走注册表 remove，不删除磁盘上的源文件。node:test：`worker removes a root without touching its source files`。确认框文案说明源文件仍留在原路径（`main.js` `removeRoot`）。这与条目「移入废纸篓」不同，见 §4 废纸篓。 | 服务层 remove 后源文件字节不变。不要把 launchd plist 的 `unlink`（`src/service.js`，只删 plist）当成源文件删除。确认文案仍是「源文件保留在」原路径。取消不调用 `roots.remove`。`worker removes a root without touching its source files` 随本次 `npm test` 通过。 | 保留 |
+| 4.3d | 同名来源用路径区分 | 预检 `duplicateLabel` 只标记同名，不因此失败。管理行显示 `displayPath`，同名时加「显示名相同」徽章（`manager.js`）。ID 与路径分离，见 4.4a。 | 两个同名、不同路径的来源可以同时存在，界面能看出路径差异。管理表对同名显示「显示名相同」，并同时显示 `~/a` 与 `~/b`。同名只是警告，不因此禁用添加。 | 部分 |
 
 复选框 4：目录 ID 与路径分离；改名排序不读文件；重新定位保持条目链接；归属变化时条目 ID 规则不变。
 
 | ID | 验收项 | 现有行为与证据 | 目标侧验证 | 状态 |
 |---|---|---|---|---|
-| 4.4a | 目录 ID 与路径分离 | 配置里的 `id` 独立保存。缺省 ID 才是 `root-` 加路径哈希（`config.js` `normalize`、`library.js` `normalizeRoot`）。改名不改 ID。浏览器用例见 4.1a（改名后仍用原 `data-root-label-input` ID 查找）。 | 改显示名后目录 ID 不变。新来源仍只在没有 ID 时生成 ID。 | 保留 |
-| 4.4b | 改名、排序不读文件 | 只改 label 或 order 时不跑预检扫描。node:test：`ordinary rename and order do not enqueue scans for available roots`（对 `ok`、`warning`、`scanning` 都断言 `scan.queued` 为空）。 | 原断言保留：可用目录的改名和排序不入扫描队列。 | 保留 |
-| 4.4c | 重新定位后，相对路径不变则条目链接仍可用 | 管理菜单「重新定位…」对路径再跑预检，通过后 patch 同一目录 ID（`manager.js` `relocate`）。条目 ID 使用该目录 ID 加相对主干哈希，所以同一目录、同一相对路径得到同一条目 ID。侧栏仅在状态不是 `ok`、`warning`、`scanning`、`disabled` 时提供「重新定位…」（`sidebar.js`）。失效目录恢复另见 `restored child root is indexed after rename/order`。没有名为「重新定位后旧条目 URL 仍打开」的 node:test。 | 同一目录 ID 重新定位到移动后的文件夹时，未变的相对路径仍解析到原条目 ID。侧栏与管理里两套重新定位入口的现行条件都要保留。 | 部分 |
-| 4.4d | 归属变化时条目 ID 规则不变 | 规则是 `目录 ID + ":" + createId(相对主干)`。主干在新目录用 NFC；遗留目录可保持 v1（`resolveIdAlgorithm`，`options.idAlgo`）。资料改挂到另一个目录时，ID 随目录 ID 变化；子目录移除后父目录原 ID 回来。node:test：`legacy NFD stems retain v1 item ids and memory feedback persists on next mutation`、`new roots always use NFC ids while overlap transfer never duplicates published items`、`legacy fixture retains all ids and ownership goes 48 to 40+8 to 48`。 | 原 `library.test.js` 不改并通过。不要改成「归属变化时 ID 字符串永远不变」。 | 保留 |
+| 4.4a | 目录 ID 与路径分离 | 配置里的 `id` 独立保存。缺省 ID 才是 `root-` 加路径哈希（`config.js` `normalize`、`library.js` `normalizeRoot`）。改名不改 ID。浏览器用例见 4.1a（改名后仍用原 `data-root-label-input` ID 查找）。 | 改显示名后目录 ID 不变。新来源仍只在没有 ID 时生成 ID。侧栏和表格改名调用 `roots.update` 时只带原 `id` 和 `label`，行上的 `data-root-id` 不变。 | 保留 |
+| 4.4b | 改名、排序不读文件 | 只改 label 或 order 时不跑预检扫描。node:test：`ordinary rename and order do not enqueue scans for available roots`（对 `ok`、`warning`、`scanning` 都断言 `scan.queued` 为空）。 | 原断言保留：可用目录的改名和排序不入扫描队列。UI 测试在改名、拖放和 Alt+方向键之后没有 `roots.rescan` 或 `scan.all`。`ordinary rename and order do not enqueue scans for available roots` 随本次 `npm test` 通过。 | 保留 |
+| 4.4c | 重新定位后，相对路径不变则条目链接仍可用 | 管理菜单「重新定位…」对路径再跑预检，通过后 patch 同一目录 ID（`manager.js` `relocate`）。条目 ID 使用该目录 ID 加相对主干哈希，所以同一目录、同一相对路径得到同一条目 ID。侧栏仅在状态不是 `ok`、`warning`、`scanning`、`disabled` 时提供「重新定位…」（`sidebar.js`）。失效目录恢复另见 `restored child root is indexed after rename/order`。没有名为「重新定位后旧条目 URL 仍打开」的 node:test。 | 同一目录 ID 重新定位到移动后的文件夹时，未变的相对路径仍解析到原条目 ID。侧栏与管理里两套重新定位入口的现行条件都要保留。正常来源的侧栏菜单没有「重新定位…」，失效来源有；管理菜单始终有。重新定位只提交 `{ id, path }`。归属变化时先提示「归属已变化，请再次确认」，不直接 `roots.update`。条目 URL 仍能打开留给 M6，本次没有打开阅读器。 | 部分 |
+| 4.4d | 归属变化时条目 ID 规则不变 | 规则是 `目录 ID + ":" + createId(相对主干)`。主干在新目录用 NFC；遗留目录可保持 v1（`resolveIdAlgorithm`，`options.idAlgo`）。资料改挂到另一个目录时，ID 随目录 ID 变化；子目录移除后父目录原 ID 回来。node:test：`legacy NFD stems retain v1 item ids and memory feedback persists on next mutation`、`new roots always use NFC ids while overlap transfer never duplicates published items`、`legacy fixture retains all ids and ownership goes 48 to 40+8 to 48`。 | 原 `library.test.js` 不改并通过。不要改成「归属变化时 ID 字符串永远不变」。本次 `npm test` 通过所列 ID 用例。M4 没有改 `createId`。 | 保留 |
 
 复选框 5：目录菜单：增量/全量重扫、重新定位、停用/启用、系列识别开关、访达显示、移除；拖动排序与聚焦拖柄 `Alt+↑/↓`；全局最多 2 个来源并发扫描；扫描状态与问题列表；旧结果扫描期间可浏览，扫描时窗口保持可交互。
 
@@ -139,19 +163,19 @@ Codex 审查后的定向修复复跑（无截图）：
 
 | ID | 验收项 | 现有行为与证据 | 目标侧验证 | 状态 |
 |---|---|---|---|---|
-| 4.5a | 增量重扫 | 管理项「增量重扫」和侧栏「重扫此目录」调用 `scan(id)`，POST `/api/roots/:id/scan`。未改签名的文件复用已抽取元数据。node:test：`incremental scans reuse unchanged metadata and full scans reread`。 | 单目录增量扫描仍跳过未变化文件，并在完成后替换该目录索引。 | 保留 |
-| 4.5b | 全量重扫 | 管理项「全量重扫」调用 `scan(id, { full: true })`。管理顶部还有「全部重扫」和「全量重扫」（全部目录）。全量忽略未变化签名并重读。同一 node:test 覆盖 full。 | 单目录与全部目录的全量扫描都会重读。`Shift+R` 对应全部重扫，见 4.K8a。 | 保留 |
+| 4.5a | 增量重扫 | 管理项「增量重扫」和侧栏「重扫此目录」调用 `scan(id)`，POST `/api/roots/:id/scan`。未改签名的文件复用已抽取元数据。node:test：`incremental scans reuse unchanged metadata and full scans reread`。 | 单目录增量扫描仍跳过未变化文件，并在完成后替换该目录索引。侧栏「重扫此目录」和管理「增量重扫」都调用 `roots.rescan` 且 `full: false`。增量复用元数据的原测试随本次 `npm test` 通过。 | 保留 |
+| 4.5b | 全量重扫 | 管理项「全量重扫」调用 `scan(id, { full: true })`。管理顶部还有「全部重扫」和「全量重扫」（全部目录）。全量忽略未变化签名并重读。同一 node:test 覆盖 full。 | 单目录与全部目录的全量扫描都会重读。`Shift+R` 对应全部重扫，见 4.K8a，快捷键留给 M7。管理菜单「全量重扫」调用 `roots.rescan` 且 `full: true`。顶部「全部重扫」「全量重扫」调用 `scan.all`，`full` 分别为 false 和 true。 | 保留 |
 | 4.5c | 重新定位 | 见 4.4c。 | 见 4.4c。 | 部分 |
-| 4.5d | 停用 / 启用 | PATCH `enabled`。停用后 `rootAvailable` 为假，快照不计其条目，父目录可回收。菜单文案在「停用」和「启用」间切换。node:test 覆盖 enabled 过滤的有归属用例（4.3a、4.3b）。 | 停用后条目不出现在默认快照中，启用后按原 ID 回来。 | 保留 |
-| 4.5e | 系列识别开关 | 管理菜单在 `options.series === "off"` 与 `"auto"` 间切换。`finalizeRootMetadata` 读取 `seriesMode`。默认 `series: "auto"`（`config.js`）。没有单独的 node:test 名称只断言这个开关。系列规则本身见 `series requires two in same folder, R2 avoids root and numeric natural ordering`。 | 关闭系列识别后不再生成系列；再打开后按现行规则重建。开关只存在于管理菜单这一事实要保留。 | 部分 |
-| 4.5f | 访达显示 | POST `/api/system/reveal`，正文只能有一个键：`rootId`、`itemId` 或 `trash: true`。实现是固定参数的 `/usr/bin/open`（目录和条目 `-R`，废纸篓 `-a Finder ~/.Trash`）。node:test：`system reveal accepts only known targets and uses fixed argv`。 | 计划中的 `revealInFinder` 仍只接受已知 ID，参数数组固定。废纸篓入口见 4.T7。 | 替换 |
-| 4.5g | 移除 | 菜单「移除…」使用应用内 `confirmDialog`，确认后 DELETE 该目录。见 4.3c。浏览器用例见 4.3b 的移除步骤。 | 未确认不删除索引。确认后源文件仍在。 | 保留 |
-| 4.5h | 拖动排序 | 管理行拖柄 `draggable`，`dragstart` / `drop` 后 PUT `/api/roots/order`，正文 `{ ids }`。顺序必须恰好覆盖全部目录且不重复。node:test：`paths are canonical, labels validated and order exactly covers roots`、`worker previews, renames, orders, disables, rescans, and removes without touching files`。没有找到指针拖放的浏览器用例；键盘排序见 4.5i。 | 拖放后的顺序写入配置且不触发可用目录扫描（见 4.4b）。 | 部分 |
-| 4.5i | 聚焦拖柄后 `Alt+↑/↓` | 拖柄 `aria-label` 为「拖动或 Alt 加方向键排序」。`keydown` 绑在管理行上，Alt+方向键与相邻行交换。浏览器用例 `child-root preview and add-remove preserve single ownership in the manager` 在 `.drag-handle` 上派发 Alt+ArrowUp，并断言该行移到第一位。 | M4 与 M7：焦点在拖柄上时 Alt+方向键排序，只读配置下不排序。 | 部分 |
-| 4.5j | 全局最多 2 个来源并发，来源内串行 | `createScheduler({ concurrency: 2 })`（`library.js` 写死 2）。同一目录已在运行时不会并行第二次；排队项会合并，`full` 取或。node:test：`same root scans serially with one merged rerun and global concurrency two`、`scan failure releases slots and idle waiters`。来源内串行写在计划 §2 和 README，测试与 §4 的并发条款是同一调度器。 | 原 `scheduler.test.js` 不改并通过。worker 里并发上限仍是 2。 | 保留 |
-| 4.5k | 扫描状态与问题列表 | 调度器 `status()` 返回 `running` 与 `queued`，进度为 `files.done/total`。UI 轮询 `pollScan`（`main.js`）。管理行显示「扫描中 done/total」、状态文案，以及「N 个问题」对话框（路径加消息）。扫描结束 toast 汇总问题数。读取失败记入 `issues` 而不中断整个目录（`library.js`）。node:test：`root contract exposes scan totals, affected series, and validation codes`。 | 进度事件名为计划中的 `scan-progress`（§3）。问题列表仍逐条给出路径和消息。旧 UI 的轮询可以换成事件，但状态字段要能对上。 | 保留 |
-| 4.5l | 扫描期间旧结果仍可浏览 | 新索引在 `scanRoot` 末尾、且目录修订号仍匹配时才 `indexes.set`。修订号变化或目录已删除则丢弃结果，必要时重新排队。node:test：`a scan queued after removing a root cannot be overwritten by the earlier scan`、`a stale delayed scan cannot resurrect a trashed item`。没有名为「扫描中搜索仍返回旧快照」的测试。 | 扫描未完成时搜索和打开仍使用上一份已发布索引。完成前不闪空库。 | 部分 |
-| 4.5m | 扫描时窗口保持可交互 | 现行扫描跑在提供 HTTP 的同一 Node 进程里。浏览器 UI 靠异步请求和轮询，没有桌面窗口拖动、滚动、搜索的交互测试。计划 §3 把扫描放进 utilityProcess，就是为了主进程不被堵住；§7 M4 要求扫描大目录时窗口拖动、滚动、搜索仍流畅。 | M4：大目录扫描期间拖动窗口、滚动列表、输入搜索仍然响应。此行没有现行 Electron 证据。 | 新增 |
+| 4.5d | 停用 / 启用 | PATCH `enabled`。停用后 `rootAvailable` 为假，快照不计其条目，父目录可回收。菜单文案在「停用」和「启用」间切换。node:test 覆盖 enabled 过滤的有归属用例（4.3a、4.3b）。 | 停用后条目不出现在默认快照中，启用后按原 ID 回来。菜单在「停用」和「启用」间切换，并调用 `roots.update` 的 `enabled`。快照过滤仍由原归属测试覆盖，本次 `npm test` 通过。 | 保留 |
+| 4.5e | 系列识别开关 | 管理菜单在 `options.series === "off"` 与 `"auto"` 间切换。`finalizeRootMetadata` 读取 `seriesMode`。默认 `series: "auto"`（`config.js`）。没有单独的 node:test 名称只断言这个开关。系列规则本身见 `series requires two in same folder, R2 avoids root and numeric natural ordering`。 | 关闭系列识别后不再生成系列；再打开后按现行规则重建。开关只存在于管理菜单这一事实要保留。管理菜单调用 `options.series` 的 `off`，随后文案变为「启用系列识别」。侧栏菜单没有这一项。系列规则原测试随本次 `npm test` 通过。 | 部分 |
+| 4.5f | 访达显示 | POST `/api/system/reveal`，正文只能有一个键：`rootId`、`itemId` 或 `trash: true`。实现是固定参数的 `/usr/bin/open`（目录和条目 `-R`，废纸篓 `-a Finder ~/.Trash`）。node:test：`system reveal accepts only known targets and uses fixed argv`。 | 计划中的 `revealInFinder` 仍只接受已知 ID，参数数组固定。废纸篓入口见 4.T7。菜单「在访达中显示」调用 `revealInFinder({ rootId })`。argv 原测试随本次 `npm test` 通过。 | 替换 |
+| 4.5g | 移除 | 菜单「移除…」使用应用内 `confirmDialog`，确认后 DELETE 该目录。见 4.3c。浏览器用例见 4.3b 的移除步骤。 | 未确认不删除索引。确认后源文件仍在。确认框是应用内对话框，焦点在「取消」，确认按钮使用 `button-danger`。不使用 `window.confirm`。取消不调用 `roots.remove`。 | 保留 |
+| 4.5h | 拖动排序 | 管理行拖柄 `draggable`，`dragstart` / `drop` 后 PUT `/api/roots/order`，正文 `{ ids }`。顺序必须恰好覆盖全部目录且不重复。node:test：`paths are canonical, labels validated and order exactly covers roots`、`worker previews, renames, orders, disables, rescans, and removes without touching files`。没有找到指针拖放的浏览器用例；键盘排序见 4.5i。 | 拖放后的顺序写入配置且不触发可用目录扫描（见 4.4b）。UI 测试把拖柄拖到另一行，`roots.order` 的 `ids` 变为新顺序，且没有重扫。 | 部分 |
+| 4.5i | 聚焦拖柄后 `Alt+↑/↓` | 拖柄 `aria-label` 为「拖动或 Alt 加方向键排序」。`keydown` 绑在管理行上，Alt+方向键与相邻行交换。浏览器用例 `child-root preview and add-remove preserve single ownership in the manager` 在 `.drag-handle` 上派发 Alt+ArrowUp，并断言该行移到第一位。 | M4 与 M7：焦点在拖柄上时 Alt+方向键排序，只读配置下不排序。显示名输入框上的 Alt+方向键不排序。只读时拖柄禁用且 `draggable` 为 false，按键不调用 `roots.order`。快捷键层仍留给 M7。 | 部分 |
+| 4.5j | 全局最多 2 个来源并发，来源内串行 | `createScheduler({ concurrency: 2 })`（`library.js` 写死 2）。同一目录已在运行时不会并行第二次；排队项会合并，`full` 取或。node:test：`same root scans serially with one merged rerun and global concurrency two`、`scan failure releases slots and idle waiters`。来源内串行写在计划 §2 和 README，测试与 §4 的并发条款是同一调度器。 | 原 `scheduler.test.js` 不改并通过。worker 里并发上限仍是 2。本次没有改 `src/scheduler.js`。`same root scans serially with one merged rerun and global concurrency two` 随 `npm test` 通过。 | 保留 |
+| 4.5k | 扫描状态与问题列表 | 调度器 `status()` 返回 `running` 与 `queued`，进度为 `files.done/total`。UI 轮询 `pollScan`（`main.js`）。管理行显示「扫描中 done/total」、状态文案，以及「N 个问题」对话框（路径加消息）。扫描结束 toast 汇总问题数。读取失败记入 `issues` 而不中断整个目录（`library.js`）。node:test：`root contract exposes scan totals, affected series, and validation codes`。 | 进度事件名为计划中的 `scan-progress`（§3）。问题列表仍逐条给出路径和消息。旧 UI 的轮询可以换成事件，但状态字段要能对上。渲染器订阅 `scan-progress` 与 `library-changed`，加载和 `worker-status` 时重新取 `roots.list` 与 `scan.status`，没有轮询。进度行是 `done/total`，不盖住「目录不存在」。问题对话框显示「路径：消息」。扫描结束提示「扫描完成，发现 N 个问题」。正在编辑的显示名不会被刷新盖掉。过期的 `scan.status` 不会清掉已到的进度。 | 保留 |
+| 4.5l | 扫描期间旧结果仍可浏览 | 新索引在 `scanRoot` 末尾、且目录修订号仍匹配时才 `indexes.set`。修订号变化或目录已删除则丢弃结果，必要时重新排队。node:test：`a scan queued after removing a root cannot be overwritten by the earlier scan`、`a stale delayed scan cannot resurrect a trashed item`。没有名为「扫描中搜索仍返回旧快照」的测试。 | 扫描未完成时搜索和打开仍使用上一份已发布索引。完成前不闪空库。搜索留给 M5。扫描进度到达时侧栏仍显示已加载来源。`a scan queued after removing a root cannot be overwritten by the earlier scan` 与 `a stale delayed scan cannot resurrect a trashed item` 随本次 `npm test` 通过。 | 部分 |
+| 4.5m | 扫描时窗口保持可交互 | 现行扫描跑在提供 HTTP 的同一 Node 进程里。浏览器 UI 靠异步请求和轮询，没有桌面窗口拖动、滚动、搜索的交互测试。计划 §3 把扫描放进 utilityProcess，就是为了主进程不被堵住；§7 M4 要求扫描大目录时窗口拖动、滚动、搜索仍流畅。 | M4：用户已决定本行只验收大目录扫描期间窗口移动、标题条拖动和列表滚动仍响应。搜索响应度随 M5 搜索一起验收，本里程碑不实现搜索，也不改计划。`node scripts/desktop-scan-smoke.mjs` 在 2200 个 HTML 的扫描中看到进度 `476/2200`，交互后进度仍在且前进到 `600/2200`（总量同为 2200）。窗口从 `[240,30]` 移到 `[276,54]`；标题条为 `drag`；侧栏滚动从 0 到 2601。脚本断言交互后进度存在、总量不变且 `done` 增大。无截图，也没有搜索计时。 | 新增 |
 
 ## §4 阅读、搜索、界面
 
@@ -260,7 +284,7 @@ Codex 审查后的定向修复复跑（无截图）：
 | 4.T4 | 从不 unlink 源文件 | 失败路径不调用 `unlink`。符号链接在执行任何命令前拒绝。node:test：`failed trash never falls back to unlink`、`trash rejects symlinks before invoking any command`、`deleteItem refuses a source path replaced by an outside symlink`。`src/service.js` 的 `unlink` 只删除 LaunchAgent plist。 | 源文件失败时字节仍在。审查时把 plist 删除和源文件删除分开。 | 保留 |
 | 4.T5 | 部分成功保留幸存格式，并可重试 | 旧 HTTP 用 207 加 `failed` 列表。索引只去掉已移走的格式。对话框列出失败路径并把按钮改成「重试剩余文件」。node:test：`partial trash reports surviving sources without claiming no changes`、`partial trash retains surviving formats and failed trash preserves files`。后一个测试现在走 worker，断言 `failed.length` 与幸存的 markdown，不再断言 HTTP 207。浏览器用例在 `test/browser/trash-regressions.js`：成功时前进到下一篇，没有下一篇时清空阅读区，迟到的响应不覆盖更新的选择。重试按钮仍是旧 UI，M2 没有做。 | 207/部分失败的错误码与正文结构在服务层保留。重试只处理仍存在的文件。 | 保留 |
 | 4.T6 | 全部失败显示错误 | 没有任何文件移走时抛 `TRASH_FAILED`，消息以「无法移入废纸篓」开头，并写明文件未被改动。对话框把 `error.message` 显示为 alert。同一失败测试覆盖。 | 全部失败时列表与磁盘都不变，界面显示该错误。 | 保留 |
-| 4.T7 | 目录管理「打开废纸篓」 | 管理页页脚按钮调用 `reveal({ trash: true })`。成功移入后的 toast 也有「打开废纸篓」。见 4.5f 的 argv。 | `openTrash` 只打开系统废纸篓，不删除其中文件。 | 保留 |
+| 4.T7 | 目录管理「打开废纸篓」 | 管理页页脚按钮调用 `reveal({ trash: true })`。成功移入后的 toast 也有「打开废纸篓」。见 4.5f 的 argv。 | `openTrash` 只打开系统废纸篓，不删除其中文件。管理页脚「打开废纸篓」调用 preload `openTrash()`。UI 测试只断言这次调用，不删除废纸篓里的文件。 | 保留 |
 
 复选框：配置/缓存行为（v1 迁移与 `config.v1.bak.json`、损坏另存 `config.broken-*.json`、>v2 只读、串行原子写、`cache/doc/` 500 MiB LRU、清除缓存）完全不变。
 

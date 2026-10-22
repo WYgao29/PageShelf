@@ -1,6 +1,9 @@
 import { useEffect, useLayoutEffect, useState } from "react";
 import markDark from "../assets/brand/pageshelf-mark-dark.svg";
 import mark from "../assets/brand/pageshelf-mark.svg";
+import { LibraryProvider, useLibrary } from "./library-context";
+import { selectionLabel } from "./library";
+import { Manager } from "./manager";
 import {
   LIST_MAX,
   LIST_MIN,
@@ -17,8 +20,7 @@ import {
   writeThemePreference,
   type ThemePreference,
 } from "./preferences";
-
-type RootRow = { id: string; label: string; path: string };
+import { Sidebar } from "./sidebar";
 
 const THEME_OPTIONS: Array<[ThemePreference, string]> = [
   ["system", "跟随系统"],
@@ -26,39 +28,26 @@ const THEME_OPTIONS: Array<[ThemePreference, string]> = [
   ["dark", "暗色"],
 ];
 
-function isRootList(value: unknown): value is { roots: RootRow[] } {
-  if (typeof value !== "object" || value === null) return false;
-  const roots = (value as { roots?: unknown }).roots;
-  if (!Array.isArray(roots)) return false;
-  return roots.every(
-    (root) =>
-      typeof root === "object" &&
-      root !== null &&
-      typeof (root as RootRow).id === "string" &&
-      typeof (root as RootRow).label === "string" &&
-      typeof (root as RootRow).path === "string",
-  );
-}
-
-function errorMessage(error: unknown) {
-  if (error instanceof Error && error.message) return error.message;
-  if (typeof error === "string" && error) return error;
-  return "无法读取来源";
-}
-
 function prefersDark() {
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
 }
 
 export function App() {
+  return (
+    <LibraryProvider>
+      <Shell />
+    </LibraryProvider>
+  );
+}
+
+function Shell() {
+  const library = useLibrary();
   const [preference, setPreference] = useState<ThemePreference>(() =>
     readThemePreference(localStorage),
   );
   const [schemeDark, setSchemeDark] = useState(prefersDark);
   const [panes, setPanes] = useState<[number, number]>(() => readPaneWidths(localStorage));
   const [windowWidth, setWindowWidth] = useState(() => window.innerWidth);
-  const [roots, setRoots] = useState<RootRow[] | null>(null);
-  const [error, setError] = useState("");
 
   useEffect(() => {
     const media = window.matchMedia("(prefers-color-scheme: dark)");
@@ -83,31 +72,6 @@ export function App() {
     return () => {
       window.removeEventListener("resize", onResize);
       observer?.disconnect();
-    };
-  }, []);
-
-  useEffect(() => {
-    const api = window.pageshelf;
-    if (!api) {
-      setError("桌面接口不可用");
-      setRoots([]);
-      return;
-    }
-    let cancelled = false;
-    api
-      .invoke("roots.list")
-      .then((result) => {
-        if (cancelled) return;
-        if (!isRootList(result)) throw new Error("来源列表无效");
-        setRoots(result.roots);
-      })
-      .catch((reason: unknown) => {
-        if (cancelled) return;
-        setError(errorMessage(reason));
-        setRoots([]);
-      });
-    return () => {
-      cancelled = true;
     };
   }, []);
 
@@ -204,30 +168,7 @@ export function App() {
             />
             <span className="wordmark">PageShelf</span>
           </div>
-          <div className="pane-body">
-            <p className="pane-title">来源</p>
-            {roots === null ? (
-              <p className="status-line" role="status">
-                正在读取来源…
-              </p>
-            ) : null}
-            {error ? (
-              <p className="status-line" role="alert">
-                {error}
-              </p>
-            ) : null}
-            {roots && roots.length === 0 && !error ? <p className="status-line">还没有来源目录</p> : null}
-            {roots && roots.length > 0 ? (
-              <ul className="source-list" aria-label="来源目录">
-                {roots.map((root) => (
-                  <li key={root.id}>
-                    <span>{root.label}</span>
-                    <span className="source-path">{root.path}</span>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-          </div>
+          <Sidebar />
         </aside>
         <section id="list-pane" className="list-pane" aria-label="资料列表">
           <div className="titlebar" aria-hidden="true" />
@@ -252,6 +193,14 @@ export function App() {
             </div>
           </header>
           <div className="pane-body">
+            <p
+              className="status-line"
+              data-nav-kind={library.selection.kind}
+              data-nav-root={"rootId" in library.selection ? library.selection.rootId : ""}
+              data-nav-series={"seriesKey" in library.selection ? library.selection.seriesKey : ""}
+            >
+              {selectionLabel(library.selection, library.snapshot.roots, library.seriesName)}
+            </p>
             <p className="pane-placeholder">选择来源后显示资料</p>
           </div>
         </section>
@@ -293,6 +242,7 @@ export function App() {
           onPointerDown={(event) => onPointerDown(event, 1)}
         />
       </div>
+      <Manager />
     </>
   );
 }

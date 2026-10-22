@@ -28,6 +28,7 @@ import {
 } from "./ipc-gate.js";
 import { bindQuitCleanup, claimSingleInstance } from "./lifecycle.js";
 import { handlePageshelfRequest, protocolPrivileges } from "./protocol.js";
+import { watchScanSmoke } from "./scan-smoke.js";
 import { measureShellLayouts } from "./smoke-layout.js";
 import { createWorkerSupervisor } from "./supervisor.js";
 import {
@@ -176,7 +177,9 @@ function createMainWindow() {
   secureContents(win, { kind: "app" });
   bindMainWindowReveal(win);
   mainWindow = win;
-  if (process.env.PAGESHELF_SMOKE === "1") watchSmoke(win);
+  if (process.env.PAGESHELF_SMOKE === "1" && process.env.PAGESHELF_SCAN_SMOKE === "1")
+    watchScanSmoke(win, () => supervisor.pid());
+  else if (process.env.PAGESHELF_SMOKE === "1") watchSmoke(win);
   if (dev) void win.loadURL(DEV_ORIGIN + "/");
   else void win.loadURL("pageshelf://app/index.html");
   return win;
