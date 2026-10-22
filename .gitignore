@@ -2,3 +2,6 @@ node_modules/
 dist/
 dist-electron/
 release/
+build/icon.icns
+build/icon.iconset/
+build/icon-verify.iconset/

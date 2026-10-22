@@ -51,6 +51,7 @@ const projectRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "..",
 );
+app.setName("PageShelf");
 const dev = process.argv.includes("--dev") || process.env.PAGESHELF_DEV === "1";
 const scheme = protocolPrivileges();
 protocol.registerSchemesAsPrivileged([scheme]);

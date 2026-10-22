@@ -397,3 +397,10 @@ M4 新增或改写：`src-ui/src/library.ts`、`library-context.tsx`、`sidebar.
 - 原网页外链经本地协议导航交给主进程取消并弹出应用内确认；不向源文档加入脚本或 bridge。原始下载字节不变。修正退出时 worker 状态事件引发的额外 IPC，以及扫描完成时误关 TOC 的问题。
 - 验证：node:test 97/97；Vitest 79/79；构建、vendor 和六组布局 smoke 通过；真实 Electron E2E 11 passed, 0 failed，新增原网页外链确认、原生菜单/键盘去重、原文件字节、复制路径、废纸篓取消与确认。
 - 废纸篓 E2E 只用 `PAGESHELF_TEST=1` + `PAGESHELF_TEST_TRASH=1`、且数据实际位于本次 `pageshelf-e2e-*` 临时树时启用重命名替身；生产仍使用原系统 trash/Finder 服务，替身拒绝测试树之外的路径。
+
+## M8 macOS 打包（2026-10-22）
+
+- `npm run package:mac` 构建 arm64 `release/PageShelf-darwin-arm64/PageShelf.app`，bundle id `com.wayne.pageshelf`。包只包含编译后的 UI/主进程/worker 与受限 preload，无源码、测试、依赖目录或协作记录；附带 Inter/Space Grotesk 与三个第三方库的许可证。
+- `scripts/make-icon.sh` 从原 1024 PNG 生成 `.icns`，反解后逐文件校验 10 个尺寸（16–1024 px）；打包图标与生成图标的 SHA-256 相同。打包器提示可选的新版 `.icon` 文件不存在，实际 `.icns` 已正确写入并由 plist 引用。
+- `npm run test:package`：PACKAGE_SMOKE_OK，真实生产协议加载，1440/1280/960 × 亮暗共六组布局；5 个应用进程都无监听端口，退出后全部消失，无 WORKER_STOPPED 日志。node:test 97/97；构建、图标与许可证检查通过。没有截图。
+- 应用未签名/未公证；在 Finder 中可右键“打开”。最终交付包会在 M9/M10 后重建。
