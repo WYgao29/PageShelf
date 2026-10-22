@@ -16,9 +16,9 @@ const contentTypes = {
   ".woff2": "font/woff2",
 };
 
-const sourceHeaders = (headers = {}) => ({
+const sourceHeaders = (headers = {}, dev = false) => ({
   ...headers,
-  "content-security-policy": SOURCE_CSP,
+  "content-security-policy": SOURCE_CSP + (dev ? " http://127.0.0.1:5173" : ""),
   "x-content-type-options": "nosniff",
 });
 
@@ -67,6 +67,7 @@ async function readAppFile(appRoot, pathname) {
  *   method?: string,
  *   call: (method: string, params: object) => Promise<any>,
  *   appRoot: string,
+ *   dev?: boolean,
  * }} request
  */
 export async function handlePageshelfRequest({
@@ -74,6 +75,7 @@ export async function handlePageshelfRequest({
   method = "GET",
   call,
   appRoot,
+  dev = false,
 }) {
   if (method !== "GET" && method !== "HEAD")
     return textResult(405, "方法不被允许", appHeaders("text/plain; charset=utf-8"));
@@ -93,18 +95,18 @@ export async function handlePageshelfRequest({
   try {
     const result = await call(sourceMethod(parsed), sourceParams(parsed));
     if (result.notModified)
-      return { status: 304, body: null, headers: sourceHeaders(result.headers) };
+      return { status: 304, body: null, headers: sourceHeaders(result.headers, dev) };
     return {
       status: 200,
       body: method === "HEAD" ? null : result.body,
-      headers: sourceHeaders(result.headers),
+      headers: sourceHeaders(result.headers, dev),
     };
   } catch (error) {
     const status = error.code === "SOURCE_NOT_FOUND" ? 404 : 400;
     return textResult(
       status,
       error.message || "源文件不存在",
-      sourceHeaders({ "content-type": "text/plain; charset=utf-8" }),
+      sourceHeaders({ "content-type": "text/plain; charset=utf-8" }, dev),
     );
   }
 }

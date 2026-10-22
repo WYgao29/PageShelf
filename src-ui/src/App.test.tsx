@@ -220,6 +220,8 @@ describe("PageShelf shell", () => {
     for (let index = 0; index < 6; index++) await user.tab();
     expect(document.activeElement).toHaveTextContent("跟随系统");
     await user.tab();
+    expect(document.activeElement).toHaveTextContent("搜索资料");
+    await user.tab();
     expect(document.activeElement).toHaveAttribute("aria-label", "调整目录栏宽度");
     await user.tab();
     expect(document.activeElement).toHaveAttribute("aria-label", "调整列表栏宽度");

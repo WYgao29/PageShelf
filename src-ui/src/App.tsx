@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useState } from "react";
 import markDark from "../assets/brand/pageshelf-mark-dark.svg";
 import mark from "../assets/brand/pageshelf-mark.svg";
 import { LibraryProvider, useLibrary } from "./library-context";
+import { Reader } from "./reader";
 import { ItemList } from "./item-list";
 import { RouterProvider } from "./router";
 import { Manager } from "./manager";
@@ -182,9 +183,7 @@ function Shell() {
               {THEME_OPTIONS.map(([value, label]) => <button key={value} type="button" className="theme-option" role="radio" data-theme={value} aria-checked={preference === value} tabIndex={preference === value ? 0 : -1} onClick={() => setPreference(value)} onKeyDown={onThemeKey}>{label}</button>)}
             </div>
           </header>
-          <div className="pane-body">
-            <p className="pane-placeholder">选择一篇资料</p>
-          </div>
+          <Reader />
         </main>
         <div
           id="split-side"

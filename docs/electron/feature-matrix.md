@@ -380,3 +380,12 @@ M4 新增或改写：`src-ui/src/library.ts`、`library-context.tsx`、`sidebar.
 - 验证：node:test 94/94；Vitest 40/40；UI/主进程构建、vendor 校验、六组布局 smoke 通过。
 - 已按用户决定补验扫描期间搜索：2200 文件扫描从 382/2200 到 1141/2200，真实输入查询后 180 ms 返回已有条目，窗口移动、侧栏滚动和扫描继续；主进程/worker 无监听端口，退出后 worker 消失。不生成截图。
 - M4 测试中的“搜索尚未实现”断言已替换为真实搜索入口断言；未删其他目录管理验证。
+
+## M6 阅读器（2026-10-22）
+
+- `src-ui/src/reader.tsx` 接入 worker 的正文/Markdown 与 `pageshelf://source` 原网页；三视图、短文回退原因、GFM/本地图片/双链、TOC 跟随滚动、跨节点短语命中与正反向跳转、完整系列相邻篇、15/17/19/21 px 本机字号设置均已迁移。滚动位置只保存在当前会话内存。
+- 原 `reader` 与 `shared` 纯逻辑复制到新 UI，marked/DOMPurify/Readability 固定文件及许可证复制到 `src-ui/vendor`，三个 SHA-256 全部一致。
+- 跨源嵌入必须显式允许应用源：SOURCE_CSP 的 `frame-ancestors` 增加 `pageshelf://app`；仅开发响应额外允许固定 Vite 源。APP_CSP 增加本地来源图片与 raster data 图片规则，并禁止 base/form。没有开放脚本、网络连接或 sandbox 权限。
+- node:test 94/94；Vitest 71/71（含 25 个既有恶意片段、站点/通用抽取、Markdown、正文查找及 React 阅读交互）；UI/主进程构建与六组布局 smoke 通过。
+- `npm run test:electron` 使用 Playwright `_electron` 跑真实生产协议界面：7 passed, 0 failed。覆盖添加夹具目录、搜索、HTML/MHTML/MD、短文 iframe 实际可读、恶意 HTML 脚本不执行、iframe 无 bridge/Node、应用与正文无外连。未生成截图。测试调试端口仅供 Playwright 自动化，无监听检查由独立 smoke 执行。
+- 保留的 vendor 原文件引用了上游未提供的 source map，Vitest 会提示缺 map；不影响测试或打包，未为消除提示修改已校验的 vendor 字节。

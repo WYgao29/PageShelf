@@ -6,7 +6,7 @@ import { renderMhtml } from "../formats/mhtml.js";
 import { documentIdentity } from "../cache.js";
 
 export const SOURCE_CSP =
-  "sandbox; default-src 'none'; img-src data: blob:; style-src 'unsafe-inline' data:; font-src data:; script-src 'none'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'";
+  "sandbox; default-src 'none'; img-src data: blob:; style-src 'unsafe-inline' data:; font-src data:; script-src 'none'; object-src 'none'; base-uri 'none'; frame-ancestors 'self' pageshelf://app";
 
 const jsonResult = (status, json) => ({ status, json });
 const byteResult = (status, body, headers) => ({ status, body, headers });

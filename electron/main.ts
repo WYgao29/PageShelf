@@ -60,7 +60,7 @@ let mainWindow: BrowserWindow | null = null;
 const appWindows = new Set<BrowserWindow>();
 const revealers = new Map<number, () => void>();
 
-if (process.env.PAGESHELF_SMOKE === "1" && process.env.HTML_LIBRARY_DATA_DIR) {
+if ((process.env.PAGESHELF_SMOKE === "1" || process.env.PAGESHELF_TEST === "1") && process.env.HTML_LIBRARY_DATA_DIR) {
   app.setPath("userData", path.join(process.env.HTML_LIBRARY_DATA_DIR, "user-data"));
 }
 
@@ -277,6 +277,7 @@ if (instance.primary) {
         url: request.url,
         method: request.method,
         appRoot: path.join(projectRoot, "dist"),
+        dev,
         call: (method, params) => supervisor.request({ method, params }),
       });
       return new Response(result.body, {

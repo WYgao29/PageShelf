@@ -1,6 +1,6 @@
 export const DEV_ORIGIN = "http://127.0.0.1:5173";
 export const APP_CSP =
-  "default-src 'self'; script-src 'self'; frame-src pageshelf:; connect-src 'none'; object-src 'none'";
+  "default-src 'self'; script-src 'self'; frame-src pageshelf:; connect-src 'none'; img-src 'self' data: pageshelf://source; object-src 'none'; base-uri 'none'; form-action 'none'";
 export const EVENTS = Object.freeze([
   "scan-progress",
   "library-changed",
