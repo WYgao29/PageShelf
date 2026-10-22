@@ -17,6 +17,7 @@ delete process.env.HOST;
 const trashService = await testTrashFor(process.env);
 const host = await createLibraryHost({
   dataDir: process.env.HTML_LIBRARY_DATA_DIR,
+  waitForInitialScan: false,
   ...(trashService ? { trashService } : {}),
 });
 

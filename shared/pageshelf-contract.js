@@ -312,13 +312,9 @@ export function senderAllowed(
 }
 
 export function rawPageshelfUnsafe(raw) {
-  return (
-    typeof raw !== "string" ||
-    raw.includes("\\") ||
-    raw.includes("\0") ||
-    raw.includes("..") ||
-    /%(?:2e|2f|5c)/i.test(raw)
-  );
+  if (typeof raw !== "string" || raw.includes("\0")) return true;
+  const address = raw.split(/[?#]/, 1)[0];
+  return address.includes("\\") || address.includes("..") || /%(?:2e|2f|5c)/i.test(address);
 }
 
 export function parsePageshelfUrl(input) {

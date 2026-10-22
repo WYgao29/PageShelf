@@ -90,7 +90,7 @@ body {
 
 .wordmark {
   font-family: var(--font-heading);
-  font-weight: 700;
+  font-weight: var(--fw-brand);
   font-size: var(--fs-16);
   letter-spacing: -0.065em;
   color: var(--brand-text);

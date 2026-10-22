@@ -11,17 +11,23 @@ const temporary = await mkdtemp(path.join(os.tmpdir(), "pageshelf-e2e-"));
 const data = path.join(temporary, "data");
 const source = path.join(temporary, "source");
 await mkdir(data); await mkdir(source);
+await mkdir(path.join(source, "assets")); await mkdir(path.join(source, "notes"));
+const pixel = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQEBAI3CrcUAAAAASUVORK5CYII=", "base64");
+await writeFile(path.join(source, "assets/pixel.png"), pixel);
+await writeFile(path.join(temporary, "outside.png"), pixel);
+await writeFile(path.join(source, "notes/child.md"), "# 嵌套笔记\n\n![相邻本地图](../assets/pixel.png)");
 await writeFile(path.join(data, "config.json"), JSON.stringify({ version: 2, roots: [], ui: {} }));
 await writeFile(path.join(source, "alpha.html"), html("HTML 样例"));
+await writeFile(path.join(source, "alpha.md"), "# HTML 样例\n\n## Markdown 备用\n这是另一种 Markdown 正文。");
 await writeFile(path.join(source, "archive.mhtml"), mhtml("MHTML 样例"));
-await writeFile(path.join(source, "note.md"), "# Markdown 样例\n\n## 小节\n短笔记，证据与**方法**。\n\n![外部](https://example.test/blocked.png)");
+await writeFile(path.join(source, "note.md"), "# Markdown 样例\n\n## 小节\n短笔记，证据与**方法**。\n\n![外部](https://example.test/blocked.png)\n![本地图](assets/pixel.png)");
 await writeFile(path.join(source, "short.html"), html("短文样例", "短文"));
 await writeFile(path.join(source, "evil.html"), html("恶意样例", "正文证据。".repeat(80)) + '<h2>恶意样例原文</h2><script>globalThis.__xss = 1; fetch("https://example.test/evil")</script><img src="https://example.test/evil.png" onerror="globalThis.__xss=1"><a href="https://example.test/article">原文外链</a>');
 
 const env = { ...process.env, HTML_LIBRARY_DATA_DIR: data, PAGESHELF_TEST: "1", PAGESHELF_TEST_TRASH: "1" };
 delete env.ELECTRON_RUN_AS_NODE; delete env.PAGESHELF_DEV; delete env.PAGESHELF_SMOKE;
-const application = await _electron.launch({ args: [root], cwd: root, env, timeout: 30000 });
-const page = await application.firstWindow();
+let application = await _electron.launch({ args: [root], cwd: root, env, timeout: 30000 });
+let page = await application.firstWindow();
 page.setDefaultTimeout(15000);
 let passed = 0;
 async function check(name, test) {
@@ -49,7 +55,7 @@ try {
     await expect(manager.locator("#add-root")).toBeEnabled();
     await manager.locator("#add-root").click();
     await manager.getByRole("button", { name: "完成", exact: true }).click();
-    await expect(page.locator(".item-row")).toHaveCount(5);
+    await expect(page.locator(".item-row")).toHaveCount(6);
   });
   await check("HTML extracted article, headings and hit navigation", async () => {
     await open("HTML 样例");
@@ -62,15 +68,62 @@ try {
     await page.getByLabel("下一个正文命中").click();
     await expect(page.locator(".current-hit").first()).toBeVisible();
   });
+  await check("all three views and toolbars fit at three widths in both themes", async () => {
+    await page.getByRole("tab", { name: "Markdown", exact: true }).click();
+    await expect(page.locator(".reading-article")).toContainText("另一种 Markdown 正文");
+    await expect(page.getByRole("tablist", { name: "阅读视图", exact: true }).getByRole("tab")).toHaveCount(3);
+    for (const width of [1440, 1280, 960]) {
+      await application.evaluate(({ BrowserWindow }, width) => BrowserWindow.getAllWindows()[0].setContentSize(width, 900), width);
+      await expect.poll(() => page.evaluate(() => innerWidth)).toBe(width);
+      for (const [label, theme] of [["亮色", "light"], ["暗色", "dark"]]) {
+        await page.getByRole("radio", { name: label, exact: true }).click();
+        await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+        const geometry = await page.evaluate(() => {
+          const toolbar = document.querySelector(".reader-toolbar").getBoundingClientRect();
+          const children = [...document.querySelector(".reader-toolbar").children].map(child => child.getBoundingClientRect());
+          return { search: document.querySelector(".search-box").getBoundingClientRect().width, reader: document.querySelector("#reader-pane").getBoundingClientRect().width,
+            tabs: document.querySelector(".view-tabs").getBoundingClientRect().height, fits: children.every(child => child.left >= toolbar.left && child.right <= toolbar.right && child.top >= toolbar.top && child.bottom <= toolbar.bottom), rootOverflow: document.documentElement.scrollWidth > innerWidth };
+        });
+        assert.ok(geometry.search >= 240 && geometry.reader >= 480 && geometry.tabs === 32 && geometry.fits && !geometry.rootOverflow, JSON.stringify({ width, theme, geometry }));
+      }
+    }
+    await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1440, 900));
+    await page.getByRole("radio", { name: "跟随系统", exact: true }).click();
+    await page.getByRole("tab", { name: "阅读视图", exact: true }).click();
+  });
+  await check("all three original-page entry points open a restricted application window", async () => {
+    await open("HTML 样例");
+    async function verify(trigger) {
+      const ready = application.waitForEvent("window"); await trigger(); const original = await ready;
+      await original.waitForLoadState("domcontentloaded");
+      assert.ok(original.url().startsWith("pageshelf://source/"));
+      assert.deepEqual(await original.evaluate(() => ({ bridge: typeof window.pageshelf, node: typeof require })), { bridge: "undefined", node: "undefined" });
+      await expect(original.locator("body")).toContainText("HTML 样例"); await original.close();
+    }
+    await verify(() => page.getByRole("option", { name: /^HTML 样例 / }).click({ modifiers: ["Meta"] }));
+    await verify(async () => { await page.getByRole("option", { name: /^HTML 样例 / }).click({ button: "right" }); await page.getByRole("menuitem", { name: "在新窗口打开原网页" }).click(); });
+    await verify(async () => { await page.getByLabel("文章操作", { exact: true }).click(); await page.getByRole("menuitem", { name: "在新窗口打开原网页" }).click(); });
+  });
   await check("MHTML decoded through worker and reader", async () => {
     await open("MHTML 样例"); await expect(page.locator(".reading-article")).toContainText("证据应当可复核");
   });
   await check("Markdown short-note reading and raw source text", async () => {
     await open("Markdown 样例"); await expect(page.locator(".reading-article")).toContainText("短笔记");
     await expect(page.locator(".image-placeholder")).toContainText("外部图片未加载");
+    await expect.poll(() => page.locator('img[alt="本地图"]').evaluate(image => image.naturalWidth)).toBe(1);
     await page.getByRole("tab", { name: "源文本", exact: true }).click();
     await expect(page.locator(".source-text")).toContainText("证据与**方法**");
     await page.getByRole("tab", { name: "阅读视图", exact: true }).click();
+  });
+  await check("nested Markdown images load within the root and reject escaping paths", async () => {
+    await open("嵌套笔记");
+    await expect.poll(() => page.locator('img[alt="相邻本地图"]').evaluate(image => image.naturalWidth)).toBe(1);
+    const escaped = await page.evaluate(async () => {
+      const id = new URLSearchParams(location.hash.split("?")[1]).get("item");
+      try { await window.pageshelf.invoke("items.asset", { id, path: "../../outside.png" }); return "allowed"; }
+      catch { return "denied"; }
+    });
+    assert.equal(escaped, "denied");
   });
   await check("short HTML falls back to a functioning sandbox iframe", async () => {
     await open("短文样例");
@@ -131,10 +184,34 @@ try {
     await page.getByLabel("文章操作", { exact: true }).click(); await page.getByRole("menuitem", { name: "移入废纸篓…" }).click();
     await dialog.getByRole("button", { name: "移入废纸篓", exact: true }).click();
     await expect(dialog).toBeHidden(); await access(path.join(source, "note.md.trashed-test"));
-    await expect(page.locator(".item-row")).toHaveCount(0);
+    await expect(page.getByRole("option", { name: /^Markdown 样例 / })).toHaveCount(0);
   });
   await check("production renderer and source documents make no external requests", async () => {
     assert.deepEqual(await application.evaluate(() => globalThis.__externalRequests), []);
+  });
+  await check("native back and forward restore filters", async () => {
+    const original = await page.getByLabel("格式", { exact: true }).inputValue();
+    await page.getByLabel("格式", { exact: true }).selectOption("html");
+    await application.evaluate(({ Menu }) => Menu.getApplicationMenu().getMenuItemById("back").click());
+    await expect(page.getByLabel("格式", { exact: true })).toHaveValue(original);
+    await application.evaluate(({ Menu }) => Menu.getApplicationMenu().getMenuItemById("forward").click());
+    await expect(page.getByLabel("格式", { exact: true })).toHaveValue("html");
+  });
+  await check("restarting the application restores navigation and local preferences", async () => {
+    const saved = await page.evaluate(() => ({ hash: location.hash, theme: localStorage.getItem("ui.theme"), font: localStorage.getItem("ui.readerFont") }));
+    await application.close();
+    application = await _electron.launch({ args: [root], cwd: root, env, timeout: 30000 });
+    page = await application.firstWindow(); page.setDefaultTimeout(15000);
+    await expect.poll(() => page.evaluate(() => location.hash)).toBe(saved.hash);
+    assert.deepEqual(await page.evaluate(() => ({ theme: localStorage.getItem("ui.theme"), font: localStorage.getItem("ui.readerFont") })), { theme: saved.theme, font: saved.font });
+  });
+  await check("a real utility-process crash restarts the library without closing the window", async () => {
+    const worker = await application.evaluate(({ app }) => app.getAppMetrics().find(metric => metric.name === "PageShelf Library" || metric.serviceName === "PageShelf Library"));
+    assert.ok(worker?.pid, "library utility process missing");
+    await application.evaluate((_electron, pid) => { process.kill(pid, "SIGKILL"); }, worker.pid);
+    await expect.poll(() => application.evaluate(({ app }, oldPid) => app.getAppMetrics().some(metric => (metric.name === "PageShelf Library" || metric.serviceName === "PageShelf Library") && metric.pid !== oldPid), worker.pid)).toBe(true);
+    await expect.poll(() => page.evaluate(async () => { try { return (await window.pageshelf.invoke("items.search", { query: {} })).total; } catch { return -1; } })).toBe(5);
+    await expect(page.getByRole("searchbox")).toBeVisible();
   });
   console.log(`ELECTRON_E2E ${passed} passed, 0 failed`);
 } catch (error) {

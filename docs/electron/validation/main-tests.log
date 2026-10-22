@@ -1,0 +1,25 @@
+✔ native accelerators have one owner and single letters stay in the renderer (0.49ms)
+✔ trash double is opt-in and refuses data outside an E2E temporary tree (3.73275ms)
+✔ original-document external anchors use a validated local navigation without scripts (1.722667ms)
+✔ desktop worker becomes available while the first configured root is scanning (15.829458ms)
+✔ invoke whitelist rejects unknown methods, bad types, and oversized params (2.958833ms)
+✔ only the app origin, or the fixed dev origin in development, may invoke (0.231333ms)
+✔ renderer invoke rejects other senders and keeps external opens confirmed http(s) (0.671042ms)
+✔ pageshelf rejects traversal, unknown hosts, and returns source CSP (25.583459ms)
+✔ navigation stays on the app, and source windows stay on one item (0.224833ms)
+✔ arbitrary window.open is denied and original pages use a preload-free window (0.471375ms)
+✔ preload exposes only the named pageshelf bridge (1.922875ms)
+✔ worker adapter emits ready once and uses SIGTERM before force kill (0.402208ms)
+✔ worker crash fails the pending call and starts a replacement (0.737041ms)
+✔ worker exit before ready starts a replacement that serves the next request (0.605584ms)
+✔ shutdown ends pending calls and force-kills after 1200ms (0.193458ms)
+✔ shutdown does not force-kill a worker that already exited (0.092333ms)
+✔ quit waits for worker cleanup and a second instance yields (0.744458ms)
+ℹ tests 17
+ℹ suites 0
+ℹ pass 17
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 114.473958

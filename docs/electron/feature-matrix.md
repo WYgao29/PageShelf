@@ -414,3 +414,12 @@ M4 新增或改写：`src-ui/src/library.ts`、`library-context.tsx`、`sidebar.
 - 产品代码扫描 `AUTH_TOKEN|127\.0\.0\.1:4321|createServer|public/` 无匹配。测试仍保留用来证明旧令牌不会传给 worker、不会启动服务的负向断言文字；历史文档不是运行代码。worker 环境改为明确的环境变量白名单。
 - 搜索基准已在真实 Electron utilityProcess 执行，完整数据见 `search-benchmark.json`。M0 未测量性能，故本次提供同一 500×1500 字语料的 Node 进程对照，不冒充 M0 历史数据。
 - 用户随后明确授权删除不用的旧服务：已 bootout `gui/501/com.local.html-conversation-library`、删除 LaunchAgent plist；复查 launchctl 返回 113、plist 不存在、旧 PID 25682 已消失。资料库配置和源文章保留。
+
+## M10 最终验收（2026-10-22）
+
+- 完整交付记录、M0–M10 提交、计划 §4 的 23 项与设计规范 §9 的 21 项检查见 [acceptance.md](acceptance.md)。原始测试和运行日志、交付包 SHA-256 在 `validation/`。
+- 最终 Node 92/92、Vitest 87/87、主进程专项 17/17（已含在 Node 总数）、真实生产协议 E2E 17/17。新增菜单四种关闭/焦点、延迟骨架、来源重试、并发确认 Promise、失效阅读视图、首目录扫描期间可服务的回归验证。E2E 还实际终止并恢复 utilityProcess。
+- 修复合法嵌套本地图片被入口误拒，仍由来源边界/realpath/MIME 验证资源；扫描刷新保留列表与分组；补齐首屏品牌、失败重试、阅读控件尺寸和字重 token。worker 不再等待首目录扫描结束才让窗口创建。
+- 新交付包的编译文件与当前构建逐个 SHA-256 一致。直接启动与 macOS LaunchServices 启动均通过六组布局检查；5 个进程全部无监听，退出后全部消失。2200 文件扫描中搜索 192 ms 返回，扫描从 464/2200 到 1045/2200，移动与滚动继续响应。没有截图文件。
+- 功能 23/23 通过；设计 20/21 通过。`.icns` 十个尺寸、包指纹、Finder 目视和系统启动已通过；Dock 独立目视因自动化接口两次 timeoutReached 暂未完成，已明确标记 ❌，没有把它说成通过。
+- 产品旧运行代码与非 token 样式裸字号/字重/间距扫描均为零匹配；旧 LaunchAgent、旧进程及 4321 监听不存在。没有 push 或修改 main。

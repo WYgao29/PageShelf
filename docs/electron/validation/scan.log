@@ -1,0 +1,31 @@
+
+  VITE v8.3.5  ready in 92 ms
+
+  ➜  Local:   http://127.0.0.1:5173/
+4:36:48 PM [vite] (client) Failed to load source map for /Users/weisengao/Documents/ChatGPT/HTML 知识库/src-ui/vendor/dompurify-3.4.16/purify.es.mjs.
+Error: An error occurred while trying to read the map file at purify.es.mjs.map
+Error: ENOENT: no such file or directory, open '/Users/weisengao/Documents/ChatGPT/HTML 知识库/src-ui/vendor/dompurify-3.4.16/purify.es.mjs.map'
+    at Object.readFileSync (node:fs:483:20)
+    at file:///Users/weisengao/Documents/ChatGPT/HTML%20%E7%9F%A5%E8%AF%86%E5%BA%93/node_modules/vite/dist/node/chunks/node.js:17657:13
+    at readFromFileMap (file:///Users/weisengao/Documents/ChatGPT/HTML%20%E7%9F%A5%E8%AF%86%E5%BA%93/node_modules/vite/dist/node/chunks/node.js:17355:13)
+    at exports.fromMapFileComment (file:///Users/weisengao/Documents/ChatGPT/HTML%20%E7%9F%A5%E8%AF%86%E5%BA%93/node_modules/vite/dist/node/chunks/node.js:17450:12)
+    at exports.fromMapFileSource (file:///Users/weisengao/Documents/ChatGPT/HTML%20%E7%9F%A5%E8%AF%86%E5%BA%93/node_modules/vite/dist/node/chunks/node.js:17461:22)
+    at extractSourcemapFromFile (file:///Users/weisengao/Documents/ChatGPT/HTML%20%E7%9F%A5%E8%AF%86%E5%BA%93/node_modules/vite/dist/node/chunks/node.js:17643:87)
+    at loadAndTransform (file:///Users/weisengao/Documents/ChatGPT/HTML%20%E7%9F%A5%E8%AF%86%E5%BA%93/node_modules/vite/dist/node/chunks/node.js:20121:22)
+4:36:48 PM [vite] (client) Failed to load source map for /Users/weisengao/Documents/ChatGPT/HTML 知识库/src-ui/vendor/marked-18.0.14/marked.esm.js.
+Error: An error occurred while trying to read the map file at marked.esm.js.map
+Error: ENOENT: no such file or directory, open '/Users/weisengao/Documents/ChatGPT/HTML 知识库/src-ui/vendor/marked-18.0.14/marked.esm.js.map'
+    at Object.readFileSync (node:fs:483:20)
+    at file:///Users/weisengao/Documents/ChatGPT/HTML%20%E7%9F%A5%E8%AF%86%E5%BA%93/node_modules/vite/dist/node/chunks/node.js:17657:13
+    at readFromFileMap (file:///Users/weisengao/Documents/ChatGPT/HTML%20%E7%9F%A5%E8%AF%86%E5%BA%93/node_modules/vite/dist/node/chunks/node.js:17355:13)
+    at exports.fromMapFileComment (file:///Users/weisengao/Documents/ChatGPT/HTML%20%E7%9F%A5%E8%AF%86%E5%BA%93/node_modules/vite/dist/node/chunks/node.js:17450:12)
+    at exports.fromMapFileSource (file:///Users/weisengao/Documents/ChatGPT/HTML%20%E7%9F%A5%E8%AF%86%E5%BA%93/node_modules/vite/dist/node/chunks/node.js:17461:22)
+    at extractSourcemapFromFile (file:///Users/weisengao/Documents/ChatGPT/HTML%20%E7%9F%A5%E8%AF%86%E5%BA%93/node_modules/vite/dist/node/chunks/node.js:17643:87)
+    at loadAndTransform (file:///Users/weisengao/Documents/ChatGPT/HTML%20%E7%9F%A5%E8%AF%86%E5%BA%93/node_modules/vite/dist/node/chunks/node.js:20121:22)
+SCAN_SMOKE {"responded":true,"searchMs":192,"progress":{"done":464,"total":2200,"text":"464/2200"},"progressAfter":{"done":1045,"total":2200,"text":"1045/2200"},"moved":{"before":[240,30],"after":[276,54]},"dragRegion":"drag","scroll":{"before":0,"after":2601,"max":2601,"scrollHeight":3306,"clientHeight":705},"screenshots":false}
+SMOKE_PIDS 64906 64910
+SCAN_SMOKE_OK
+LSOF_MAIN empty
+LSOF_WORKER empty
+WORKER_GONE 64910
+NO_SCREENSHOTS

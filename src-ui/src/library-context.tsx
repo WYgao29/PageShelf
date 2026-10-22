@@ -47,6 +47,7 @@ type LibraryContextValue = {
   revealRoot: (rootId: string) => Promise<void>;
   openTrash: () => Promise<void>;
   clearCache: () => Promise<void>;
+  reload: () => Promise<LibrarySnapshot | null>;
 };
 
 const emptySnapshot = (): LibrarySnapshot => ({
@@ -310,6 +311,7 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
       revealRoot,
       openTrash,
       clearCache,
+      reload: refreshRoots,
     }),
     [
       snapshot,
@@ -337,6 +339,7 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
       revealRoot,
       openTrash,
       clearCache,
+      refreshRoots,
     ],
   );
 

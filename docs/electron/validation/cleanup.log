@@ -1,0 +1,16 @@
+Legacy service lookup: 113
+Legacy service: Bad request.
+Could not find service "com.local.html-conversation-library" in domain for user gui: 501
+Legacy plist exists: False
+Old service PID 25682 present: False
+Port 4321 listeners: empty
+Whitespace: passed
+Main pointer: a556edb7fe7b732698907e1bbe0302cc9a8af2c7
+Branch: electron-react
+Author: WYgao29
+Author email: 171554485+WYgao29@users.noreply.github.com
+Product legacy runtime scan: zero matches
+CSS bare typography/spacing scan: zero matches
+Native browser dialogs: zero matches
+All compiled UI/backend/preload files match packaged app SHA-256: 20
+Dock visual verification: not completed: cua com.apple.dock twice returned error -10005 timeoutReached; Finder visually checked; no screenshot files

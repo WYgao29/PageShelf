@@ -78,6 +78,12 @@ describe("desktop reader", () => {
     fireEvent.click(screen.getByRole("tab", { name: "源文本" }));
     await waitFor(() => expect(document.querySelector(".source-text")).toHaveTextContent("## 小节"));
   });
+  it("restores an available tab when a stored Markdown view no longer exists", async () => {
+    install(); history.replaceState(null, "", "#/?item=a&view=markdown"); render(<App />);
+    await screen.findByRole("heading", { name: "小节" });
+    expect(screen.getByRole("tab", { name: "阅读视图" })).toHaveAttribute("aria-selected", "true");
+    expect(location.hash).not.toContain("view=markdown");
+  });
   it("falls back to a sandboxed custom-protocol iframe with an explanation", async () => {
     install(false); render(<App />);
     await screen.findByText(/抽取正文不足 200 字/);

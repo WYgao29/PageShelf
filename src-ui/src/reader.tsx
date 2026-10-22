@@ -57,6 +57,7 @@ export function Reader() {
         if (!received?.item?.formats) throw new Error("条目不存在");
         setDetail(received);
         const pureMd = !received.item.formats.html && !received.item.formats.mhtml;
+        if (view === "markdown" && (pureMd || !received.item.formats.markdown)) { navigate({ view: "reader" }, true); return; }
         if (view === "original" && !pureMd) return;
         const markdown = pureMd || (view === "markdown" && !!received.item.formats.markdown);
         const response = await invoke<Bytes>(markdown ? "items.source" : "items.document", { id: itemId, ...(markdown ? { format: "markdown" } : {}) });
@@ -80,7 +81,7 @@ export function Reader() {
       finally { if (!cancelled) setLoading(false); }
     })();
     return () => { cancelled = true; built?.find?.destroy(); };
-  }, [itemId, view, query, retry, library.catalogEpoch]);
+  }, [itemId, view, query, retry, library.catalogEpoch, navigate]);
 
   useEffect(() => {
     if (!loading) { setSkeleton(false); return; }

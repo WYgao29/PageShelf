@@ -28,6 +28,7 @@ export async function createLibraryHost({
   trashService,
   chooseDirectory,
   systemExecFile = execFile,
+  waitForInitialScan = true,
 } = {}) {
   const activeDataDir = path.resolve(dataDir);
   const configStore = createConfigStore({ dataDir: activeDataDir });
@@ -65,7 +66,7 @@ export async function createLibraryHost({
   listed.forEach((root) => library.scheduler.enqueue(root.id, {}));
   if (listed.length) {
     ensureWatch();
-    await library.scheduler.waitForRoot(listed[0].id);
+    if (waitForInitialScan) await library.scheduler.waitForRoot(listed[0].id);
   }
   const deps = { library, registry };
 

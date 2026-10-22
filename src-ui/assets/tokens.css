@@ -47,6 +47,7 @@
   --fs-reading-1: 15px; --fs-reading-2: 17px; --fs-reading-3: 19px; --fs-reading-4: 21px;
   --fs-reading: var(--fs-reading-2); --lh-reading: 1.75; --measure: 36em;
   --fw-regular: 400; --fw-medium: 500; --fw-semibold: 600;
+  --fw-brand: 700;
   /* 间距（4 的倍数） */
   --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px;
   --space-6: 24px; --space-8: 32px; --space-12: 48px; --space-16: 64px;

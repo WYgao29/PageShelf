@@ -24,16 +24,28 @@ const data = await mkdtemp(path.join(os.tmpdir(), "pageshelf-package-"));
 await writeFile(path.join(data, "config.json"), JSON.stringify({ version: 2, roots: [], ui: {} }));
 const env = { ...process.env, HTML_LIBRARY_DATA_DIR: data, PAGESHELF_SMOKE: "1" };
 delete env.ELECTRON_RUN_AS_NODE; delete env.PAGESHELF_DEV; delete env.PAGESHELF_SCAN_SMOKE;
-const child = spawn(path.join(appPath, "Contents/MacOS/PageShelf"), [], { env, stdio: ["ignore", "pipe", "pipe"] });
+const launchServices = process.argv.includes("--launch-services");
+const stdoutFile = path.join(data, "launch.stdout.log");
+const stderrFile = path.join(data, "launch.stderr.log");
+const args = launchServices ? ["-n", "-W", "-a", appPath, "--env", "HTML_LIBRARY_DATA_DIR=" + data, "--env", "PAGESHELF_SMOKE=1", "--env", "PAGESHELF_DEV=0", "--env", "PAGESHELF_SCAN_SMOKE=0", "-o", stdoutFile, "--stderr", stderrFile] : [];
+const child = spawn(launchServices ? "/usr/bin/open" : path.join(appPath, "Contents/MacOS/PageShelf"), args, { env, stdio: ["ignore", "pipe", "pipe"] });
 let output = "";
 let errors = "";
+let launcherErrors = "";
+let mainPid = null;
 child.stdout.on("data", chunk => { output += chunk; });
-child.stderr.on("data", chunk => { errors += chunk; });
+child.stderr.on("data", chunk => { launcherErrors += chunk; errors += chunk; });
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 function alive(pid) { try { process.kill(pid, 0); return true; } catch { return false; } }
 try {
   const start = Date.now();
-  while (!output.includes("SMOKE_PIDS ") && !output.includes("SMOKE_FAIL ") && Date.now() - start < 45000 && child.exitCode === null) await delay(100);
+  while (!output.includes("SMOKE_PIDS ") && !output.includes("SMOKE_FAIL ") && Date.now() - start < 45000 && child.exitCode === null) {
+    await delay(100);
+    if (launchServices) {
+      output = await readFile(stdoutFile, "utf8").catch(() => "");
+      errors = launcherErrors + await readFile(stderrFile, "utf8").catch(() => "");
+    }
+  }
   assert.ok(!output.includes("SMOKE_FAIL "), output);
   const layoutLine = output.split("\n").find(line => line.startsWith("SMOKE_LAYOUT "));
   assert.ok(layoutLine, "packaged UI failed to load: " + output + errors);
@@ -41,6 +53,7 @@ try {
   const pidLine = output.split("\n").find(line => line.startsWith("SMOKE_PIDS "));
   assert.ok(pidLine, "missing process identities");
   const [, main, worker] = pidLine.split(/\s+/).map(Number);
+  mainPid = main;
   const processes = (await exec("ps", ["-axo", "pid=,ppid="])).stdout.trim().split("\n").map(line => line.trim().split(/\s+/).map(Number));
   const pids = new Set([main]);
   let added = true;
@@ -52,13 +65,14 @@ try {
     catch (error) { if (error.code !== 1) throw error; }
     assert.equal(listeners.trim(), "", `process ${pid} listens on TCP: ${listeners}`);
   }
-  child.kill("SIGTERM");
+  process.kill(main, "SIGTERM");
   const ending = Date.now();
   while ([...pids].some(alive) && Date.now() - ending < 6000) await delay(100);
   assert.deepEqual([...pids].filter(alive), [], "packaged app left child processes running");
   assert.ok(!errors.includes("WORKER_STOPPED"), errors);
-  console.log("PACKAGE_SMOKE_OK 6 layouts; bundle com.wayne.pageshelf; " + pids.size + " processes without listeners; all exited; no screenshots");
+  console.log((launchServices ? "LAUNCH_SERVICES_SMOKE_OK" : "PACKAGE_SMOKE_OK") + " 6 layouts; bundle com.wayne.pageshelf; " + pids.size + " processes without listeners; all exited; no screenshots");
 } finally {
+  if (mainPid && alive(mainPid)) process.kill(mainPid, "SIGKILL");
   if (child.exitCode === null) child.kill("SIGKILL");
   await rm(data, { recursive: true, force: true });
 }

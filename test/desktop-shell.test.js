@@ -200,6 +200,11 @@ test("pageshelf rejects traversal, unknown hosts, and returns source CSP", async
     });
     assert.equal(escaped.status, 404);
     assert.equal(escaped.headers["content-security-policy"], SOURCE_CSP);
+    const parentEscape = await handlePageshelfRequest({
+      url: "pageshelf://source/" + encodeURIComponent(markdown.id) + "/asset?path=" + encodeURIComponent("../pic.png"), call, appRoot,
+    });
+    assert.equal(parentEscape.status, 404);
+    assert.equal(parentEscape.headers["content-security-policy"], SOURCE_CSP);
     const missing = await handlePageshelfRequest({
       url: "pageshelf://source/missing-item/original",
       call,
@@ -233,7 +238,6 @@ test("pageshelf rejects traversal, unknown hosts, and returns source CSP", async
       "pageshelf://evil/index.html",
       "file:///etc/passwd",
       "pageshelf://app/%2e%2e/secret",
-      "pageshelf://source/" + encodeURIComponent(markdown.id) + "/asset?path=" + encodeURIComponent("../pic.png"),
     ]) {
       assert.equal(parsePageshelfUrl(url), null);
       const denied = await handlePageshelfRequest({

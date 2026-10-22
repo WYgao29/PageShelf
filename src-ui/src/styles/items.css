@@ -10,7 +10,7 @@ kbd { color: var(--text-3); font: inherit; font-size: var(--fs-12); border-radiu
 .filter-line select, .result-line select { min-width: 0; max-width: 100%; font-size: var(--fs-12); height: var(--space-8); }
 .result-line { color: var(--text-2); font-size: var(--fs-12); }
 .list-scroll { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; }
-.item-row { display: flex; width: 100%; flex-direction: column; align-items: stretch; text-align: left; white-space: normal; border: 0; border-bottom: var(--border-width) solid var(--border); border-left: 2px solid transparent; border-radius: 0; padding: var(--space-4) var(--space-3); gap: var(--space-2); color: var(--text); }
+.item-row { display: flex; width: 100%; flex-direction: column; align-items: stretch; text-align: left; white-space: normal; border: 0; border-bottom: var(--border-width) solid var(--border); border-left: 2px solid transparent; border-radius: var(--radius); padding: var(--space-4) var(--space-3); gap: var(--space-2); color: var(--text); }
 .item-row[aria-selected="true"] { background: var(--surface-selected); color: var(--accent-text); border-left-color: var(--accent); }
 .item-title { font-weight: var(--fw-semibold); overflow-wrap: anywhere; }
 .item-meta { color: var(--text-2); font-size: var(--fs-12); overflow-wrap: anywhere; }
@@ -25,3 +25,9 @@ mark { color: var(--accent-text); background: var(--accent-subtle); border-radiu
 .skeleton-row span { display: block; height: var(--space-4); border-radius: var(--radius-sm); background: var(--surface-sunken); }
 .skeleton-row span:nth-child(2) { width: 60%; }
 @media (hover: hover) and (pointer: fine) { .item-row:hover { background: var(--surface-hover); } }
+
+.empty-logo { display: block; height: var(--fs-40); max-width: 100%; margin: 0 auto var(--space-6); }
+.empty-logo-dark { display: none; }
+:root[data-theme="dark"] .empty-logo-light { display: none; }
+:root[data-theme="dark"] .empty-logo-dark { display: block; }
+.empty-symbol { display: block; font-size: var(--fs-28); color: var(--accent-text); margin-bottom: var(--space-4); }

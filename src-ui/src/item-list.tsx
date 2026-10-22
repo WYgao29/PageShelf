@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import emptyLogo from "../assets/brand/pageshelf-logo.svg";
+import emptyLogoDark from "../assets/brand/pageshelf-logo-dark.svg";
 import { Menu, closeOpenMenu } from "./components/menu";
 import { errorMessage, formatDate, selectionLabel } from "./library";
 import { useLibrary } from "./library-context";
@@ -56,8 +58,8 @@ export function ItemList() {
     } catch (reason) { if (generation === serial.current) setError(errorMessage(reason, "无法读取资料")); }
     finally { if (generation === serial.current) { pending.current = false; setLoading(false); } }
   }, [query]);
+  useEffect(() => { setResult(null); setExpanded(new Set()); setFocused(""); }, [query]);
   useEffect(() => {
-    setResult(null); setExpanded(new Set()); setFocused("");
     void fetchPage(true);
     return () => { serial.current++; pending.current = false; };
   }, [fetchPage, library.catalogEpoch]);
@@ -69,7 +71,7 @@ export function ItemList() {
 
   const root = library.snapshot.roots.find(value => value.id === route.rootId);
   const filtered = !!(route.q || route.fmt || route.kind || route.folder);
-  const emptyTitle = library.error ? "无法读取来源" : !library.loaded || loading ? "正在读取资料…" : !library.snapshot.roots.length ? "从一个文件夹开始" : root && (!root.enabled || !["ok", "warning", "scanning"].includes(root.state.status)) ? root.enabled ? "目录不可用" : "目录已停用" : filtered ? "没有找到匹配内容" : "这个目录还没有资料";
+  const emptyTitle = library.error ? "无法读取来源" : !library.loaded || loading ? "正在读取资料…" : !library.snapshot.roots.length ? "从一个文件夹开始" : library.busy ? "正在扫描资料…" : root && (!root.enabled || !["ok", "warning", "scanning"].includes(root.state.status)) ? root.enabled ? "目录不可用" : "目录已停用" : filtered ? "没有找到匹配内容" : "这个目录还没有资料";
 
   function row(item: Item) {
     const title = item.highlights?.find(value => value.field === "title");
@@ -111,7 +113,7 @@ export function ItemList() {
       <div className="result-line"><span role="status">{loading ? "正在搜索…" : `${result?.total || 0} 篇 · ${result?.roots || 0} 个来源`}</span><select aria-label="排序" value={route.sort} onChange={event => navigate({ sort: event.target.value })}><option value="updated">最近更新</option><option value="title">标题</option><option value="series">系列顺序</option><option value="relevance">相关度</option></select></div>
     </div>
     <div id="list-rows" className="list-scroll" data-query={resultQuery} role="listbox" aria-label="文章结果" aria-busy={loading} onScroll={event => { const node = event.currentTarget; if (result && result.items.length < result.total && node.scrollHeight - node.scrollTop - node.clientHeight < 160) void fetchPage(false, result); }}>
-      {error ? <div className="empty-state" role="alert"><h2>资料加载失败</h2><p>{error}</p><button onClick={() => void fetchPage(true)}>重试</button></div> : result?.items.length ? rows : skeleton ? <div aria-label="正在加载资料" className="list-skeleton">{[1, 2, 3, 4].map(index => <div className="skeleton-row" key={index}><span /><span /><span /></div>)}</div> : <div className="empty-state"><h2>{emptyTitle}</h2><p>{library.error || (route.q ? `查询“${route.q}”。支持空格 AND、"短语"、-排除词。` : root?.state.message || "支持 HTML、MHTML 和 Markdown。")}</p>{!loading ? <button onClick={() => filtered ? navigate({ q: "", fmt: "", kind: "", folder: "" }) : root && !root.enabled ? void library.updateRoot(root.id, { enabled: true }) : library.openManager(root ? { relocateId: root.id } : { focusAdd: true })}>{filtered ? "清除筛选" : root && !root.enabled ? "启用目录" : root ? "管理目录" : "添加目录"}</button> : null}</div>}
+      {error ? <div className="empty-state" role="alert"><h2>资料加载失败</h2><p>{error}</p><button onClick={() => void fetchPage(true)}>重试</button></div> : result?.items.length ? rows : skeleton ? <div aria-label="正在加载资料" className="list-skeleton">{[1, 2, 3, 4].map(index => <div className="skeleton-row" key={index}><span /><span /><span /></div>)}</div> : <div className="empty-state">{!library.snapshot.roots.length ? <><img className="empty-logo empty-logo-light" src={emptyLogo} alt="" /><img className="empty-logo empty-logo-dark" src={emptyLogoDark} alt="" /></> : <span className="empty-symbol" aria-hidden="true">⌕</span>}<h2>{emptyTitle}</h2><p>{library.error || (route.q ? `查询“${route.q}”。支持空格 AND、"短语"、-排除词。` : root?.state.message || "支持 HTML、MHTML 和 Markdown。")}</p>{!loading ? <button onClick={() => library.error ? void library.reload() : filtered ? navigate({ q: "", fmt: "", kind: "", folder: "" }) : root && !root.enabled ? void library.updateRoot(root.id, { enabled: true }) : library.openManager(root ? !["ok", "warning", "scanning"].includes(root.state.status) ? { relocateId: root.id } : {} : { focusAdd: true })}>{library.error ? "重试" : filtered ? "清除筛选" : root && !root.enabled ? "启用目录" : root ? "管理目录" : "添加目录"}</button> : null}</div>}
       {result && result.items.length < result.total ? <button type="button" className="load-more" disabled={loading} onClick={() => void fetchPage(false, result)}>{loading ? "正在加载…" : "加载更多（100 篇）"}</button> : null}
     </div>
     {menu ? <Menu x={menu.x} y={menu.y} returnFocus={menu.target} onClose={() => setMenu(null)} items={[{ kind: "item", id: "original", label: "在新窗口打开原网页" }, { kind: "item", id: "reveal", label: "在访达中显示" }, { kind: "item", id: "copy", label: "复制路径" }]} onSelect={id => {
