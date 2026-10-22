@@ -22,9 +22,14 @@ await writeFile(path.join(source, "alpha.html"), html("HTML 样例"));
 await writeFile(path.join(source, "alpha.md"), "# HTML 样例\n\n## Markdown 备用\n这是另一种 Markdown 正文。");
 await writeFile(path.join(source, "archive.mhtml"), mhtmlWithImage("MHTML 样例"));
 await writeFile(path.join(source, "note.md"), "# Markdown 样例\n\n## 小节\n短笔记，证据与**方法**。\n\n![外部](https://example.test/blocked.png)\n![本地图](assets/pixel.png)");
+await writeFile(path.join(source, "inline.md"), "# 图文混排样例\n\n开头文字 ![行内图](assets/pixel.png) 结尾文字\n\n![独立图](assets/pixel.png)");
+await writeFile(path.join(source, "multi.html"), html("多格式元数据", "元数据。".repeat(2000)));
+await writeFile(path.join(source, "multi.mhtml"), mhtmlWithImage("多格式元数据"));
+await writeFile(path.join(source, "multi.md"), "# 多格式元数据\n\nMarkdown 备用正文。");
 await writeFile(path.join(source, "short.html"), html("短文样例", "短文"));
 await writeFile(path.join(source, "evil.html"), html("恶意样例", "正文证据。".repeat(80)) + '<h2>恶意样例原文</h2><script>globalThis.__xss = 1; fetch("https://example.test/evil")</script><img src="https://example.test/evil.png" onerror="globalThis.__xss=1"><a href="https://example.test/article">原文外链</a>');
 
+const fixtureItemCount = 8;
 const env = { ...process.env, HTML_LIBRARY_DATA_DIR: data, PAGESHELF_TEST: "1", PAGESHELF_TEST_TRASH: "1" };
 delete env.ELECTRON_RUN_AS_NODE; delete env.PAGESHELF_DEV; delete env.PAGESHELF_SMOKE;
 let application = await _electron.launch({ args: [root], cwd: root, env, timeout: 30000 });
@@ -56,7 +61,7 @@ try {
     await expect(manager.locator("#add-root")).toBeEnabled();
     await manager.locator("#add-root").click();
     await manager.getByRole("button", { name: "完成", exact: true }).click();
-    await expect(page.locator(".item-row")).toHaveCount(6);
+    await expect(page.locator(".item-row")).toHaveCount(fixtureItemCount);
   });
   await check("HTML extracted article, headings and hit navigation", async () => {
     await open("HTML 样例");
@@ -181,6 +186,55 @@ try {
     await expect(page.locator(".source-text")).toContainText("证据与**方法**");
     await page.getByRole("tab", { name: "阅读视图", exact: true }).click();
   });
+  await check("inline images keep surrounding text on one line while standalone images remain centered", async () => {
+    await open("图文混排样例");
+    const inline = page.locator('.reading-article img[alt="行内图"]');
+    const standalone = page.locator('.reading-article img[alt="独立图"]');
+    await expect(inline).toHaveJSProperty("naturalWidth", 1);
+    await expect(standalone).toHaveJSProperty("naturalWidth", 1);
+    const flow = await inline.evaluate(image => {
+      const paragraph = image.closest("p");
+      const text = [...paragraph.childNodes].filter(node => node.nodeType === Node.TEXT_NODE && node.textContent.trim());
+      return { display: getComputedStyle(image).display, tops: text.map(node => {
+        const range = document.createRange(); range.selectNodeContents(node); return range.getBoundingClientRect().top;
+      }) };
+    });
+    assert.equal(flow.display, "inline", JSON.stringify(flow));
+    assert.equal(flow.tops.length, 2);
+    assert.ok(Math.abs(flow.tops[0] - flow.tops[1]) < 1, JSON.stringify(flow));
+    const centered = await standalone.evaluate(image => {
+      const imageBox = image.getBoundingClientRect(); const paragraph = image.closest("p").getBoundingClientRect();
+      return { display: getComputedStyle(image).display, offset: imageBox.left + imageBox.width / 2 - (paragraph.left + paragraph.width / 2) };
+    });
+    assert.equal(centered.display, "block");
+    assert.ok(Math.abs(centered.offset) < 1, JSON.stringify(centered));
+  });
+  await check("multi-format metadata preserves its source and stays inside the narrowest list", async () => {
+    const splitter = page.locator("#split-list");
+    const previous = Number(await splitter.getAttribute("aria-valuenow"));
+    await splitter.focus();
+    for (let width = previous; width > 320; width -= 16) await page.keyboard.press("ArrowLeft");
+    await expect(splitter).toHaveAttribute("aria-valuenow", "320");
+    await page.getByRole("searchbox").fill("元数据");
+    await expect(page.locator("#list-rows")).toHaveAttribute("data-query", "元数据");
+    const row = page.getByRole("option", { name: /^多格式元数据 / });
+    await expect(row).toBeVisible();
+    await expect(row.locator(".item-format")).toHaveText("HTML / MHTML / MD");
+    await expect(row.locator(".item-hits")).toHaveText(/命中 \d{4,} 处/);
+    for (const theme of ["亮色", "暗色"]) {
+      await page.getByRole("radio", { name: theme, exact: true }).click();
+      const bounds = await row.locator(".item-meta").evaluate(meta => ({
+        width: meta.clientWidth, scrollWidth: meta.scrollWidth,
+        sourceWidth: meta.querySelector(".item-source").getBoundingClientRect().width,
+        outside: [...meta.children].some(child => { const box = child.getBoundingClientRect(); const parent = meta.getBoundingClientRect(); return box.left < parent.left - 1 || box.right > parent.right + 1; })
+      }));
+      assert.ok(bounds.sourceWidth >= 48, JSON.stringify(bounds));
+      assert.ok(bounds.scrollWidth <= bounds.width + 1 && !bounds.outside, JSON.stringify(bounds));
+    }
+    await splitter.focus();
+    for (let width = 320; width < previous; width += 16) await page.keyboard.press("ArrowRight");
+    await page.getByRole("radio", { name: "跟随系统", exact: true }).click();
+  });
   await check("nested Markdown images load within the root and reject escaping paths", async () => {
     await open("嵌套笔记");
     await expect.poll(() => page.locator('img[alt="相邻本地图"]').evaluate(image => image.naturalWidth)).toBe(1);
@@ -276,7 +330,7 @@ try {
     assert.ok(worker?.pid, "library utility process missing");
     await application.evaluate((_electron, pid) => { process.kill(pid, "SIGKILL"); }, worker.pid);
     await expect.poll(() => application.evaluate(({ app }, oldPid) => app.getAppMetrics().some(metric => (metric.name === "PageShelf Library" || metric.serviceName === "PageShelf Library") && metric.pid !== oldPid), worker.pid)).toBe(true);
-    await expect.poll(() => page.evaluate(async () => { try { return (await window.pageshelf.invoke("items.search", { query: {} })).total; } catch { return -1; } })).toBe(5);
+    await expect.poll(() => page.evaluate(async () => { try { return (await window.pageshelf.invoke("items.search", { query: {} })).total; } catch { return -1; } })).toBe(fixtureItemCount - 1);
     await expect(page.getByRole("searchbox")).toBeVisible();
   });
   console.log(`ELECTRON_E2E ${passed} passed, 0 failed`);

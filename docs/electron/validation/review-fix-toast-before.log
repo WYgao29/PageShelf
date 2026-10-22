@@ -1,0 +1,63 @@
+
+ RUN  v5.0.5 /Users/weisengao/Documents/ChatGPT/HTML 知识库
+
+ ❯ src-ui/src/design-polish.test.tsx (10 tests | 2 failed) 104ms
+   ❯ toast reading time (7)
+     × waits for focus when a toast appears in an already blurred window 18ms
+     × keeps an initially hidden and blurred toast paused until both conditions clear 3ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src-ui/src/design-polish.test.tsx > toast reading time > waits for focus when a toast appears in an already blurred window
+AssertionError: expected "vi.fn()" to not be called at all, but actually been called 1 times
+
+Received:
+
+  1st vi.fn() call:
+
+    Array [
+      1,
+    ]
+
+
+Number of calls: 1
+
+ ❯ src-ui/src/design-polish.test.tsx:43:25
+     41|     render(<Toasts toasts={[toast]} onDismiss={dismiss} />);
+     42|     act(() => vi.advanceTimersByTime(10000));
+     43|     expect(dismiss).not.toHaveBeenCalled();
+       |                         ^
+     44|     focused.mockReturnValue(true); fireEvent(window, new Event("focus"…
+     45|     act(() => vi.advanceTimersByTime(4999));
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src-ui/src/design-polish.test.tsx > toast reading time > keeps an initially hidden and blurred toast paused until both conditions clear
+AssertionError: expected "vi.fn()" to not be called at all, but actually been called 1 times
+
+Received:
+
+  1st vi.fn() call:
+
+    Array [
+      1,
+    ]
+
+
+Number of calls: 1
+
+ ❯ src-ui/src/design-polish.test.tsx:59:25
+     57|     hidden.mockReturnValue(false); fireEvent(document, new Event("visi…
+     58|     act(() => vi.advanceTimersByTime(10000));
+     59|     expect(dismiss).not.toHaveBeenCalled();
+       |                         ^
+     60|     focused.mockReturnValue(true); fireEvent(window, new Event("focus"…
+     61|     act(() => vi.advanceTimersByTime(5000));
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 8 passed (10)
+   Start at  20:00:52
+   Duration  634ms (environment 64%, tests 19%, setup 10%, transform 5%, import 1%, worker 1%)

@@ -27,6 +27,7 @@ function ToastView({ toast, onDismiss }: { toast: ToastItem; onDismiss: (id: num
     let started = 0;
     let timer: number | undefined;
     const paused = new Set<string>();
+    if (!document.hasFocus()) paused.add("window");
     const stop = () => {
       if (timer === undefined) return;
       window.clearTimeout(timer);

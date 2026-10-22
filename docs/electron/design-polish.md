@@ -1,5 +1,7 @@
 # PageShelf 界面与动效优化
 
+本页保留 `7f2cf3d` 的界面优化记录。后续三处复查修复、最新测试与交付包指纹见 [design-review-fixes.md](design-review-fixes.md)。
+
 日期：2026-10-22。按用户指定的 `emil-design-eng` 技能完成界面调整，交付应用已更新为 `release/PageShelf-darwin-arm64/PageShelf.app`。
 
 ## 界面变化

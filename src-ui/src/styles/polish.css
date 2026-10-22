@@ -48,8 +48,8 @@
 .item-row + .item-row::before { content: ""; position: absolute; top: calc(-1 * var(--border-width)); left: var(--space-3); right: var(--space-3); height: var(--border-width); background: var(--border); }
 .item-row[aria-selected="true"] { border-left-color: var(--accent); background: var(--surface-selected); color: var(--accent-text); }
 .item-title { font-size: var(--fs-14); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.item-meta { display: flex; align-items: center; gap: var(--space-2); color: var(--text-3); line-height: 1.5; }
-.item-source { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.item-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-2); color: var(--text-3); line-height: 1.5; }
+.item-source { flex: 1 1 var(--space-16); min-width: var(--space-16); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .item-format { flex: 0 0 auto; padding-inline: var(--space-1); background: var(--surface-sunken); border: var(--border-width) solid var(--border); border-radius: var(--radius-sm); color: var(--text-2); }
 .item-date { margin-left: auto; flex: 0 0 auto; font-variant-numeric: tabular-nums; }
 .item-hits { flex: 0 0 auto; color: var(--accent-text); }
@@ -67,7 +67,7 @@
 .article-meta .text-button { padding-inline: var(--space-1); font-size: var(--fs-12); }
 .reading-article > :first-child { margin-top: 0; }
 .reading-article a { text-underline-offset: var(--space-1); }
-.reading-article figure img, .reading-article p > img:only-child { display: block; margin-inline: auto; border-radius: var(--radius); }
+.reading-article figure img, .reading-article img.standalone-image { display: block; margin-inline: auto; border-radius: var(--radius); }
 .source-text { line-height: 1.75; }
 .menu { width: max-content; min-width: calc(var(--space-16) * 3); max-width: calc(100vw - var(--space-8)); max-height: calc(100dvh - var(--space-8)); overflow: auto; transform-origin: var(--menu-origin, top left); border: var(--border-width) solid var(--border); }
 .menu button { display: block; font-size: var(--fs-13); }

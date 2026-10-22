@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { installInputModality } from "./input-modality";
 import { menuPosition } from "./components/menu";
 import { Toasts } from "./components/toast";
@@ -31,6 +31,36 @@ describe("anchored menu geometry", () => {
 
 describe("toast reading time", () => {
   const toast = { id: 1, message: "目录已更新", error: false };
+  beforeEach(() => { vi.spyOn(document, "hasFocus").mockReturnValue(true); });
+  it("waits for focus when a toast appears in an already blurred window", () => {
+    vi.useFakeTimers();
+    const focused = vi.spyOn(document, "hasFocus").mockReturnValue(false);
+    vi.spyOn(document, "hidden", "get").mockReturnValue(false);
+    fireEvent(window, new Event("blur"));
+    const dismiss = vi.fn();
+    render(<Toasts toasts={[toast]} onDismiss={dismiss} />);
+    act(() => vi.advanceTimersByTime(10000));
+    expect(dismiss).not.toHaveBeenCalled();
+    focused.mockReturnValue(true); fireEvent(window, new Event("focus"));
+    act(() => vi.advanceTimersByTime(4999));
+    expect(dismiss).not.toHaveBeenCalled();
+    act(() => vi.advanceTimersByTime(1));
+    expect(dismiss).toHaveBeenCalledExactlyOnceWith(1);
+  });
+  it("keeps an initially hidden and blurred toast paused until both conditions clear", () => {
+    vi.useFakeTimers();
+    const focused = vi.spyOn(document, "hasFocus").mockReturnValue(false);
+    const hidden = vi.spyOn(document, "hidden", "get").mockReturnValue(true);
+    const dismiss = vi.fn();
+    render(<Toasts toasts={[toast]} onDismiss={dismiss} />);
+    act(() => vi.advanceTimersByTime(10000));
+    hidden.mockReturnValue(false); fireEvent(document, new Event("visibilitychange"));
+    act(() => vi.advanceTimersByTime(10000));
+    expect(dismiss).not.toHaveBeenCalled();
+    focused.mockReturnValue(true); fireEvent(window, new Event("focus"));
+    act(() => vi.advanceTimersByTime(5000));
+    expect(dismiss).toHaveBeenCalledExactlyOnceWith(1);
+  });
   it("does not reset the deadline when a parent renders with a new callback", () => {
     vi.useFakeTimers();
     const dismiss = vi.fn();

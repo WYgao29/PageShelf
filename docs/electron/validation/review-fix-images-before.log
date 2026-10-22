@@ -1,0 +1,30 @@
+PASS production custom-protocol shell and native-folder preflight
+PASS HTML extracted article, headings and hit navigation
+PASS all three views and toolbars fit at three widths in both themes
+PASS pointer overlays have short compositor transitions and anchored menu origins
+PASS keyboard commands open overlays instantly without animation
+PASS reduced motion keeps pointer overlays free of movement
+PASS all three original-page entry points open a restricted application window
+PASS MHTML decoded through worker and reader
+PASS Markdown short-note reading and raw source text
+ELECTRON_E2E 9 passed, 1 failed
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: {"display":"block","tops":[366.796875,397.546875]}
+
+'block' !== 'inline'
+
+    at file:///Users/weisengao/Documents/ChatGPT/HTML%20%E7%9F%A5%E8%AF%86%E5%BA%93/scripts/electron-e2e.mjs:201:12
+    at async check (file:///Users/weisengao/Documents/ChatGPT/HTML%20%E7%9F%A5%E8%AF%86%E5%BA%93/scripts/electron-e2e.mjs:39:3)
+    at async file:///Users/weisengao/Documents/ChatGPT/HTML%20%E7%9F%A5%E8%AF%86%E5%BA%93/scripts/electron-e2e.mjs:188:3 {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: 'block',
+  expected: 'inline',
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+
+Node.js v24.22.0

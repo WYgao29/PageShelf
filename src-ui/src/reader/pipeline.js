@@ -212,6 +212,9 @@ export async function buildReader({
     } else {
       image.loading = "lazy";
       image.decoding = "async";
+      const paragraph = image.parentElement;
+      if (paragraph?.tagName === "P" && paragraph.children.length === 1 && !paragraph.textContent.trim())
+        image.classList.add("standalone-image");
     }
   }
   for (const link of article.querySelectorAll("a[href]")) {
