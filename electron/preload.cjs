@@ -35,3 +35,42 @@ contextBridge.exposeInMainWorld("pageshelf", {
     return invoke("system.openExternal", { url, confirmed });
   },
 });
+
+const BACKGROUND_CHANNEL = "pageshelf:window-background";
+const CHROME_CHANNEL = "pageshelf:chrome";
+let watchingTheme = false;
+
+function applyTitlebar(mode) {
+  if ((mode !== "inset" && mode !== "hidden") || !document.documentElement) return;
+  document.documentElement.dataset.titlebar = mode;
+}
+
+function publishAppearance() {
+  if (!document.documentElement) return;
+  const appearance = document.documentElement.dataset.theme === "dark" ? "dark" : "light";
+  ipcRenderer.send(BACKGROUND_CHANNEL, appearance);
+}
+
+function installChrome() {
+  const root = document.documentElement;
+  if (!root) return;
+  root.dataset.platform = process.platform;
+  if (!root.dataset.titlebar) applyTitlebar(process.platform === "darwin" ? "inset" : "hidden");
+  publishAppearance();
+  if (watchingTheme) return;
+  watchingTheme = true;
+  new MutationObserver(publishAppearance).observe(root, {
+    attributes: true,
+    attributeFilter: ["data-theme"],
+  });
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", installChrome, { once: true });
+} else {
+  installChrome();
+}
+
+ipcRenderer.on(CHROME_CHANNEL, (_event, payload) => {
+  applyTitlebar(payload && payload.titlebar);
+});

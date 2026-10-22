@@ -1,6 +1,6 @@
 # PageShelf Electron 功能保留矩阵（M0）
 
-盘点日期以任务说明为准：2026-10-22。工作树 `/Users/weisengao/Documents/ChatGPT/HTML 知识库`，分支 `electron-react`。M0 编写时 HEAD 为 `a556edb7fe7b732698907e1bbe0302cc9a8af2c7`。M1 已由 Codex 提交为 `363aa45b840bed65807a639236988b44e5e96c31`。M2 在该提交之上增补实现；本文件里的 M2 证据尚未提交。
+盘点日期以任务说明为准：2026-10-22。工作树 `/Users/weisengao/Documents/ChatGPT/HTML 知识库`，分支 `electron-react`。M0 编写时 HEAD 为 `a556edb7fe7b732698907e1bbe0302cc9a8af2c7`。M1 已由 Codex 提交为 `363aa45b840bed65807a639236988b44e5e96c31`。M2 在该提交之上增补实现；本文件里的 M2 证据尚未提交。M3 从 M2 HEAD `d4b696f4664ddf9d3ea4b0eb538b395d56eae0a5` 继续，证据同样尚未提交。
 
 M0 编写时仓库没有 `electron/`、`src-ui/` 或 `pageshelf://`。M1 增加 `src/services/`。M2 增加 `electron/`、`shared/`、`src-ui/` 与 `pageshelf://`。各行「状态」仍是保留类别，不是通过标记。「目标侧验证」的范围不因补证据而扩大或缩小。某一行没有写到的测试，不表示该行已经通过。
 
@@ -41,7 +41,7 @@ M0 编写时仓库没有 `electron/`、`src-ui/` 或 `pageshelf://`。M1 增加 
 
 ## M1 / M2 证据
 
-状态列仍是保留类别。这里只记已经落地的文件和本次实际跑过的命令。Playwright、完整界面、快捷键、主题、打包和旧 Web UI 删除都还没做，对应行不改成通过。
+状态列仍是保留类别。这里只记已经落地的文件和本次实际跑过的命令。Playwright、完整阅读界面、快捷键层、打包和旧 Web UI 删除都还没做，对应行不改成通过。主题三态、分隔条和三栏壳层只记在「M3 证据」，不把未做的字号、搜索或阅读器算进去。
 
 M1 提交 `363aa45`：`src/services/roots.js`、`src/services/items.js`、`src/services/system.js`，HTTP 路由改成薄适配。`SOURCE_CSP` 定义在 `src/services/items.js`，`src/routes/items.js` 再导出。`test/services.test.js` 直接调用服务。`test/root-recovery.test.js` 改为服务调用，仍断言可用目录的 rename 与 order 不入扫描队列（`ordinary rename and order do not enqueue scans for available roots`，以及 `restored child root is indexed after rename` / `order`）。
 
@@ -62,6 +62,35 @@ M2 新增或改写：`electron/main.ts`、`electron/preload.cjs`、`electron/bac
 | `git diff --check` | 通过。`git diff -- ELECTRON_PLAN.md` 无输出；该文件仍未跟踪，本里程碑没有改它。 |
 
 `desktop-shell` 的 ready 前后崩溃重启、1.2 秒强杀和单实例是注入进程与定时器的测试，不是另起一个真实 utility process 去杀。真实进程证据只有上面的开发 smoke：空库窗口、主进程与 worker 无监听、退出后 worker 消失。preload 测试读取源码，确认只暴露 `pageshelf`、不暴露 `ipcRenderer`、不写死 `confirmed: true`；它没有在沙箱渲染进程里再探测一遍。`will-navigate` 的允许规则有单测，smoke 没有另点一条外链去拦截。
+
+## M3 证据
+
+状态列仍是保留类别。本节只补主题、分隔条步进和 M3 壳层自动化。用户要求不生成截图，因此计划里的 1440/1280/960 × 亮/暗截图改为 DOM、计算样式和窗口尺寸断言，没有写出截图文件。
+
+M3 新增或改写：`src-ui/public/theme-boot.js`、`src-ui/assets/tokens.css`、`src-ui/assets/fonts/`、`src-ui/assets/brand/`、`build/brand/`、`src-ui/src/styles/`、`src-ui/src/preferences.ts`、`src-ui/src/App.tsx`、`electron/smoke-layout.js`、`shared/shell-audit.js`、`vitest.config.ts`，以及窗口策略、preload 首帧背景、`scripts/desktop-smoke.mjs`。`package.json` 增加 `test:ui`。旧 `public/` 未改。未复制 `preview.png` 和 `pageshelf.icns`。
+
+本次在 M3 工作树上实际运行：
+
+| 命令 | 结果 |
+|---|---|
+| `npm test` | 94 passed，0 failed，`duration_ms` 645.040166。含原有套件，以及 `desktop shell boots the theme before css and ships local brand files`、`shell audit accepts the six no-screenshot layout records`、`shell audit reports a short reading pane and a wrong theme token`。 |
+| `npm run test:ui` | Vitest 5.0.5：3 files passed，16 tests passed，Duration 757ms。文件为 `preferences.test.ts`、`theme-boot.test.ts`、`App.test.tsx`。 |
+| `npm run build:ui` | 通过。`tsc -p tsconfig.ui.json --noEmit` 后 Vite 8.3.5 在 86ms 写出 `dist/`。字体与两个图形标是独立文件，不是 data URI。 |
+| `npm run build:electron` | 通过。`tsc -p tsconfig.electron.json --noEmit` 后 esbuild 写出 `dist-electron/main.js` 40.9kb 与 `dist-electron/backend/worker.js` 104.8kb。 |
+| `npm run check` | 通过。`Verified marked-18.0.14/marked.esm.js`、`Verified dompurify-3.4.16/purify.es.mjs`、`Verified readability-0.6.0/Readability.js`。 |
+| `node scripts/desktop-smoke.mjs` | 退出码 0，打印 `SMOKE_OK`。无截图。`SMOKE_TEXT` 含「跳到阅读区」「PageShelf」「还没有来源目录」。`SMOKE_LAYOUT` 为 1440、1280、960 × light、dark 共 6 条。亮色窗口背景 `#FFFFFF`、`--bg #FFFFFF`；暗色 `#111214`、`--bg #111214`。标题条 52px，列表与阅读顶栏 48px。1440/1280 三栏打开，侧栏 252、列表 384，阅读区 804 与 644。960 侧栏 `data-sidebar=collapsed`、宽度 1、`visibility: hidden`、`inert`，侧栏分隔条 `tabIndex` -1，列表 384，阅读区 576。分隔条 `aria` 仍是侧栏 200/252/320、列表 320/384/520。焦点环 `2px solid`。字标为 Space Grotesk、字重 700、字距 -1.04px。暗色图形标路径含 `pageshelf-mark-dark.svg`。`titlebarMode` 为 `inset`。`LSOF_MAIN empty`、`LSOF_WORKER empty`。Vite 监听 `127.0.0.1:5173`。`SMOKE_PIDS 44562 44566`，`WORKER_GONE 44566`。 |
+| `git diff --check` | 通过，无输出。`ELECTRON_PLAN.md` 仍未跟踪，本里程碑没有改它。 |
+
+裸尺寸搜索用 `font-size:\s*[0-9]|font-weight:\s*[0-9]|(padding|margin|gap):\s*[0-9]+px` 扫 `src-ui/**/*.css`。命中只在两处：`tokens.css` 的 `@font-face` 字重范围 `100 900` 与 `300 700`（规范字体声明，不是组件字号）；`shell.css` 字标 `font-weight: 700`（规范 §3.1 要求 700，token 没有 700 这一档，故保留裸值）。没有 `font-size:` 后直接跟数字，也没有 `padding`/`margin`/`gap` 后直接跟 `Npx`。字标 `letter-spacing: -0.065em` 不在这条正则里，同样是 §3.1 要求。`tokens.css` 里的颜色、间距、圆角、阴影和产品栏宽是 token 定义，搜索时不把它们当成组件散值删掉。规范基线（正文 `22px` 行高、焦点 `2px` 轮廓、`svg` 的 `1.125rem`）按规范原文留在 token 文件。`html[data-titlebar="hidden"]` 把 `--titlebar-height` 设为 `0px`。`--sidebar-width` 在 `:root` 里只声明一次，值为 252px。
+
+Codex 审查后的定向修复复跑（无截图）：
+
+| 命令 | 结果 |
+|---|---|
+| `npm test` | 94 passed，0 failed，`duration_ms` 520.743667。 |
+| `npm run test:ui` | Vitest 5.0.5：3 files passed，17 tests passed，Duration 775ms。新增主题单选的方向键循环、Space/Enter 选中，以及单一 Tab 停靠。 |
+| `npm run build:desktop` | 通过。Vite 8.3.5 在 75ms 写出 `dist/`（`index-BNv8hcYE.css` 8.83 kB，`index-BWDUjCX6.js` 226.41 kB）。esbuild 写出 `dist-electron/main.js` 41.9kb 与 `dist-electron/backend/worker.js` 104.8kb。 |
+| `node scripts/desktop-smoke.mjs` | 退出码 0，打印 `SMOKE_OK`。无截图。六组仍通过。1440/1280 的可见标题条在侧栏，左 0、顶 0、高 52px、宽 251px，资料栏头起点 0。960 的可见标题条在列表栏，左 0、顶 0、高 52px、宽 383px，资料栏头起点 52，阅读区 576，侧栏宽度 1 且隐藏。`SMOKE_PIDS 45641 45645`，`WORKER_GONE 45645`。`LSOF_MAIN empty`，`LSOF_WORKER empty`。 |
 
 ## §4 来源目录
 
@@ -174,12 +203,12 @@ M2 新增或改写：`electron/main.ts`、`electron/preload.cjs`、`electron/bac
 
 | ID | 验收项 | 现有行为与证据 | 目标侧验证 | 状态 |
 |---|---|---|---|---|
-| 4.10a | 亮色、暗色、跟随系统 | `cycleTheme` 循环 `system → light → dark`。`theme-boot.js` 在样式表之前同步写 `documentElement.dataset.theme`；跟随系统时读 `prefers-color-scheme`。`main.js` 监听系统主题变化，仅在偏好为 system 时更新。node:test：`app has three accessible panes and synchronous theme boot before styles`（`theme-boot.js` 出现在 `tokens.css` 之前，且 `index.html` 无内联脚本）。 | §8 vitest：主题三态。启动无白闪（§7 M3）。跟随系统时，系统主题变化仍更新界面。 | 保留 |
+| 4.10a | 亮色、暗色、跟随系统 | 旧页面 `cycleTheme` 循环 `system → light → dark`。旧 `public/js/theme-boot.js` 在样式表之前同步写 `documentElement.dataset.theme`；跟随系统时读 `prefers-color-scheme`。`main.js` 仅在偏好为 system 时跟随系统变化。node:test：`app has three accessible panes and synchronous theme boot before styles`。M3 桌面壳用 `src-ui/public/theme-boot.js` 在样式表之前同步写入解析后的 `data-theme`（`light` 或 `dark`）。`ui.theme` 仍是普通字符串，只接受 `system`/`light`/`dark`，坏值或存储异常回落 `system`。系统变化只在偏好为 system 时跟随。列表头单选组为「跟随系统 / 亮色 / 暗色」。快捷键 `t` 未做，留给 M7。vitest 与无截图 smoke 见「M3 证据」。旧 `public/` 未改。 | §8 vitest：主题三态。启动无白闪（§7 M3）。跟随系统时，系统主题变化仍更新界面。M3 已覆盖三态、坏值回落、系统跟随和首帧窗口背景。 | 保留 |
 | 4.10b | 字号 15/17/19/21 px | `Aa` 菜单只列这四档。非法存储值回落 17。CSS 变量 `--reader-font`。浏览器用例见 4.9a，点「21 px」后计算样式为 21px，且 `localStorage` 的 `ui.readerFont` 为 21。 | 只能这四档。vitest 可覆盖菜单与回落。 | 部分 |
-| 4.10c | 两条分隔线可拖动 | `#split-side` 与 `#split-list`（`splitter.js`）。指针拖动改变对应宽度。没有 node:test。 | 拖动中栏宽变化，松手后保持。M3 要求分隔条。 | 部分 |
-| 4.10d | 方向键调整 | 分隔条聚焦后 Left/Right 每次 10px。范围夹在侧栏 200–320、列表 320–520。§8 把 clamp 列为新的 vitest 项。 | 方向键步进与夹取范围保持 10px 和上述最小/最大。 | 部分 |
-| 4.10e | 双击复位 252/384 px | 任一分隔条双击都把两栏设为 252 和 384。默认值同样是 `[252, 384]`。计划 §5 把规范里的侧栏 240 写成产品例外，复位值仍是 252/384。本行按 §4 与现行代码，不改回 240。 | 双击任一分隔条都恢复 252 与 384。vitest 覆盖 clamp 与双击复位。 | 保留 |
-| 4.10f | 主题、字号、栏宽本地持久化 | 键：`ui.theme`（普通字符串）、`ui.readerFont` 与 `ui.paneWidths`（`storageSet` JSON）。读写失败被吞掉。侧栏折叠只切换 `body.sidebar-collapsed`，不写入存储。 | 这三个键在重启后仍生效。折叠状态按现行不持久化，除非另有验收。 | 保留 |
+| 4.10c | 两条分隔线可拖动 | 旧 `#split-side` 与 `#split-list`（`public/js/components/splitter.js`）用指针拖动改变宽度。没有针对旧文件的 node:test。M3 桌面壳沿用这两个 id。vitest `steps, clamps, drags, resets, and restores pane widths` 从 252 向右拖过上限后夹到 320。开发 smoke 测量静止时的分隔条中心。旧 `splitter.js` 未改。 | 拖动中栏宽变化，松手后保持。M3 要求分隔条。vitest 覆盖一次指针拖动后的夹取；smoke 测量静止位置。 | 部分 |
+| 4.10d | 方向键调整 | 旧 `public/js/components/splitter.js` 聚焦后 Left/Right 每次 10px，该文件未改。M3 桌面壳改为每步 16px：旧版 10px，本次按用户选择对齐设计规范 §4.1。夹取范围仍是侧栏 200–320、列表 320–520。默认和双击复位仍是 252 与 384。vitest 断言步进 16 以及两端夹取。 | 方向键每步 16px。旧版 Web UI 为 10px，本次按用户选择对齐设计规范 §4.1，不改旧页面。夹取范围仍是侧栏 200–320、列表 320–520。 | 部分 |
+| 4.10e | 双击复位 252/384 px | 旧页面任一分隔条双击都把两栏设为 252 和 384。默认值同样是 `[252, 384]`。计划 §5 把规范里的侧栏 240 写成产品例外，复位值仍是 252/384。本行按 §4 与现行代码，不改回 240。M3 桌面壳保持该默认和复位；vitest 对两条分隔条双击都断言 252 与 384，并写回 `ui.paneWidths`。 | 双击任一分隔条都恢复 252 与 384。vitest 覆盖 clamp 与双击复位。M3 已覆盖桌面壳的这两项。 | 保留 |
+| 4.10f | 主题、字号、栏宽本地持久化 | 旧页面键：`ui.theme`（普通字符串）、`ui.readerFont` 与 `ui.paneWidths`（`storageSet` JSON）。读写失败被吞掉。侧栏折叠只切换 `body.sidebar-collapsed`，不写入存储。M3 桌面壳继续用 `ui.theme` 普通字符串，以及 `ui.paneWidths` JSON `[sidebarWidth, listWidth]`。坏值或存储异常回落默认；有限但越界的栏宽先夹取再保存。960 折叠侧栏时不改已存栏宽。`ui.readerFont` 仍只在旧页面，M3 没有字号控件。 | 这三个键在重启后仍生效。折叠状态按现行不持久化，除非另有验收。M3 只接上主题和栏宽；字号仍待后续。 | 保留 |
 | 4.10g | 不保存已读、收藏或阅读进度 | 源码中没有已读、收藏或进度字段写入配置或 `localStorage`。滚动位置只在内存。配置 `ui` 对象会保留未知字段（v1 迁移测试），但应用不写入阅读进度。 | 桌面版仍不新增已读、收藏、进度存储。重启恢复的是 4.8c 的导航字段。 | 保留 |
 
 复选框 11：外部图片占位；Markdown 本地图片验证来源边界与真实图片类型；UI 与正文均不自动外连。
@@ -250,7 +279,7 @@ M2 新增或改写：`electron/main.ts`、`electron/preload.cjs`、`electron/bac
 
 | ID | 验收项 | 现有行为与证据 | 目标侧验证 | 状态 |
 |---|---|---|---|---|
-| 6.1 | `BrowserWindow`：`contextIsolation: true`、`sandbox: true`、`nodeIntegration: false`、`webSecurity: true`、`titleBarStyle: "hiddenInset"`、`trafficLightPosition: {x:16,y:18}`、`minWidth ≥ 960`、`backgroundColor` 随主题 | 旧页面没有 `BrowserWindow`。三栏节点仍由 `ui.test.js` 检查。M2 的 `electron/window-policy.js` 把主窗口最小宽度定为 1100，原网页窗口最小宽度定为 960，并带上列安全开关、`hiddenInset` 和 `{x:16,y:18}`。背景色由 `windowBackground` 在深色时用 `#111827`、浅色时用 `#FFFFFF`。node:test：`arbitrary window.open is denied and original pages use a preload-free window`。规范 §4.1 的 48px 窗格顶栏和 §4.2 的 52px 可拖拽标题条仍是 M3；M2 只把内容区上内边距设为 52px，没有测量标题条，也没有做主题切换界面。 | M2/M3：窗口选项与上述安全开关一致，最小宽度不小于 960。背景色跟随 4.10a。macOS 可拖拽标题条为 52px，普通窗格顶栏为 48px。 | 新增 |
+| 6.1 | `BrowserWindow`：`contextIsolation: true`、`sandbox: true`、`nodeIntegration: false`、`webSecurity: true`、`titleBarStyle: "hiddenInset"`、`trafficLightPosition: {x:16,y:18}`、`minWidth ≥ 960`、`backgroundColor` 随主题 | 旧页面没有 `BrowserWindow`。三栏节点仍由 `ui.test.js` 检查。`electron/window-policy.js` 带上列安全开关、`hiddenInset` 和 `{x:16,y:18}`。M3 把主窗口 `minWidth` 从 M2 的 1100 改为 960；原网页窗口仍是 `minWidth` 960、`show: true`、无 preload。主窗口 `show: false`，`windowBackground` 浅色为 `#FFFFFF`、深色为 `#111214`（替换 M2 的 `#111827`）。node:test：`arbitrary window.open is denied and original pages use a preload-free window`，并断言最小宽度、两种背景和 `titlebarMode`（darwin 且非全屏为 `inset`，全屏或非 macOS 为 `hidden`）。开发 smoke 在六种组合里量到可见标题条 52px、窗格顶栏 48px。常规宽度只在侧栏顶部放 52px 空白可拖拽条，品牌行在其下，资料栏头从 y=0 开始。960 折叠后，可见的 52px 拖拽条改到列表栏顶部，资料栏头起点为 52px。 | M2/M3：窗口选项与上述安全开关一致，最小宽度不小于 960。背景色跟随 4.10a。macOS 可拖拽标题条为 52px，普通窗格顶栏为 48px。 | 新增 |
 | 6.2a | 不启动 HTTP 服务、不开端口 | 旧 `createServer` 仍使用 `node:http`。默认端口 4321、主机 `127.0.0.1`（`src/service.js`）。`npm start` 仍会监听，到 M9 才删。原先的 `occupied port exits successfully without repeated errors` 已不在套件里。替代断言是 `desktop library host does not listen on a TCP port`（监视 `net.Server.prototype.listen`）以及开发 smoke 的 `lsof -nP -a -p <主进程 pid 与 worker pid> -iTCP -sTCP:LISTEN` 为空。Vite 在开发时监听 `127.0.0.1:5173`，该进程不是 Electron。 | M2：`lsof -iTCP -sTCP:LISTEN -p <应用 pid 及子进程>` 无监听端口。开发模式的 Vite 端口只允许开发，生产由 `pageshelf://app/` 加载（§3）。 | 删除 |
 | 6.2b | 不使用令牌或 Cookie | 旧 HTTP 仅当设置 `AUTH_TOKEN` 时，`authorizeRequest` 用 `timingSafeEqual`，并把令牌写入 `HttpOnly; SameSite=Strict` Cookie `html_library_token`。该路径仍在 `src/server.js`，到 M9 才删。原先的令牌引导测试已不在套件里。桌面断言是 `desktop surface has no auth token and worker env drops token, port, and host`：`DESKTOP_SURFACE` 为 `{ listens: false, authToken: null, cookies: false }`，worker 环境删掉 `AUTH_TOKEN`、`PORT`、`HOST`。 | 生产路径没有令牌、Cookie 和 Bearer 检查。旧令牌引导测试不保留为桌面产品行为，见文末已采纳决定。 | 删除 |
 | 6.3a | preload 只暴露具名函数 | 旧前端用 `fetch` 调 `/api`（`public/js/api.js`），该文件仍在。`electron/preload.cjs` 只 `contextBridge.exposeInMainWorld("pageshelf", …)`，具名方法为 `invoke`、`on`、`pickFolder`、`revealInFinder`、`openTrash`、`openOriginal`、`openExternal`。`on` 只接受 `scan-progress`、`library-changed`、`worker-status`。源码测试 `preload exposes only the named pageshelf bridge` 确认不暴露 `ipcRenderer`、不写死 `confirmed: true`。它没有在沙箱页面里再取值。主进程 `rendererEvent` 对未列出的事件返回 `null`，由 `renderer invoke rejects other senders…` 覆盖。 | 主进程测试：渲染层拿不到 `ipcRenderer` 或 Node。`on` 拒绝未列出的事件名。 | 新增 |
@@ -273,7 +302,7 @@ M2 新增或改写：`electron/main.ts`、`electron/preload.cjs`、`electron/bac
 | 8.1 | 点名的 node:test 保持不改并全部通过 | 计划点名：`cache`、`config`、`formats`、`html-scan`、`library`、`markdown`、`metadata`、`root-recovery`、`roots`、`scheduler`、`search`、`trash`。M0 基线 77/77 包含它们。按已采纳的决定，M1 已把 `test/root-recovery.test.js` 改成服务调用，不再导入 `createServer` 或监听端口，并保留 rename 与 order 断言。本次 `npm test` 91 passed 包含这些文件。 | 这些文件在后续里程碑仍通过。`root-recovery.test.js` 保持服务调用和 rename/order 断言，不再接回 HTTP。 | 保留 |
 | 8.2a | `server.test.js`、`router.test.js`、`e2e-smoke.test.js` 迁到服务层和 worker IPC，原断言保留 | M2 已把 `test/server.test.js` 与 `test/e2e-smoke.test.js` 改成 worker 信封。保留的产品断言包括来源增删改查与扫描、MHTML 阅读与下载、错误码、CSP、来源边界、图片 MIME、废纸篓部分成功、配置与缓存。HTTP 静态壳、HTTP 状态码和 Origin 传输断言已去掉。令牌与占用端口换成桌面无令牌、无监听断言，见 6.2a 与 6.2b。`test/e2e-smoke.test.js` 仍断言成对 HTML/Markdown 的索引、搜索和 Markdown 下载。`test/router.test.js` 未改，仍只测 `public/js/router.js` 与 `store.js`。 | M1/M2：上述类别在服务层和 IPC 适配层各有直接调用测试。状态码变为错误码时，现行错误码字符串保持可识别。`router.test.js` 的路由往返不要在迁移时丢掉。 | 替换 |
 | 8.2b | `ui.test.js` 与 `service.test.js` 随旧 UI 和 launchd 删除 | `ui.test.js` 只断言三栏 id、theme-boot 顺序、模块脚本入口、无内联脚本。`service.test.js`：`creates a local-only LaunchAgent plist with stable paths`、`installs a LaunchAgent by writing its plist and bootstrapping launchctl`、`reports LaunchAgent status from launchctl success or failure`、`uninstalls a LaunchAgent and removes its plist`。标签 `com.local.html-conversation-library`。M9 才删除，并要求覆盖点迁到 vitest 或说明为何不再适用。 | M9 删除前，三栏与无白闪主题仍有测试；launchd 测试随服务脚本删除，并在汇报里说明不再适用于无端口桌面版。M0 不删。 | 删除 |
-| 8.3 | 新增 vitest（Testing Library、jsdom） | 仓库没有 vitest。计划用例：搜索语法、路由往返、快捷键（含输入框屏蔽和 `g` 前缀 1 秒）、菜单 Esc/外部点击/路由变化关闭、确认对话框 Promise、分隔条 clamp 与双击复位、主题三态、分场景空态。现行空态至少有：无来源、选择一篇资料、过滤无结果并提供重置、连接错误重试（浏览器用例 `empty filters offer a working reset and connection errors have retry`）。 | 上述每一项都有 vitest，而不是只在手工清单里勾选。路由变化关闭菜单是计划新增的断言，见 4.K2a。 | 新增 |
+| 8.3 | 新增 vitest（Testing Library、jsdom） | M3 增加 Vitest 5、Testing Library、jsdom 和 `npm run test:ui`。修复后 3 个文件、17 项通过，覆盖主题三态、持久化、坏值回落、仅 system 跟随系统、可用方向键切换的单选组、分隔条 16px 步进、夹取、默认与双击复位、焦点顺序和 aria，以及空态「还没有来源目录」。计划中的搜索语法、路由往返、快捷键（含输入框屏蔽和 `g` 前缀 1 秒）、菜单 Esc/外部点击/路由变化关闭、确认对话框 Promise，以及其他空态（选择一篇资料、过滤无结果、连接错误重试）还没有 vitest。 | 上述每一项都有 vitest，而不是只在手工清单里勾选。路由变化关闭菜单是计划新增的断言，见 4.K2a。M3 只完成其中的主题、分隔条和来源空态。 | 新增 |
 | 8.4 | 新增主进程测试 | `test/desktop-shell.test.js` 覆盖白名单与参数校验、合法 app sender 与其他 sender、`pageshelf://` 穿越与 source CSP/`nosniff`、外部 URL 方案过滤、原网页专用窗口与任意 `window.open` 拒绝、worker 在 ready 前/后崩溃并恢复、退出时 1.2 秒内强制结束。这些测试导入 `electron/*.js` 与 `shared/pageshelf-contract.js`，不靠渲染层单测代替。崩溃与退出用注入的子进程，见上文「M1 / M2 证据」。 | M2 这些测试存在且针对主进程代码，不靠渲染层单测代替。 | 新增 |
 | 8.5 | Playwright `_electron` 冒烟代替 `browser-test.mjs` | 现行 `scripts/browser-test.mjs` 使用本机 Chrome。缺 Chrome 时退出码 2，README 规定这不算通过。`--force-failure` 应以退出码 1 失败。冒烟目标：启动、添加夹具目录、搜索、打开 HTML/MHTML/MD、用替身移入废纸篓、退出；另含恶意脚本不执行。M9 删除 `browser-test.mjs`。本次未运行该脚本。 | M8/M10 前 Playwright 冒烟通过，并保留恶意脚本来源不执行的断言。旧浏览器脚本在 M9 之前仍可运行。 | 替换 |
 | 8.6 | `npm run benchmark:search` 保留，并在 worker 中运行、与基线对比 | 脚本是 `scripts/benchmark-search.mjs`。现行在主 Node 进程里测 `searchItems`。本次文档没有运行它，也没有把任何性能数字当作基线。仓库另有历史记录 `docs/verification/search-performance-2026-10-05.json`，那不是本次任务提供的基线。 | 桌面版在 worker 环境跑同一脚本，汇报与基线的对比。M0 不记录虚构的基线数字。 | 保留 |

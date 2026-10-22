@@ -8,8 +8,15 @@ export const APP_WINDOW_PREFERENCES = Object.freeze({
   webviewTag: false,
 });
 
+export const LIGHT_WINDOW_BACKGROUND = "#FFFFFF";
+export const DARK_WINDOW_BACKGROUND = "#111214";
+
 export function windowBackground(prefersDark) {
-  return prefersDark ? "#111827" : "#FFFFFF";
+  return prefersDark ? DARK_WINDOW_BACKGROUND : LIGHT_WINDOW_BACKGROUND;
+}
+
+export function titlebarMode(platform, fullscreen) {
+  return platform === "darwin" && fullscreen !== true ? "inset" : "hidden";
 }
 
 /**
@@ -35,9 +42,9 @@ export function appWindowOptions({
   return {
     width: 1440,
     height: 900,
-    minWidth: 1100,
+    minWidth: 960,
     minHeight: 720,
-    show: true,
+    show: false,
     title,
     titleBarStyle: "hiddenInset",
     trafficLightPosition: { x: 16, y: 18 },

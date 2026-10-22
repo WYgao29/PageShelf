@@ -6,6 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
+import { shellAuditErrors } from "../shared/shell-audit.js";
 
 const exec = promisify(execFile);
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -106,7 +107,7 @@ try {
     process.stderr.write(chunk);
   });
   const started = Date.now();
-  while (Date.now() - started < 45000) {
+  while (Date.now() - started < 90000) {
     if (buffer.includes("SMOKE_FAIL ") || buffer.includes("SMOKE_PIDS ")) break;
     if (electron.exitCode !== null) break;
     await new Promise((resolve) => setTimeout(resolve, 100));
@@ -120,6 +121,10 @@ try {
   const text = JSON.parse(textLine.slice("SMOKE_TEXT ".length));
   if (!text.includes("还没有来源目录") || !text.includes("PageShelf"))
     throw new Error("窗口没有显示空来源列表：" + text);
+  const layoutLine = lines.find((line) => line.startsWith("SMOKE_LAYOUT "));
+  if (!layoutLine) throw new Error("Electron 没有报出无截图布局测量");
+  const layoutErrors = shellAuditErrors(JSON.parse(layoutLine.slice("SMOKE_LAYOUT ".length)));
+  if (layoutErrors.length) throw new Error("布局测量不符合 M3：\n" + layoutErrors.join("\n"));
   const [, mainPid, workerPid] = pidLine.trim().split(/\s+/);
   if (!mainPid || !workerPid) throw new Error("缺少主进程或 worker 进程号：" + pidLine);
   const mainListen = await listeners(mainPid);

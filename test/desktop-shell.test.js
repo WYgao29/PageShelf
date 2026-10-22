@@ -14,6 +14,8 @@ import {
   appWindowOptions,
   permissionDecision,
   planOriginalWindow,
+  titlebarMode,
+  windowBackground,
   windowOpenDecision,
 } from "../electron/window-policy.js";
 import { SOURCE_CSP } from "../src/services/items.js";
@@ -294,7 +296,14 @@ test("arbitrary window.open is denied and original pages use a preload-free wind
   assert.equal(APP_WINDOW_PREFERENCES.webSecurity, true);
   assert.equal(APP_WINDOW_PREFERENCES.webviewTag, false);
   const app = appWindowOptions({ preloadPath: "/tmp/preload.cjs", backgroundColor: "#FFFFFF" });
+  assert.equal(app.minWidth, 960);
   assert.ok(app.minWidth >= 960);
+  assert.equal(app.show, false);
+  assert.equal(windowBackground(false), "#FFFFFF");
+  assert.equal(windowBackground(true), "#111214");
+  assert.equal(titlebarMode("darwin", false), "inset");
+  assert.equal(titlebarMode("darwin", true), "hidden");
+  assert.equal(titlebarMode("linux", false), "hidden");
   assert.equal(app.titleBarStyle, "hiddenInset");
   assert.deepEqual(app.trafficLightPosition, { x: 16, y: 18 });
   assert.equal(app.webPreferences.preload, "/tmp/preload.cjs");
@@ -314,6 +323,11 @@ test("preload exposes only the named pageshelf bridge", async () => {
   assert.doesNotMatch(preload, /exposeInMainWorld\(\s*"ipcRenderer"/);
   assert.doesNotMatch(preload, /confirmed:\s*true/);
   assert.match(main, /requestSingleInstanceLock/);
+  assert.match(preload, /pageshelf:window-background/);
+  assert.match(main, /pageshelf:window-background/);
+  assert.match(preload, /pageshelf:chrome/);
+  assert.match(main, /pageshelf:chrome/);
+  assert.doesNotMatch(preload, /exposeInMainWorld\([\s\S]*setTheme/);
   assert.match(main, /setWindowOpenHandler/);
   assert.match(main, /setPermissionRequestHandler/);
   assert.match(main, /registerSchemesAsPrivileged/);
