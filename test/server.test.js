@@ -1,49 +1,67 @@
 import assert from "node:assert/strict";
-import { access, mkdtemp, writeFile } from "node:fs/promises";
+import { access, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import {
+  createLibraryHost,
+  handleWorkerEnvelope,
+} from "../electron/backend/host.js";
+import {
+  DESKTOP_SURFACE,
+  desktopWorkerEnv,
+} from "../shared/pageshelf-contract.js";
 import { testTrashService } from "./helpers/fixture.js";
-import { createServer } from "../src/server.js";
 
-async function withServer(callback) {
+const text = (body) => Buffer.from(body).toString("utf8");
+
+async function invoke(host, method, params) {
+  const reply = await handleWorkerEnvelope(host, {
+    id: method + ":" + Math.random().toString(16).slice(2),
+    method,
+    params,
+  });
+  if (!reply.ok)
+    throw Object.assign(new Error(reply.error.message), {
+      code: reply.error.code,
+      details: reply.error.details,
+    });
+  return reply.result;
+}
+
+async function rejection(host, method, params) {
+  try {
+    await invoke(host, method, params);
+  } catch (error) {
+    return error;
+  }
+  throw new Error("应当失败");
+}
+
+async function withHost(callback, options = {}) {
   const dataDir = await mkdtemp(path.join(os.tmpdir(), "html-library-data-"));
-  const sourceDir = await mkdtemp(
-    path.join(os.tmpdir(), "html-library-source-"),
-  );
+  const sourceDir = await mkdtemp(path.join(os.tmpdir(), "html-library-source-"));
   await writeFile(
     path.join(sourceDir, "远程阅读.html"),
     "<html><head><title>远程阅读</title></head><body><p>这是 API 搜索内容。</p></body></html>",
   );
-  const server = createServer({ dataDir, trashService: testTrashService });
-  await server.ready;
-  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
-  const address = server.address();
-  const baseUrl = "http://127.0.0.1:" + address.port;
+  const host = await createLibraryHost({
+    dataDir,
+    trashService: testTrashService,
+    ...options,
+  });
   try {
-    await callback({ baseUrl, sourceDir, server });
+    await callback({ host, sourceDir, dataDir });
   } finally {
-    await new Promise((resolve, reject) =>
-      server.close((error) => (error ? reject(error) : resolve())),
-    );
+    await host.close();
   }
 }
 
-async function withConfiguredServer(options, callback) {
-  const dataDir = await mkdtemp(
-    path.join(os.tmpdir(), "html-library-auth-data-"),
-  );
-  const server = createServer({ dataDir, ...options });
-  await server.ready;
-  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
-  const baseUrl = "http://127.0.0.1:" + server.address().port;
-  try {
-    await callback({ baseUrl });
-  } finally {
-    await new Promise((resolve, reject) =>
-      server.close((error) => (error ? reject(error) : resolve())),
-    );
-  }
+async function addRoot(host, sourceDir, extra = {}) {
+  const added = await invoke(host, "roots.add", { path: sourceDir, ...extra });
+  await host.library.scheduler.waitForIdle();
+  return added;
 }
 
 function mhtmlFixture() {
@@ -69,474 +87,277 @@ function mhtmlFixture() {
   ].join("\r\n");
 }
 
-async function jsonRequest(baseUrl, route, options = {}) {
-  const response = await fetch(baseUrl + route, {
-    ...options,
-    headers: {
-      "content-type": "application/json",
-      origin: baseUrl,
-      ...(options.headers || {}),
-    },
-  });
-  const body = await response.json();
-  if (
-    options.method === "POST" &&
-    route === "/api/roots" &&
-    response.status === 201
-  ) {
-    while (true) {
-      const status = await (await fetch(baseUrl + "/api/scan/status")).json();
-      if (!status.running.length && !status.queued.length) break;
-    }
-  }
-  return { response, body };
-}
-
-test("API adds a root, scans it, searches it, and reads its source", async () => {
-  await withServer(async ({ baseUrl, sourceDir }) => {
-    const added = await jsonRequest(baseUrl, "/api/roots", {
-      method: "POST",
-      body: JSON.stringify({ path: sourceDir, label: "API 样例" }),
+test("worker adds a root, scans it, searches it, and reads its source", async () => {
+  await withHost(async ({ host, sourceDir }) => {
+    const added = await addRoot(host, sourceDir, { label: "API 样例" });
+    assert.ok(added.scan.queued.length);
+    assert.equal((await invoke(host, "roots.list")).totals.items, 1);
+    const library = await invoke(host, "items.search", {
+      query: { q: "API 搜索" },
     });
-    assert.equal(added.response.status, 201);
-    assert.ok(added.body.scan.queued.length);
-    assert.equal(
-      (await (await fetch(baseUrl + "/api/roots")).json()).totals.items,
-      1,
-    );
-
-    const library = await jsonRequest(baseUrl, "/api/items?q=API%20搜索");
-    assert.equal(library.response.status, 200);
-    assert.equal(library.body.items.length, 1);
-    const item = library.body.items[0];
-
-    const source = await fetch(
-      baseUrl + "/api/items/" + encodeURIComponent(item.id) + "/source/html",
-    );
-    assert.equal(source.status, 200);
-    assert.equal(
-      source.headers.get("content-type"),
-      "text/html; charset=utf-8",
-    );
-    assert.match(await source.text(), /远程阅读/);
+    assert.equal(library.items.length, 1);
+    const source = await invoke(host, "items.source", {
+      id: library.items[0].id,
+      format: "html",
+    });
+    assert.equal(source.headers["content-type"], "text/html; charset=utf-8");
+    assert.match(text(source.body), /远程阅读/);
   });
 });
 
-test("API opens MHTML as HTML and keeps the original archive for download", async () => {
-  await withServer(async ({ baseUrl, sourceDir }) => {
+test("worker opens MHTML as HTML and keeps the original archive for download", async () => {
+  await withHost(async ({ host, sourceDir }) => {
     const content = mhtmlFixture();
     await writeFile(path.join(sourceDir, "离线页面.mhtml"), content);
-    const added = await jsonRequest(baseUrl, "/api/roots", {
-      method: "POST",
-      body: JSON.stringify({ path: sourceDir, label: "MHTML" }),
-    });
-    const indexed = (await jsonRequest(baseUrl, "/api/items")).body;
+    await addRoot(host, sourceDir, { label: "MHTML" });
+    const indexed = await invoke(host, "items.search", { query: {} });
     assert.equal(indexed.items.length, 2);
     const item = indexed.items.find((entry) => entry.mhtml);
     assert.equal(item.title, "MHTML 服务");
-
-    const source = await fetch(
-      baseUrl + "/api/items/" + encodeURIComponent(item.id) + "/source/mhtml",
-    );
-    assert.equal(source.status, 200);
-    assert.equal(
-      source.headers.get("content-type"),
-      "text/html; charset=utf-8",
-    );
-    const rendered = await source.text();
+    const source = await invoke(host, "items.source", {
+      id: item.id,
+      format: "mhtml",
+    });
+    assert.equal(source.headers["content-type"], "text/html; charset=utf-8");
+    const rendered = text(source.body);
     assert.match(rendered, /MHTML 服务/);
     assert.match(rendered, /data:image\/png;base64,/);
     assert.doesNotMatch(rendered, /multipart\/related|mhtml-boundary/);
-
-    const download = await fetch(
-      baseUrl + "/api/items/" + encodeURIComponent(item.id) + "/download/mhtml",
-    );
+    const download = await invoke(host, "items.download", {
+      id: item.id,
+      format: "mhtml",
+    });
     assert.equal(
-      download.headers.get("content-type"),
+      download.headers["content-type"],
       'multipart/related; type="text/html"; boundary="mhtml-boundary"',
     );
-    assert.match(await download.text(), /MHTML 服务/);
-
-    const htmlRecords = await jsonRequest(baseUrl, "/api/items?fmt=html");
+    assert.match(text(download.body), /MHTML 服务/);
+    const htmlRecords = await invoke(host, "items.search", {
+      query: { fmt: "html" },
+    });
     assert.equal(
-      htmlRecords.body.items.some((entry) => entry.id === item.id),
+      htmlRecords.items.some((entry) => entry.id === item.id),
       true,
     );
   });
 });
 
-test("API rejects invalid roots and unknown source formats", async () => {
-  await withServer(async ({ baseUrl }) => {
-    const invalid = await jsonRequest(baseUrl, "/api/roots", {
-      method: "POST",
-      body: JSON.stringify({ path: path.join(os.tmpdir(), "does-not-exist") }),
+test("worker rejects invalid roots and unknown source formats", async () => {
+  await withHost(async ({ host }) => {
+    const invalid = await rejection(host, "roots.add", {
+      path: path.join(os.tmpdir(), "does-not-exist-" + Date.now()),
     });
-    assert.equal(invalid.response.status, 400);
-    assert.match(invalid.body.error.message, /目录|路径/);
-
-    const unknown = await fetch(baseUrl + "/api/items/nope/source/html");
-    assert.equal(unknown.status, 404);
+    assert.match(invalid.message, /目录|路径/);
+    const unknown = await rejection(host, "items.source", {
+      id: "nope",
+      format: "html",
+    });
+    assert.equal(unknown.code, "SOURCE_NOT_FOUND");
   });
 });
 
-test("serves the unified library app shell", async () => {
-  await withServer(async ({ baseUrl }) => {
-    const response = await fetch(baseUrl + "/");
-    assert.equal(response.status, 200);
-    const html = await response.text();
-    assert.match(html, /我的对话库/);
-    assert.doesNotMatch(html, /itemDialog|打开记录/);
-    const app = await (await fetch(baseUrl + "/assets/js/main.js")).text();
-    assert.match(app, /mountReader/);
-    assert.equal((await fetch(baseUrl + "/assets/app.js")).status, 404);
+test("worker removes a root without touching its source files", async () => {
+  await withHost(async ({ host, sourceDir }) => {
+    const added = await addRoot(host, sourceDir, { label: "待移除" });
+    const removed = await invoke(host, "roots.remove", { id: added.root.id });
+    assert.equal(removed.removed, added.root.id);
+    await host.library.scheduler.waitForIdle();
+    assert.equal((await invoke(host, "roots.list")).roots.length, 0);
+    assert.equal((await invoke(host, "items.search", { query: {} })).items.length, 0);
+    await access(path.join(sourceDir, "远程阅读.html"));
   });
 });
 
-test("API removes a root without touching its source files", async () => {
-  await withServer(async ({ baseUrl, sourceDir }) => {
-    const added = await jsonRequest(baseUrl, "/api/roots", {
-      method: "POST",
-      body: JSON.stringify({ path: sourceDir, label: "待移除" }),
+test("worker moves a record to trash and drops its index entry", async () => {
+  await withHost(async ({ host, sourceDir }) => {
+    await addRoot(host, sourceDir, { label: "待删除" });
+    const item = (await invoke(host, "items.search", { query: {} })).items[0];
+    const deleted = await invoke(host, "items.trash", {
+      id: item.id,
+      confirm: true,
     });
-    const rootId = added.body.root.id;
-    const removed = await fetch(
-      baseUrl + "/api/roots/" + encodeURIComponent(rootId),
-      {
-        method: "DELETE",
-        headers: { origin: baseUrl, "content-type": "application/json" },
-        body: "{}",
-      },
-    );
-    assert.equal(removed.status, 200);
-    const settings = await (await fetch(baseUrl + "/api/roots")).json();
-    assert.equal(settings.roots.length, 0);
-    assert.equal(
-      (await (await fetch(baseUrl + "/api/items")).json()).items.length,
-      0,
-    );
-  });
-});
-
-test("API deletes a record's source file and index entry", async () => {
-  await withServer(async ({ baseUrl, sourceDir }) => {
-    const added = await jsonRequest(baseUrl, "/api/roots", {
-      method: "POST",
-      body: JSON.stringify({ path: sourceDir, label: "待删除" }),
-    });
-    const item = (await jsonRequest(baseUrl, "/api/items")).body.items[0];
-    const deleted = await fetch(
-      baseUrl + "/api/items/" + encodeURIComponent(item.id) + "/trash",
-      {
-        method: "POST",
-        headers: { origin: baseUrl, "content-type": "application/json" },
-        body: '{"confirm":true}',
-      },
-    );
-    assert.equal(deleted.status, 200);
-    assert.equal((await deleted.json()).trashed.length, 1);
+    assert.equal(deleted.trashed.length, 1);
     await assert.rejects(access(path.join(sourceDir, "远程阅读.html")), {
       code: "ENOENT",
     });
-    assert.equal(
-      (await (await fetch(baseUrl + "/api/items")).json()).items.length,
-      0,
-    );
+    assert.equal((await invoke(host, "items.search", { query: {} })).items.length, 0);
   });
 });
 
-test("protected servers reject unauthenticated requests and support token bootstrap", async () => {
-  await withConfiguredServer(
-    { authToken: "review-secret" },
-    async ({ baseUrl }) => {
-      const denied = await fetch(baseUrl + "/api/roots");
-      assert.equal(denied.status, 401);
-
-      const bootstrap = await fetch(baseUrl + "/?token=review-secret", {
-        redirect: "manual",
-      });
-      assert.equal(bootstrap.status, 302);
-      assert.match(
-        bootstrap.headers.get("set-cookie"),
-        /html_library_token=review-secret/,
-      );
-
-      const cookie = bootstrap.headers.get("set-cookie").split(";", 1)[0];
-      const allowed = await fetch(baseUrl + "/api/roots", {
-        headers: { cookie },
-      });
-      assert.equal(allowed.status, 200);
+test("desktop surface has no auth token and worker env drops token, port, and host", async () => {
+  assert.deepEqual(DESKTOP_SURFACE, {
+    listens: false,
+    authToken: null,
+    cookies: false,
+  });
+  const env = desktopWorkerEnv(
+    {
+      AUTH_TOKEN: "review-secret",
+      PORT: "4321",
+      HOST: "0.0.0.0",
+      PATH: "/usr/bin",
+      FORCE_COLOR: "1",
+      NO_COLOR: "1",
     },
+    "/tmp/pageshelf-data",
   );
+  assert.equal(env.AUTH_TOKEN, undefined);
+  assert.equal(env.PORT, undefined);
+  assert.equal(env.HOST, undefined);
+  assert.equal(env.NO_COLOR, undefined);
+  assert.equal(env.HTML_LIBRARY_DATA_DIR, "/tmp/pageshelf-data");
+  assert.equal(env.PATH, "/usr/bin");
 });
 
-test("source responses prevent executable HTML and unknown formats are not server errors", async () => {
-  await withServer(async ({ baseUrl, sourceDir }) => {
-    const added = await jsonRequest(baseUrl, "/api/roots", {
-      method: "POST",
-      body: JSON.stringify({ path: sourceDir }),
+test("desktop library host does not listen on a TCP port", async () => {
+  const calls = [];
+  const original = net.Server.prototype.listen;
+  net.Server.prototype.listen = function (...args) {
+    calls.push(args);
+    return original.apply(this, args);
+  };
+  const previous = process.env.AUTH_TOKEN;
+  process.env.AUTH_TOKEN = "desktop-must-ignore";
+  try {
+    await withHost(async ({ host }) => {
+      const listed = await invoke(host, "roots.list");
+      assert.equal(listed.roots.length, 0);
+      assert.equal("authToken" in listed && listed.authToken, false);
     });
-    const item = (await jsonRequest(baseUrl, "/api/items")).body.items[0];
-    const source = await fetch(
-      baseUrl + "/api/items/" + encodeURIComponent(item.id) + "/source/html",
-    );
-    assert.equal(source.status, 200);
-    assert.match(source.headers.get("content-security-policy"), /sandbox/);
+    assert.equal(calls.length, 0);
+  } finally {
+    net.Server.prototype.listen = original;
+    if (previous === undefined) delete process.env.AUTH_TOKEN;
+    else process.env.AUTH_TOKEN = previous;
+  }
+});
+
+test("source responses prevent executable HTML and unknown formats are not found", async () => {
+  await withHost(async ({ host, sourceDir }) => {
+    await addRoot(host, sourceDir);
+    const item = (await invoke(host, "items.search", { query: {} })).items[0];
+    const source = await invoke(host, "items.source", {
+      id: item.id,
+      format: "html",
+    });
+    assert.match(source.headers["content-security-policy"], /sandbox/);
     assert.match(
-      source.headers.get("content-security-policy"),
+      source.headers["content-security-policy"],
       /frame-ancestors 'self'/,
     );
-    assert.equal(source.headers.get("x-content-type-options"), "nosniff");
-
-    const unknown = await fetch(
-      baseUrl +
-        "/api/items/" +
-        encodeURIComponent(item.id) +
-        "/source/toString",
-    );
-    assert.equal(unknown.status, 404);
-  });
-});
-
-test("API rejects null JSON bodies with a client error", async () => {
-  await withServer(async ({ baseUrl }) => {
-    const response = await fetch(baseUrl + "/api/roots", {
-      method: "POST",
-      headers: { "content-type": "application/json", origin: baseUrl },
-      body: "null",
+    assert.equal(source.headers["x-content-type-options"], "nosniff");
+    const unknown = await rejection(host, "items.source", {
+      id: item.id,
+      format: "toString",
     });
-    assert.equal(response.status, 400);
+    assert.equal(unknown.code, "SOURCE_NOT_FOUND");
   });
 });
 
 test("startup ignores invalid persisted roots instead of crashing", async () => {
-  const dataDir = await mkdtemp(
-    path.join(os.tmpdir(), "html-library-invalid-config-"),
-  );
+  const dataDir = await mkdtemp(path.join(os.tmpdir(), "html-library-invalid-config-"));
   await writeFile(
     path.join(dataDir, "config.json"),
     JSON.stringify({ roots: [null, { label: "缺路径" }] }),
   );
-  const server = createServer({ dataDir, trashService: testTrashService });
-  await assert.doesNotReject(server.ready);
-  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const host = await createLibraryHost({ dataDir, trashService: testTrashService });
   try {
-    const response = await fetch(
-      "http://127.0.0.1:" + server.address().port + "/api/roots",
-    );
-    assert.equal(response.status, 200);
-    assert.deepEqual((await response.json()).roots, []);
+    assert.deepEqual((await invoke(host, "roots.list")).roots, []);
   } finally {
-    await new Promise((resolve, reject) =>
-      server.close((error) => (error ? reject(error) : resolve())),
-    );
+    await host.close();
   }
 });
 
-test("API returns the folder selected by the native folder picker", async () => {
-  await withConfiguredServer(
-    { chooseDirectory: async () => "/Users/example/Documents/对话" },
-    async ({ baseUrl }) => {
-      const response = await fetch(baseUrl + "/api/settings/choose-folder", {
-        method: "POST",
-        headers: { origin: baseUrl, "content-type": "application/json" },
-        body: "{}",
-      });
-      assert.equal(response.status, 200);
-      assert.deepEqual(await response.json(), {
+test("worker returns the folder selected by the injected picker", async () => {
+  await withHost(
+    async ({ host }) => {
+      assert.deepEqual(await invoke(host, "system.chooseFolder"), {
         cancelled: false,
         path: "/Users/example/Documents/对话",
       });
     },
+    { chooseDirectory: async () => "/Users/example/Documents/对话" },
   );
 });
 
-test("API reports when the native folder picker is cancelled", async () => {
-  await withConfiguredServer(
-    { chooseDirectory: async () => null },
-    async ({ baseUrl }) => {
-      const response = await fetch(baseUrl + "/api/settings/choose-folder", {
-        method: "POST",
-        headers: { origin: baseUrl, "content-type": "application/json" },
-        body: "{}",
+test("worker reports when the folder picker is cancelled", async () => {
+  await withHost(
+    async ({ host }) => {
+      assert.deepEqual(await invoke(host, "system.chooseFolder"), {
+        cancelled: true,
       });
-      assert.equal(response.status, 200);
-      assert.deepEqual(await response.json(), { cancelled: true });
     },
+    { chooseDirectory: async () => null },
   );
 });
 
-test("occupied port exits successfully without repeated errors", async () => {
-  const { createServer: createHttpServer } = await import("node:http");
-  const { spawn } = await import("node:child_process");
-  const blocker = createHttpServer();
-  await new Promise((resolve) => blocker.listen(0, "127.0.0.1", resolve));
-  const dataDir = await mkdtemp(path.join(os.tmpdir(), "html-library-port-"));
-  const port = blocker.address().port;
-  try {
-    const child = spawn(process.execPath, ["src/server.js"], {
-      env: {
-        ...process.env,
-        HOST: "127.0.0.1",
-        PORT: String(port),
-        HTML_LIBRARY_DATA_DIR: dataDir,
-      },
-    });
-    let output = "",
-      errors = "";
-    child.stdout.on("data", (x) => (output += x));
-    child.stderr.on("data", (x) => (errors += x));
-    const timer = setTimeout(() => child.kill(), 5000);
-    const code = await new Promise((resolve) => child.on("exit", resolve));
-    clearTimeout(timer);
-    assert.equal(code, 0);
-    assert.match(output, new RegExp("服务已在运行.*" + port));
-    assert.equal(errors, "");
-  } finally {
-    await new Promise((resolve) => blocker.close(resolve));
-  }
-});
-
-test("v2 root API guards writes and supports preview rename order disable relocate remove", async () => {
-  await withServer(async ({ baseUrl, sourceDir, server }) => {
-    const before = (await import("node:fs/promises")).stat;
-    const stamp = (await before(path.join(sourceDir, "远程阅读.html"))).mtimeMs;
-    for (const [headers, body, status] of [
-      [{ "content-type": "application/json" }, "{}", 403],
-      [
-        { origin: "https://other.test", "content-type": "application/json" },
-        "{}",
-        403,
-      ],
-      [{ origin: baseUrl, "content-type": "text/plain" }, "{}", 415],
-      [{ origin: baseUrl, "content-type": "application/json" }, "null", 400],
-      [{ origin: baseUrl, "content-type": "application/json" }, "[]", 400],
-    ])
-      assert.equal(
-        (await fetch(baseUrl + "/api/roots", { method: "POST", headers, body }))
-          .status,
-        status,
-      );
-    const preview = await jsonRequest(baseUrl, "/api/roots?dryRun=1", {
-      method: "POST",
-      body: JSON.stringify({ path: sourceDir }),
-    });
-    assert.equal(preview.body.valid, true);
-    assert.equal(
-      (await (await fetch(baseUrl + "/api/roots")).json()).roots.length,
-      0,
+test("worker previews, renames, orders, disables, rescans, and removes without touching files", async () => {
+  await withHost(async ({ host, sourceDir }) => {
+    const stamp = (await import("node:fs/promises")).stat(
+      path.join(sourceDir, "远程阅读.html"),
     );
-    const add = await jsonRequest(baseUrl, "/api/roots", {
-      method: "POST",
-      body: JSON.stringify({ path: sourceDir, label: "资料" }),
-    });
-    assert.equal(add.response.status, 201);
-    const id = add.body.root.id;
-    await server.library().scheduler.waitForIdle();
-    const renamed = await jsonRequest(baseUrl, "/api/roots/" + id, {
-      method: "PATCH",
-      body: JSON.stringify({ label: "新名" }),
-    });
-    assert.equal(renamed.body.root.label, "新名");
-    assert.equal(renamed.body.root.id, id);
+    const mtime = (await stamp).mtimeMs;
+    const preview = await invoke(host, "roots.preflight", { path: sourceDir });
+    assert.equal(preview.valid, true);
+    assert.equal((await invoke(host, "roots.list")).roots.length, 0);
+    const add = await addRoot(host, sourceDir, { label: "资料" });
+    const id = add.root.id;
+    const renamed = await invoke(host, "roots.update", { id, label: "新名" });
+    assert.equal(renamed.root.label, "新名");
+    assert.equal(renamed.root.id, id);
+    const mismatch = await rejection(host, "roots.order", { ids: [] });
+    assert.equal(mismatch.code, "ORDER_MISMATCH");
+    await invoke(host, "roots.order", { ids: [id] });
+    await invoke(host, "roots.update", { id, enabled: false });
+    await host.library.scheduler.waitForIdle();
+    assert.equal((await invoke(host, "roots.list")).totals.items, 0);
+    await invoke(host, "roots.update", { id, enabled: true });
+    await host.library.scheduler.waitForIdle();
+    assert.equal((await invoke(host, "roots.list")).totals.items, 1);
+    const queued = await invoke(host, "roots.rescan", { id });
+    assert.equal(queued.queued, true);
+    await host.library.scheduler.waitForIdle();
+    await invoke(host, "roots.remove", { id });
+    await host.library.scheduler.waitForIdle();
+    assert.equal((await invoke(host, "roots.list")).roots.length, 0);
     assert.equal(
-      (
-        await jsonRequest(baseUrl, "/api/roots/order", {
-          method: "PUT",
-          body: JSON.stringify({ ids: [] }),
-        })
-      ).response.status,
-      400,
-    );
-    assert.equal(
-      (
-        await jsonRequest(baseUrl, "/api/roots/order", {
-          method: "PUT",
-          body: JSON.stringify({ ids: [id] }),
-        })
-      ).response.status,
-      200,
-    );
-    await jsonRequest(baseUrl, "/api/roots/" + id, {
-      method: "PATCH",
-      body: '{"enabled":false}',
-    });
-    await server.library().scheduler.waitForIdle();
-    assert.equal(
-      (await (await fetch(baseUrl + "/api/roots")).json()).totals.items,
-      0,
-    );
-    await jsonRequest(baseUrl, "/api/roots/" + id, {
-      method: "PATCH",
-      body: '{"enabled":true}',
-    });
-    await server.library().scheduler.waitForIdle();
-    assert.equal(
-      (await (await fetch(baseUrl + "/api/roots")).json()).totals.items,
-      1,
-    );
-    const queued = await jsonRequest(baseUrl, "/api/roots/" + id + "/scan", {
-      method: "POST",
-      body: "{}",
-    });
-    assert.equal(queued.response.status, 202);
-    await server.library().scheduler.waitForIdle();
-    await jsonRequest(baseUrl, "/api/roots/" + id, {
-      method: "DELETE",
-      body: "{}",
-    });
-    assert.equal(
-      (await (await fetch(baseUrl + "/api/roots")).json()).roots.length,
-      0,
-    );
-    assert.equal(
-      (await before(path.join(sourceDir, "远程阅读.html"))).mtimeMs,
-      stamp,
+      (await (await import("node:fs/promises")).stat(path.join(sourceDir, "远程阅读.html")))
+        .mtimeMs,
+      mtime,
     );
   });
 });
 
-test("v2 document APIs use text/plain ETags safe images sandbox and series details", async () => {
-  await withServer(async ({ baseUrl, sourceDir, server }) => {
-    const { writeFile, mkdir, symlink, rename, utimes } =
-      await import("node:fs/promises");
+test("worker documents use text/plain ETags, safe images, sandbox, and series details", async () => {
+  await withHost(async ({ host, sourceDir }) => {
+    const { mkdir, symlink, rename, utimes, stat } = await import("node:fs/promises");
     await mkdir(path.join(sourceDir, "nested"));
-    await writeFile(
-      path.join(sourceDir, "nested", "notes.md"),
-      "# 图片\n![图](image.png)",
-    );
+    await writeFile(path.join(sourceDir, "nested", "notes.md"), "# 图片\n![图](image.png)");
     await writeFile(
       path.join(sourceDir, "nested", "image.png"),
       Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
     );
     await writeFile(path.join(sourceDir, "nested", "fake.png"), "secret text");
     await symlink("/etc/passwd", path.join(sourceDir, "nested", "link.png"));
-    await jsonRequest(baseUrl, "/api/roots", {
-      method: "POST",
-      body: JSON.stringify({ path: sourceDir }),
-    });
-    await server.library().scheduler.waitForIdle();
-    const list = await (await fetch(baseUrl + "/api/items")).json();
+    await addRoot(host, sourceDir);
+    const list = await invoke(host, "items.search", { query: {} });
     assert.equal(list.total, 2);
-    const item = list.items.find((x) => x.html),
-      md = list.items.find((x) => x.markdown),
-      itemRoute = "/api/items/" + encodeURIComponent(item.id);
-    const detail = await (await fetch(baseUrl + itemRoute)).json();
+    const item = list.items.find((entry) => entry.html);
+    const markdown = list.items.find((entry) => entry.markdown);
+    const detail = await invoke(host, "items.get", { id: item.id });
     assert.equal(detail.files.length, 1);
-    const doc = await fetch(baseUrl + itemRoute + "/document");
-    assert.equal(doc.headers.get("content-type"), "text/plain; charset=utf-8");
-    const etag = doc.headers.get("etag");
-    assert.equal(
-      (
-        await fetch(baseUrl + itemRoute + "/document", {
-          headers: { "if-none-match": etag },
-        })
-      ).status,
-      304,
-    );
-    const original = await fetch(baseUrl + itemRoute + "/original");
-    assert.match(original.headers.get("content-security-policy"), /sandbox/);
-    const originalStat = (await import("node:fs/promises")).stat;
-    const info = await originalStat(path.join(sourceDir, "远程阅读.html"));
+    const doc = await invoke(host, "items.document", { id: item.id });
+    assert.equal(doc.headers["content-type"], "text/plain; charset=utf-8");
+    const etag = doc.headers.etag;
+    const cached = await invoke(host, "items.document", {
+      id: item.id,
+      ifNoneMatch: etag,
+    });
+    assert.equal(cached.notModified, true);
+    assert.equal(cached.body, null);
+    const original = await invoke(host, "items.original", { id: item.id });
+    assert.match(original.headers["content-security-policy"], /sandbox/);
+    const info = await stat(path.join(sourceDir, "远程阅读.html"));
     await rename(
       path.join(sourceDir, "远程阅读.html"),
       path.join(sourceDir, "old-test"),
@@ -546,133 +367,59 @@ test("v2 document APIs use text/plain ETags safe images sandbox and series detai
       "<p>replacement body</p>".padEnd(info.size, " "),
     );
     await utimes(path.join(sourceDir, "远程阅读.html"), info.atime, info.mtime);
-    const replaced = await fetch(baseUrl + itemRoute + "/document", {
-      headers: { "if-none-match": etag },
+    const replaced = await invoke(host, "items.document", {
+      id: item.id,
+      ifNoneMatch: etag,
     });
-    assert.equal(replaced.status, 200);
-    assert.notEqual(replaced.headers.get("etag"), etag);
-    assert.match(await replaced.text(), /replacement body/);
-    const asset = (pathValue) =>
-      baseUrl +
-      "/api/items/" +
-      encodeURIComponent(md.id) +
-      "/asset?path=" +
-      encodeURIComponent(pathValue);
-    assert.equal((await fetch(asset("image.png"))).status, 200);
-    for (const invalid of [
-      "../../../../etc/passwd",
-      "../遠程.md",
-      "fake.png",
-      "link.png",
-    ])
-      assert.equal((await fetch(asset(invalid))).status, 404);
-    assert.equal(
-      (
-        await jsonRequest(baseUrl, itemRoute + "/trash", {
-          method: "POST",
-          body: "{}",
-        })
-      ).response.status,
-      400,
-    );
-    const trash = await jsonRequest(baseUrl, itemRoute + "/trash", {
-      method: "POST",
-      body: '{"confirm":true}',
+    assert.equal(replaced.notModified, false);
+    assert.notEqual(replaced.headers.etag, etag);
+    assert.match(text(replaced.body), /replacement body/);
+    const image = await invoke(host, "items.asset", {
+      id: markdown.id,
+      path: "image.png",
     });
-    assert.equal(trash.response.status, 200);
-    assert.equal(trash.body.trashed.length, 1);
+    assert.equal(image.headers["content-type"], "image/png");
+    assert.equal(image.headers["x-content-type-options"], "nosniff");
+    for (const assetPath of ["../../../../etc/passwd", "../遠程.md", "fake.png", "link.png"]) {
+      const missing = await rejection(host, "items.asset", {
+        id: markdown.id,
+        path: assetPath,
+      });
+      assert.equal(missing.code, "SOURCE_NOT_FOUND");
+    }
+    const unconfirmed = await rejection(host, "items.trash", {
+      id: item.id,
+      confirm: false,
+    });
+    assert.equal(unconfirmed.code, "CONFIRM_REQUIRED");
+    const trash = await invoke(host, "items.trash", { id: item.id, confirm: true });
+    assert.equal(trash.trashed.length, 1);
   });
 });
 
-test("vendored ES modules have executable JavaScript MIME", async () =>
-  withServer(async ({ baseUrl }) => {
-    const response = await fetch(
-      baseUrl + "/assets/vendor/dompurify-3.4.16/purify.es.mjs",
-    );
-    assert.match(response.headers.get("content-type"), /^text\/javascript/);
-  }));
-test("history deep links use shell while missing assets and unknown API stay 404", async () =>
-  withServer(async ({ baseUrl }) => {
-    const deep = await fetch(baseUrl + "/r/root-test?item=abc");
-    assert.equal(deep.status, 200);
-    assert.match(
-      deep.headers.get("content-security-policy"),
-      /script-src 'self'/,
-    );
-    assert.match(await deep.text(), /reader-pane/);
-    assert.equal((await fetch(baseUrl + "/assets/nope.js")).status, 404);
-    assert.equal((await fetch(baseUrl + "/api/not-real")).status, 404);
-  }));
-
-test("system reveal accepts only known IDs and uses fixed argv", async () => {
+test("system reveal accepts only known targets and uses fixed argv", async () => {
   const calls = [];
-  await withConfiguredServer(
+  await withHost(
+    async ({ host }) => {
+      const allowed = await invoke(host, "system.openTrash");
+      assert.equal(allowed.revealed, true);
+      assert.equal(calls[0][0], "/usr/bin/open");
+      assert.deepEqual(calls[0][1], ["-a", "Finder", path.join(os.homedir(), ".Trash")]);
+      const refused = await rejection(host, "system.reveal", {
+        path: "/etc/passwd",
+      });
+      assert.equal(refused.code, "INVALID_PARAMS");
+      assert.equal(calls.length, 1);
+    },
     {
       systemExecFile: async (...args) => {
         calls.push(args);
       },
     },
-    async ({ baseUrl }) => {
-      const allowed = await jsonRequest(baseUrl, "/api/system/reveal", {
-        method: "POST",
-        body: '{"trash":true}',
-      });
-      assert.equal(allowed.response.status, 200);
-      assert.equal(calls[0][0], "/usr/bin/open");
-      assert.deepEqual(calls[0][1], [
-        "-a",
-        "Finder",
-        path.join(os.homedir(), ".Trash"),
-      ]);
-      const refused = await jsonRequest(baseUrl, "/api/system/reveal", {
-        method: "POST",
-        body: '{"path":"/etc/passwd"}',
-      });
-      assert.equal(refused.response.status, 400);
-      assert.equal(calls.length, 1);
-    },
   );
 });
-test("legacy endpoints retire while Markdown source links redirect safely", async () =>
-  withServer(async ({ baseUrl, sourceDir }) => {
-    await writeFile(path.join(sourceDir, "笔记.md"), "# 笔记");
-    await jsonRequest(baseUrl, "/api/roots", {
-      method: "POST",
-      body: JSON.stringify({ path: sourceDir }),
-    });
-    const md = (await jsonRequest(baseUrl, "/api/items?fmt=markdown")).body
-      .items[0];
-    for (const route of ["/api/settings", "/api/library"])
-      assert.equal((await fetch(baseUrl + route)).status, 404);
-    const source =
-      "/api/items/" + encodeURIComponent(md.id) + "/source/markdown";
-    const valid = await fetch(
-      baseUrl +
-        "/assets/markdown-viewer.html?source=" +
-        encodeURIComponent(source),
-      { redirect: "manual" },
-    );
-    assert.equal(valid.status, 302);
-    assert.match(valid.headers.get("location"), /view=markdown/);
-    for (const bad of [
-      "https://evil.test" + source,
-      source + "?x=1",
-      "/etc/passwd",
-    ])
-      assert.equal(
-        (
-          await fetch(
-            baseUrl +
-              "/assets/markdown-viewer.html?source=" +
-              encodeURIComponent(bad),
-            { redirect: "manual" },
-          )
-        ).status,
-        400,
-      );
-  }));
 
-test("future config stays byte identical while browsing scanning and cache maintenance work", async () => {
+test("future config stays byte identical while browsing, scanning, and cache maintenance work", async () => {
   const { withTempFixture } = await import("./helpers/fixture.js");
   await withTempFixture(async (directory) => {
     const source = path.join(directory, "source");
@@ -691,80 +438,43 @@ test("future config stays byte identical while browsing scanning and cache maint
       ],
     });
     await writeFile(path.join(directory, "config.json"), config);
-    const server = createServer({
+    const host = await createLibraryHost({
       dataDir: directory,
       trashService: testTrashService,
       chooseDirectory: async () => source,
     });
-    await server.ready;
-    await new Promise((r) => server.listen(0, "127.0.0.1", r));
-    const baseUrl = "http://127.0.0.1:" + server.address().port;
     try {
+      assert.equal((await invoke(host, "roots.list")).readOnly, true);
+      const item = (await invoke(host, "items.search", { query: {} })).items[0];
       assert.equal(
-        (await jsonRequest(baseUrl, "/api/roots")).body.readOnly,
-        true,
-      );
-      const item = (await jsonRequest(baseUrl, "/api/items")).body.items[0];
-      assert.equal(
-        (
-          await jsonRequest(baseUrl, "/api/roots/future", {
-            method: "PATCH",
-            body: '{"label":"no"}',
-          })
-        ).response.status,
-        409,
+        (await rejection(host, "roots.update", { id: "future", label: "no" })).code,
+        "CONFIG_READ_ONLY",
       );
       assert.equal(
-        (
-          await jsonRequest(baseUrl, "/api/items/" + item.id + "/trash", {
-            method: "POST",
-            body: '{"confirm":true}',
-          })
-        ).response.status,
-        409,
+        (await rejection(host, "items.trash", { id: item.id, confirm: true })).code,
+        "CONFIG_READ_ONLY",
       );
+      const scan = await invoke(host, "scan.all", {});
+      assert.ok(scan.queued.includes("future"));
+      await host.library.scheduler.waitForIdle();
+      await invoke(host, "system.clearCache");
+      assert.deepEqual(await invoke(host, "system.chooseFolder"), {
+        cancelled: false,
+        path: source,
+      });
       assert.equal(
-        (
-          await jsonRequest(baseUrl, "/api/scan", {
-            method: "POST",
-            body: "{}",
-          })
-        ).response.status,
-        202,
-      );
-      await server.library().scheduler.waitForIdle();
-      assert.equal(
-        (
-          await jsonRequest(baseUrl, "/api/cache", {
-            method: "DELETE",
-            body: "{}",
-          })
-        ).response.status,
-        200,
-      );
-      assert.equal(
-        (
-          await jsonRequest(baseUrl, "/api/system/choose-folder", {
-            method: "POST",
-            body: "{}",
-          })
-        ).response.status,
-        200,
-      );
-      assert.equal(
-        await (
-          await import("node:fs/promises")
-        ).readFile(path.join(directory, "config.json"), "utf8"),
+        await readFile(path.join(directory, "config.json"), "utf8"),
         config,
       );
     } finally {
-      await new Promise((r) => server.close(r));
+      await host.close();
     }
   });
 });
+
 test("partial trash retains surviving formats and failed trash preserves files", async () => {
-  const { withTempFixture } = await import("./helpers/fixture.js"),
-    { mkdir, rename, readFile } = await import("node:fs/promises");
+  const { withTempFixture } = await import("./helpers/fixture.js");
+  const { mkdir, rename } = await import("node:fs/promises");
   await withTempFixture(async (directory) => {
     const root = path.join(directory, "source");
     await mkdir(root);
@@ -789,9 +499,7 @@ test("partial trash retains surviving formats and failed trash preserves files",
     const trashService = {
       async trashFiles({ paths }) {
         if (failAll)
-          throw Object.assign(Error("全部失败，文件未改动"), {
-            code: "TRASH_FAILED",
-          });
+          throw Object.assign(Error("全部失败，文件未改动"), { code: "TRASH_FAILED" });
         const html = paths.find((file) => file.endsWith(".html"));
         await rename(html, html + ".trashed-test");
         return {
@@ -803,80 +511,61 @@ test("partial trash retains surviving formats and failed trash preserves files",
         };
       },
     };
-    const server = createServer({ dataDir: directory, trashService });
-    await server.ready;
-    await new Promise((r) => server.listen(0, "127.0.0.1", r));
-    const baseUrl = "http://127.0.0.1:" + server.address().port;
+    const host = await createLibraryHost({ dataDir: directory, trashService });
     try {
-      const item = (await jsonRequest(baseUrl, "/api/items")).body.items[0];
-      const route = "/api/items/" + item.id;
-      const partial = await jsonRequest(baseUrl, route + "/trash", {
-        method: "POST",
-        body: '{"confirm":true}',
+      const item = (await invoke(host, "items.search", { query: {} })).items[0];
+      const partial = await invoke(host, "items.trash", {
+        id: item.id,
+        confirm: true,
       });
-      assert.equal(partial.response.status, 207);
-      const survivor = (await jsonRequest(baseUrl, route)).body;
+      assert.equal(partial.failed.length, 1);
+      assert.equal(partial.trashed.length, 1);
+      const survivor = await invoke(host, "items.get", { id: item.id });
       assert.equal(survivor.files.length, 1);
       assert.equal(survivor.item.html, null);
       assert.ok(survivor.item.markdown);
       failAll = true;
-      const failed = await jsonRequest(baseUrl, route + "/trash", {
-        method: "POST",
-        body: '{"confirm":true}',
+      const failed = await rejection(host, "items.trash", {
+        id: item.id,
+        confirm: true,
       });
-      assert.equal(failed.response.status, 500);
-      assert.equal(failed.body.error.code, "TRASH_FAILED");
-      assert.equal(
-        await readFile(path.join(root, "paired.md"), "utf8"),
-        "# Markdown",
-      );
+      assert.equal(failed.code, "TRASH_FAILED");
+      assert.equal(await readFile(path.join(root, "paired.md"), "utf8"), "# Markdown");
     } finally {
-      await new Promise((r) => server.close(r));
+      await host.close();
     }
   });
 });
 
-test("root contract exposes scan totals, affected series and specified validation codes", async () => {
-  const { withTempFixture, createLegacyFixture } =
-    await import("./helpers/fixture.js");
+test("root contract exposes scan totals, affected series, and validation codes", async () => {
+  const { withTempFixture, createLegacyFixture } = await import("./helpers/fixture.js");
   await withTempFixture(async (directory) => {
-    const fixture = await createLegacyFixture(directory),
-      server = createServer({
-        dataDir: fixture.dataDir,
-        trashService: testTrashService,
-      });
-    await server.ready;
-    await server.library().scheduler.waitForIdle();
-    await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
-    const baseUrl = "http://127.0.0.1:" + server.address().port;
+    const fixture = await createLegacyFixture(directory);
+    const host = await createLibraryHost({
+      dataDir: fixture.dataDir,
+      trashService: testTrashService,
+    });
     try {
-      const roots = (await jsonRequest(baseUrl, "/api/roots")).body.roots;
+      await host.library.scheduler.waitForIdle();
+      const roots = (await invoke(host, "roots.list")).roots;
       assert.equal(roots[0].state.lastScan.files, 48);
       assert.equal(roots[0].state.lastScan.items, 48);
       assert.ok(roots[0].state.lastScan.startedAt);
-      const preview = await jsonRequest(baseUrl, "/api/roots?dryRun=1", {
-        method: "POST",
-        body: JSON.stringify({
-          path: path.join(fixture.rootPath, "腾讯云ADP-FDE认证课程"),
-        }),
+      const preview = await invoke(host, "roots.preflight", {
+        path: path.join(fixture.rootPath, "腾讯云ADP-FDE认证课程"),
       });
-      assert.deepEqual(preview.body.overlap.affectedSeries, [
+      assert.deepEqual(preview.overlap.affectedSeries, [
         { name: "腾讯云ADP-FDE认证课程", count: 4 },
       ]);
-      const label = await jsonRequest(baseUrl, "/api/roots/" + roots[0].id, {
-        method: "PATCH",
-        body: '{"label":""}',
+      const label = await rejection(host, "roots.update", {
+        id: roots[0].id,
+        label: "",
       });
-      assert.equal(label.response.status, 400);
-      assert.equal(label.body.error.code, "LABEL_INVALID");
-      const order = await jsonRequest(baseUrl, "/api/roots/order", {
-        method: "PUT",
-        body: '{"ids":[]}',
-      });
-      assert.equal(order.response.status, 400);
-      assert.equal(order.body.error.code, "ORDER_MISMATCH");
+      assert.equal(label.code, "LABEL_INVALID");
+      const order = await rejection(host, "roots.order", { ids: [] });
+      assert.equal(order.code, "ORDER_MISMATCH");
     } finally {
-      await new Promise((resolve) => server.close(resolve));
+      await host.close();
     }
   });
 });

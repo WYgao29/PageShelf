@@ -1,8 +1,8 @@
 # PageShelf Electron 功能保留矩阵（M0）
 
-盘点日期以任务说明为准：2026-10-22。工作树 `/Users/weisengao/Documents/ChatGPT/HTML 知识库`，分支 `electron-react`，任务派发时 HEAD 为 `a556edb7fe7b732698907e1bbe0302cc9a8af2c7`（本文件编写时 `git rev-parse HEAD` 与 `git branch --show-current` 结果相同）。
+盘点日期以任务说明为准：2026-10-22。工作树 `/Users/weisengao/Documents/ChatGPT/HTML 知识库`，分支 `electron-react`。M0 编写时 HEAD 为 `a556edb7fe7b732698907e1bbe0302cc9a8af2c7`。M1 已由 Codex 提交为 `363aa45b840bed65807a639236988b44e5e96c31`。M2 在该提交之上增补实现；本文件里的 M2 证据尚未提交。
 
-本文件只记录现行 Web 应用的行为与证据，以及计划中的 Electron 验证。仓库里没有 `electron/`、`src-ui/` 或 `pageshelf://` 实现。每一行的「目标侧验证」都是尚未执行的计划，不表示已经通过。
+M0 编写时仓库没有 `electron/`、`src-ui/` 或 `pageshelf://`。M1 增加 `src/services/`。M2 增加 `electron/`、`shared/`、`src-ui/` 与 `pageshelf://`。各行「状态」仍是保留类别，不是通过标记。「目标侧验证」的范围不因补证据而扩大或缩小。某一行没有写到的测试，不表示该行已经通过。
 
 验收原文来自未修改的 `ELECTRON_PLAN.md`。§4 的复合清单拆成可追踪子行，子行 ID 回指同一条复选框，不合并不同复选框。§6、§8、§9 中影响保留或验收的义务单独成行。§5 视觉规范、§7 里程碑、§10 汇报格式和 §11 已知坑已阅读；除与下列行直接冲突的点外，不在本矩阵里改写成新的验收行为。
 
@@ -39,6 +39,30 @@
 
 数据目录现行默认是 `~/.html-library/`（`HTML_LIBRARY_DATA_DIR` 可覆盖）。计划 §3 要求桌面版继续使用该目录和该覆盖变量。
 
+## M1 / M2 证据
+
+状态列仍是保留类别。这里只记已经落地的文件和本次实际跑过的命令。Playwright、完整界面、快捷键、主题、打包和旧 Web UI 删除都还没做，对应行不改成通过。
+
+M1 提交 `363aa45`：`src/services/roots.js`、`src/services/items.js`、`src/services/system.js`，HTTP 路由改成薄适配。`SOURCE_CSP` 定义在 `src/services/items.js`，`src/routes/items.js` 再导出。`test/services.test.js` 直接调用服务。`test/root-recovery.test.js` 改为服务调用，仍断言可用目录的 rename 与 order 不入扫描队列（`ordinary rename and order do not enqueue scans for available roots`，以及 `restored child root is indexed after rename` / `order`）。
+
+M2 新增或改写：`electron/main.ts`、`electron/preload.cjs`、`electron/backend/worker.ts`、`electron/backend/host.js`、`electron/protocol.js`、`electron/ipc-gate.js`、`electron/supervisor.js`、`electron/lifecycle.js`、`electron/window-policy.js`、`electron/worker-process.js`、`shared/pageshelf-contract.js`、`src-ui/`、`vite.config.ts`、`tsconfig.ui.json`、`tsconfig.electron.json`、`scripts/build-electron.mjs`、`scripts/desktop-dev.mjs`、`scripts/desktop-smoke.mjs`、`test/desktop-shell.test.js`。`test/server.test.js` 与 `test/e2e-smoke.test.js` 改为 worker 信封。`test/router.test.js` 仍只测 `public/js/router.js` 与 `store.js`，留到界面路由迁移。旧 `src/server.js`、`public/`、`npm start` / `dev` 和 launchd 脚本仍在；删除属于 M9。
+
+`package.json` 增加 `"main": "dist-electron/main.js"`，以及 `desktop:dev`、`desktop:smoke`、`build:ui`、`build:electron`、`build:desktop`，并保留旧脚本。`.gitignore` 忽略 `node_modules/`、`dist/`、`dist-electron/`、`release/`。开发 Vite 固定 `127.0.0.1:5173`。Electron 进程不启动 HTTP，不使用 `AUTH_TOKEN` 或 Cookie。
+
+本次在 M2 工作树上实际运行：
+
+| 命令 | 结果 |
+|---|---|
+| `node --test test/desktop-shell.test.js` | 13 passed，0 failed。包括 worker 在 `worker-ready` 前退出后重启并继续服务请求。 |
+| `npm test` | 91 passed，0 failed，`duration_ms` 573.018375。含 `test/desktop-shell.test.js` 13 项、改写后的 `test/server.test.js` 与 `test/e2e-smoke.test.js`。 |
+| `npm run build:electron` | 通过。`tsc -p tsconfig.electron.json --noEmit` 后 esbuild 写出 `dist-electron/main.js` 与 `dist-electron/backend/worker.js`。 |
+| `npm run build:ui` | 通过。`tsc -p tsconfig.ui.json --noEmit` 后 Vite 8.3.5 写出 `dist/`。 |
+| `env -u NO_COLOR -u FORCE_COLOR node scripts/desktop-smoke.mjs` | 退出码 0。窗口文本含「PageShelf」和「还没有来源目录」。`lsof -nP -a -p <pid> -iTCP -sTCP:LISTEN` 对主进程与 worker 为空。Vite 的 node 进程监听 `127.0.0.1:5173`，该进程不是 Electron。SIGTERM 后记录的 worker pid 已消失。无截图。 |
+| `npm run check` | 通过。核对 marked 18.0.14、DOMPurify 3.4.16、Readability 0.6.0。 |
+| `git diff --check` | 通过。`git diff -- ELECTRON_PLAN.md` 无输出；该文件仍未跟踪，本里程碑没有改它。 |
+
+`desktop-shell` 的 ready 前后崩溃重启、1.2 秒强杀和单实例是注入进程与定时器的测试，不是另起一个真实 utility process 去杀。真实进程证据只有上面的开发 smoke：空库窗口、主进程与 worker 无监听、退出后 worker 消失。preload 测试读取源码，确认只暴露 `pageshelf`、不暴露 `ipcRenderer`、不写死 `confirmed: true`；它没有在沙箱渲染进程里再探测一遍。`will-navigate` 的允许规则有单测，smoke 没有另点一条外链去拦截。
+
 ## §4 来源目录
 
 复选框 1：侧栏「添加目录」「管理」；原生选择文件夹或粘贴路径；1–40 字显示名；添加前预检（路径、重复、文件数、条目数、重叠影响），不通过不保存。
@@ -46,21 +70,21 @@
 | ID | 验收项 | 现有行为与证据 | 目标侧验证 | 状态 |
 |---|---|---|---|---|
 | 4.1a | 侧栏「添加目录」「管理」 | 侧栏标题行按钮「管理」调用 `openManager()`（`public/js/views/sidebar.js`，`data-open-manager`）。页脚「＋ 添加目录」以 `focusAdd: true` 打开同一管理对话框。页脚还有「⚙ 设置」，同样打开管理对话框。管理对话框标题为「目录管理」（`public/js/views/manager.js`）。浏览器用例 `manager opens, duplicate preview blocks add and source rename keeps root id` 点击 `[data-open-manager]`。 | M4：侧栏仍能打开添加与目录管理。两个现行入口（「管理」和「＋ 添加目录」）以及额外的「设置」入口都要保留，除非后续验收明确合并。本矩阵不合并它们。 | 保留 |
-| 4.1b | 原生选择文件夹或粘贴路径 | 管理表单有路径输入框，占位「粘贴文件夹的完整路径」（`#root-path`）。「选择文件夹…」POST `/api/system/choose-folder`。macOS 上 `src/server.js` 的 `chooseFolderWithNativeDialog` 用 `osascript` `choose folder`。用户取消时该函数返回 `null`，`src/routes/system.js` 把它写成 `{ cancelled: true }`。非 macOS 抛 `FOLDER_PICKER_UNAVAILABLE`。`src/routes/system.js` 处理该路由。node:test：`API returns the folder selected by the native folder picker`、`API reports when the native folder picker is cancelled`。 | M4：`dialog.showOpenDialog` 选文件夹，仍可粘贴路径。验证的是选中的路径进入预检，不是继续使用 `osascript`。 | 替换 |
+| 4.1b | 原生选择文件夹或粘贴路径 | 管理表单有路径输入框，占位「粘贴文件夹的完整路径」（`#root-path`）。「选择文件夹…」POST `/api/system/choose-folder`。macOS 上 `src/server.js` 的 `chooseFolderWithNativeDialog` 用 `osascript` `choose folder`。用户取消时该函数返回 `null`，`src/routes/system.js` 把它写成 `{ cancelled: true }`。非 macOS 抛 `FOLDER_PICKER_UNAVAILABLE`。`src/routes/system.js` 处理该路由。node:test：`worker returns the folder selected by the injected picker`、`worker reports when the folder picker is cancelled`。生产选文件夹在主进程用 `dialog.showOpenDialog` 后再调 M1 服务；这套 worker 测试注入的是选择函数，不覆盖系统对话框。 | M4：`dialog.showOpenDialog` 选文件夹，仍可粘贴路径。验证的是选中的路径进入预检，不是继续使用 `osascript`。 | 替换 |
 | 4.1c | 显示名 1–40 字 | `src/roots.js` `labelFor` 用码点长度，空或超过 40 抛 `LABEL_INVALID`（「目录名称需为 1–40 个字符」）。留空时用目录基名。node:test：`paths are canonical, labels validated and order exactly covers roots`。侧栏内联输入和添加框的 `maxlength` 是 80（`sidebar.js`、`manager.js`）；保存前仍走 `labelFor`。40 字规则以注册表校验为准。 | 服务层预检继续拒绝 0 字和 41 字及以上。不要把输入框 `maxlength` 80 当成放宽后的规则。 | 保留 |
-| 4.1d | 预检路径 | `registry.preview` 要求非空路径，`path.resolve` 后 `inspect`。不可用时 `valid: false`，检查码来自目录状态（如缺失、不是目录）。node:test：`API rejects invalid roots and unknown source formats`（不存在的路径 400）、`root contract exposes scan totals, affected series and specified validation codes`、`deepest available root owns files once and dry run does not write`。 | 服务层预检仍返回路径类失败且不写配置。IPC 错误码对应现行 400，而不是新开一套语义。 | 保留 |
+| 4.1d | 预检路径 | `registry.preview` 要求非空路径，`path.resolve` 后 `inspect`。不可用时 `valid: false`，检查码来自目录状态（如缺失、不是目录）。node:test：`worker rejects invalid roots and unknown source formats`（不存在的路径被拒绝，断言的是错误文案而不是 HTTP 400）、`root contract exposes scan totals, affected series, and validation codes`、`deepest available root owns files once and dry run does not write`。 | 服务层预检仍返回路径类失败且不写配置。IPC 错误码对应现行 400，而不是新开一套语义。 | 保留 |
 | 4.1e | 预检重复来源 | 同一规范化路径视为重复，码 `ROOT_EXISTS`，文案「该目录已经添加」。浏览器用例见 4.1a（预检文本含「已经添加」，`#add-root` 禁用）。 | 重复路径不能保存。同名不同路径不走这条，见 4.3d。 | 部分 |
 | 4.1f | 预检文件数与条目数 | 预检在可用目录上 `listSourceFiles`，返回 `counts.files` 与按 NFC 主干去重的 `counts.items`（`roots.js` `itemCount`）。扩展名见 4.2a。浏览器用例 `child-root preview and add-remove preserve single ownership in the manager` 检查预检里的条数。 | 预检结果仍包含文件数和合并后的条目数。 | 部分 |
-| 4.1g | 预检重叠影响 | 预检计算父目录、子目录、`moved` 与 `parentAfter`，并生成重叠说明。`src/routes/roots.js` `previewResponse` 附带受影响系列。浏览器用例同上，预检文本含条数与父目录剩余。node:test：`root contract exposes scan totals, affected series and specified validation codes`。 | 重叠预检仍说明迁移条数、父目录剩余和受影响系列，且本身不写配置。 | 部分 |
+| 4.1g | 预检重叠影响 | 预检计算父目录、子目录、`moved` 与 `parentAfter`，并生成重叠说明。`src/routes/roots.js` `previewResponse` 附带受影响系列。浏览器用例同上，预检文本含条数与父目录剩余。node:test：`root contract exposes scan totals, affected series, and validation codes`。 | 重叠预检仍说明迁移条数、父目录剩余和受影响系列，且本身不写配置。 | 部分 |
 | 4.1h | 预检不通过不保存 | `applyChange` 在 add 和改路径时先 `preview`，`valid === false` 则抛出，不进入 `configStore.update`。添加按钮在无效或只读时禁用（`manager.js`）。浏览器用例见 4.1a。 | 服务层失败路径不调用配置写入。对照测试保留「未写入」断言。 | 保留 |
 
 复选框 2：支持 .html/.htm/.mhtml/.mht/.md；同路径同主干多格式合并；HTML 筛选含 MHTML。
 
 | ID | 验收项 | 现有行为与证据 | 目标侧验证 | 状态 |
 |---|---|---|---|---|
-| 4.2a | 五种扩展名 | `src/roots.js` `EXTENSIONS` 为 `.html`、`.htm`、`.mhtml`、`.mht`、`.md`。`src/library.js` `FORMAT_EXTENSIONS` 把前两对分别归入 html 与 mhtml，`.md` 归入 markdown。未知来源格式：node:test `API rejects invalid roots and unknown source formats`、`readSource rejects unknown formats and files removed after scanning`。 | 扫描与打开仍只接受这五种。未知格式仍拒绝，不 500。 | 保留 |
+| 4.2a | 五种扩展名 | `src/roots.js` `EXTENSIONS` 为 `.html`、`.htm`、`.mhtml`、`.mht`、`.md`。`src/library.js` `FORMAT_EXTENSIONS` 把前两对分别归入 html 与 mhtml，`.md` 归入 markdown。未知来源格式：node:test `worker rejects invalid roots and unknown source formats`、`readSource rejects unknown formats and files removed after scanning`。 | 扫描与打开仍只接受这五种。未知格式仍拒绝，不 500。 | 保留 |
 | 4.2b | 同相对路径、同主干多格式合并为一条 | `scanRoot` 按主干分组。同一格式重复时 `chooseSource` 按扩展名优先级和文件名选择，并记入问题列表。条目可同时带 html、mhtml、markdown。node:test：`scan merges matching HTML and Markdown files into one item`、`scan chooses .html deterministically when a stem has duplicate HTML formats`、`scan indexes MHTML and extracts its embedded HTML for title and search`。 | 原 `library.test.js` 保持不改并通过。合并后的条目 ID 仍是 `rootId + ":" + sha1(主干).slice(0, 12)`（`createId`）。 | 保留 |
-| 4.2c | HTML 筛选包含 MHTML | `src/search.js`：`fmt=html` 匹配 `item.html \|\| item.mhtml`；`fmt=mhtml` 与 `fmt=markdown` 只匹配对应字段。列表芯片是「全部 / HTML / MD」，没有单独的 MHTML 芯片（`public/js/views/list.js`）。node:test：`API opens MHTML as HTML and keeps the original archive for download` 断言 `fmt=html` 结果含该 MHTML 条目；`root filters series ordering grouping and pagination remain consistent` 覆盖 `fmt=markdown`。 | 服务层搜索保持该筛选语义。UI 若保留「HTML」芯片，MHTML 条目仍出现。 | 保留 |
+| 4.2c | HTML 筛选包含 MHTML | `src/search.js`：`fmt=html` 匹配 `item.html \|\| item.mhtml`；`fmt=mhtml` 与 `fmt=markdown` 只匹配对应字段。列表芯片是「全部 / HTML / MD」，没有单独的 MHTML 芯片（`public/js/views/list.js`）。node:test：`worker opens MHTML as HTML and keeps the original archive for download` 断言 `fmt=html` 结果含该 MHTML 条目；`root filters series ordering grouping and pagination remain consistent` 覆盖 `fmt=markdown`。 | 服务层搜索保持该筛选语义。UI 若保留「HTML」芯片，MHTML 条目仍出现。 | 保留 |
 
 复选框 3：父子重叠归属最深可用目录、不重复计数；停用/失效/移除后父目录回收；移除只取消索引，源文件保留；同名来源用路径区分。
 
@@ -68,7 +92,7 @@
 |---|---|---|---|---|
 | 4.3a | 最深可用目录归属，不重复计数 | `recompute` 把更深层可用目录写入父级 `excludes`。`getSnapshot` 丢掉落在 exclude 内的条目。node:test：`deepest available root owns files once and dry run does not write`、`new roots always use NFC ids while overlap transfer never duplicates published items`、`legacy fixture retains all ids and ownership goes 48 to 40+8 to 48`。 | 原 `roots.test.js` 与 `library.test.js` 不改并通过。快照里同一文件只出现一次。 | 保留 |
 | 4.3b | 停用、失效或移除后父目录回收 | 停用和 inspect 失败会使子目录不可用，父级 exclude 随之消失。移除子目录后父级重新索引。node:test：`legacy fixture retains all ids and ownership goes 48 to 40+8 to 48`、`restored child root is indexed after rename`、`restored child root is indexed after order`。浏览器用例 `child-root preview and add-remove preserve single ownership in the manager` 在移除子目录后看到父目录回到 48 条。 | 停用、目录缺失、移除三条路径都要看到父目录收回条目，且不把同一条目算两次。 | 保留 |
-| 4.3c | 移除来源只取消索引，源文件保留 | 删除来源走注册表 remove，不删除磁盘上的源文件。node:test：`API removes a root without touching its source files`。确认框文案说明源文件仍留在原路径（`main.js` `removeRoot`）。这与条目「移入废纸篓」不同，见 §4 废纸篓。 | 服务层 remove 后源文件字节不变。不要把 launchd plist 的 `unlink`（`src/service.js`，只删 plist）当成源文件删除。 | 保留 |
+| 4.3c | 移除来源只取消索引，源文件保留 | 删除来源走注册表 remove，不删除磁盘上的源文件。node:test：`worker removes a root without touching its source files`。确认框文案说明源文件仍留在原路径（`main.js` `removeRoot`）。这与条目「移入废纸篓」不同，见 §4 废纸篓。 | 服务层 remove 后源文件字节不变。不要把 launchd plist 的 `unlink`（`src/service.js`，只删 plist）当成源文件删除。 | 保留 |
 | 4.3d | 同名来源用路径区分 | 预检 `duplicateLabel` 只标记同名，不因此失败。管理行显示 `displayPath`，同名时加「显示名相同」徽章（`manager.js`）。ID 与路径分离，见 4.4a。 | 两个同名、不同路径的来源可以同时存在，界面能看出路径差异。 | 部分 |
 
 复选框 4：目录 ID 与路径分离；改名排序不读文件；重新定位保持条目链接；归属变化时条目 ID 规则不变。
@@ -91,12 +115,12 @@
 | 4.5c | 重新定位 | 见 4.4c。 | 见 4.4c。 | 部分 |
 | 4.5d | 停用 / 启用 | PATCH `enabled`。停用后 `rootAvailable` 为假，快照不计其条目，父目录可回收。菜单文案在「停用」和「启用」间切换。node:test 覆盖 enabled 过滤的有归属用例（4.3a、4.3b）。 | 停用后条目不出现在默认快照中，启用后按原 ID 回来。 | 保留 |
 | 4.5e | 系列识别开关 | 管理菜单在 `options.series === "off"` 与 `"auto"` 间切换。`finalizeRootMetadata` 读取 `seriesMode`。默认 `series: "auto"`（`config.js`）。没有单独的 node:test 名称只断言这个开关。系列规则本身见 `series requires two in same folder, R2 avoids root and numeric natural ordering`。 | 关闭系列识别后不再生成系列；再打开后按现行规则重建。开关只存在于管理菜单这一事实要保留。 | 部分 |
-| 4.5f | 访达显示 | POST `/api/system/reveal`，正文只能有一个键：`rootId`、`itemId` 或 `trash: true`。实现是固定参数的 `/usr/bin/open`（目录和条目 `-R`，废纸篓 `-a Finder ~/.Trash`）。node:test：`system reveal accepts only known IDs and uses fixed argv`。 | 计划中的 `revealInFinder` 仍只接受已知 ID，参数数组固定。废纸篓入口见 4.T7。 | 替换 |
+| 4.5f | 访达显示 | POST `/api/system/reveal`，正文只能有一个键：`rootId`、`itemId` 或 `trash: true`。实现是固定参数的 `/usr/bin/open`（目录和条目 `-R`，废纸篓 `-a Finder ~/.Trash`）。node:test：`system reveal accepts only known targets and uses fixed argv`。 | 计划中的 `revealInFinder` 仍只接受已知 ID，参数数组固定。废纸篓入口见 4.T7。 | 替换 |
 | 4.5g | 移除 | 菜单「移除…」使用应用内 `confirmDialog`，确认后 DELETE 该目录。见 4.3c。浏览器用例见 4.3b 的移除步骤。 | 未确认不删除索引。确认后源文件仍在。 | 保留 |
-| 4.5h | 拖动排序 | 管理行拖柄 `draggable`，`dragstart` / `drop` 后 PUT `/api/roots/order`，正文 `{ ids }`。顺序必须恰好覆盖全部目录且不重复。node:test：`paths are canonical, labels validated and order exactly covers roots`、`v2 root API guards writes and supports preview rename order disable relocate remove`。没有找到指针拖放的浏览器用例；键盘排序见 4.5i。 | 拖放后的顺序写入配置且不触发可用目录扫描（见 4.4b）。 | 部分 |
+| 4.5h | 拖动排序 | 管理行拖柄 `draggable`，`dragstart` / `drop` 后 PUT `/api/roots/order`，正文 `{ ids }`。顺序必须恰好覆盖全部目录且不重复。node:test：`paths are canonical, labels validated and order exactly covers roots`、`worker previews, renames, orders, disables, rescans, and removes without touching files`。没有找到指针拖放的浏览器用例；键盘排序见 4.5i。 | 拖放后的顺序写入配置且不触发可用目录扫描（见 4.4b）。 | 部分 |
 | 4.5i | 聚焦拖柄后 `Alt+↑/↓` | 拖柄 `aria-label` 为「拖动或 Alt 加方向键排序」。`keydown` 绑在管理行上，Alt+方向键与相邻行交换。浏览器用例 `child-root preview and add-remove preserve single ownership in the manager` 在 `.drag-handle` 上派发 Alt+ArrowUp，并断言该行移到第一位。 | M4 与 M7：焦点在拖柄上时 Alt+方向键排序，只读配置下不排序。 | 部分 |
 | 4.5j | 全局最多 2 个来源并发，来源内串行 | `createScheduler({ concurrency: 2 })`（`library.js` 写死 2）。同一目录已在运行时不会并行第二次；排队项会合并，`full` 取或。node:test：`same root scans serially with one merged rerun and global concurrency two`、`scan failure releases slots and idle waiters`。来源内串行写在计划 §2 和 README，测试与 §4 的并发条款是同一调度器。 | 原 `scheduler.test.js` 不改并通过。worker 里并发上限仍是 2。 | 保留 |
-| 4.5k | 扫描状态与问题列表 | 调度器 `status()` 返回 `running` 与 `queued`，进度为 `files.done/total`。UI 轮询 `pollScan`（`main.js`）。管理行显示「扫描中 done/total」、状态文案，以及「N 个问题」对话框（路径加消息）。扫描结束 toast 汇总问题数。读取失败记入 `issues` 而不中断整个目录（`library.js`）。node:test：`root contract exposes scan totals, affected series and specified validation codes`。 | 进度事件名为计划中的 `scan-progress`（§3）。问题列表仍逐条给出路径和消息。旧 UI 的轮询可以换成事件，但状态字段要能对上。 | 保留 |
+| 4.5k | 扫描状态与问题列表 | 调度器 `status()` 返回 `running` 与 `queued`，进度为 `files.done/total`。UI 轮询 `pollScan`（`main.js`）。管理行显示「扫描中 done/total」、状态文案，以及「N 个问题」对话框（路径加消息）。扫描结束 toast 汇总问题数。读取失败记入 `issues` 而不中断整个目录（`library.js`）。node:test：`root contract exposes scan totals, affected series, and validation codes`。 | 进度事件名为计划中的 `scan-progress`（§3）。问题列表仍逐条给出路径和消息。旧 UI 的轮询可以换成事件，但状态字段要能对上。 | 保留 |
 | 4.5l | 扫描期间旧结果仍可浏览 | 新索引在 `scanRoot` 末尾、且目录修订号仍匹配时才 `indexes.set`。修订号变化或目录已删除则丢弃结果，必要时重新排队。node:test：`a scan queued after removing a root cannot be overwritten by the earlier scan`、`a stale delayed scan cannot resurrect a trashed item`。没有名为「扫描中搜索仍返回旧快照」的测试。 | 扫描未完成时搜索和打开仍使用上一份已发布索引。完成前不闪空库。 | 部分 |
 | 4.5m | 扫描时窗口保持可交互 | 现行扫描跑在提供 HTTP 的同一 Node 进程里。浏览器 UI 靠异步请求和轮询，没有桌面窗口拖动、滚动、搜索的交互测试。计划 §3 把扫描放进 utilityProcess，就是为了主进程不被堵住；§7 M4 要求扫描大目录时窗口拖动、滚动、搜索仍流畅。 | M4：大目录扫描期间拖动窗口、滚动列表、输入搜索仍然响应。此行没有现行 Electron 证据。 | 新增 |
 
@@ -108,7 +132,7 @@
 
 | ID | 验收项 | 现有行为与证据 | 目标侧验证 | 状态 |
 |---|---|---|---|---|
-| 4.6a | 原网页 sandbox iframe | `reader.js` `original()` 创建 `iframe`，`sandbox=""`（无 `allow-scripts`、无 `allow-same-origin`），`src` 为 `/api/items/:id/original`。原网页响应带 `SOURCE_CSP`（`src/routes/items.js`：`sandbox; default-src 'none'; script-src 'none'; ...`）和 `X-Content-Type-Options: nosniff`。node:test：`source responses prevent executable HTML and unknown formats are not server errors`、`v2 document APIs use text/plain ETags safe images sandbox and series details`。 | M6：iframe 仍是空 sandbox。`src` 形如 `pageshelf://source/<itemId>/<format>`。响应带现行 `SOURCE_CSP` 与 `nosniff`。含 `<script>` 的样例不执行、不发请求（§7 M6，§8 Playwright）。 | 替换 |
+| 4.6a | 原网页 sandbox iframe | `reader.js` `original()` 创建 `iframe`，`sandbox=""`（无 `allow-scripts`、无 `allow-same-origin`），`src` 为 `/api/items/:id/original`。`SOURCE_CSP` 现定义在 `src/services/items.js`（`src/routes/items.js` 再导出）：`sandbox; default-src 'none'; script-src 'none'; ...`，并带 `X-Content-Type-Options: nosniff`。node:test：`source responses prevent executable HTML and unknown formats are not found`、`worker documents use text/plain ETags, safe images, sandbox, and series details`、`pageshelf rejects traversal, unknown hosts, and returns source CSP`。阅读区 iframe 与「脚本不执行」仍是旧页面行为；M2 没有改阅读区。 | M6：iframe 仍是空 sandbox。`src` 形如 `pageshelf://source/<itemId>/<format>`。响应带现行 `SOURCE_CSP` 与 `nosniff`。含 `<script>` 的样例不执行、不发请求（§7 M6，§8 Playwright）。 | 替换 |
 | 4.6b | Markdown 源文本 | 纯 Markdown 且视图为 `original` 时，以 `pre.source-text` 显示 `/source/markdown` 正文，不走 iframe。 | 源文本视图仍是纯文本，不把 Markdown 源文件交给可执行的 HTML 解析。 | 保留 |
 | 4.6c | 抽取正文 | `public/js/reader/pipeline.js` `buildReader`：站点选择器，失败再加载 Readability 0.6.0，然后 DOMPurify 3.4.16（`PURIFY_CONFIG`）。浏览器模块 `test/browser/reader-tests.js`：`extract <name>`、`source presentation is removed before parsing without CSP style errors`。真实库用例在 `reader-real-tests.js`，不属于 `npm test`。 | 抽取链保留站点规则、Readability 回退和同一 DOMPurify 配置。vendor 版本见基线。 | 部分 |
 | 4.6d | 三视图切换 | 分段控件与 `v` 快捷键按 4.6 开头的规则循环。路由字段 `view` 只接受 `original`、`markdown`，其余归 `reader`（`router.js`）。node:test：`routes round trip unicode ids query filters view and settings`。浏览器用例 `ordinary article click opens in place and restores view switches`。 | 同时含网页和 Markdown 的条目能在三视图间切换；纯 Markdown 与纯网页保持现行两档，而不是强行做出第三档。 | 保留 |
@@ -163,7 +187,7 @@
 | ID | 验收项 | 现有行为与证据 | 目标侧验证 | 状态 |
 |---|---|---|---|---|
 | 4.11a | 外部图片占位 | `prepareImages` 保留光栅 data URL。Markdown 的相对路径改写到 `/api/items/:id/asset`。其他 `src`（含 http）被去掉，alt 前加「外部图片未加载」，无 `src` 的图片换成 `.image-placeholder`。浏览器用例 `Markdown GFM tables tasks nested lists headings images and wikilinks` 含远程图片样例。 | M6：外链图片不发请求，显示占位。占位文案保持可识别。 | 部分 |
-| 4.11b | Markdown 本地图片校验边界与真实类型 | `action === "asset"` 只对带 markdown 的条目开放。`path.resolve` 后 `readSafeFile`（真实路径必须在来源根内，拒绝符号链接和越界）。`imageType` 只认 PNG、JPEG、GIF、WEBP、AVIF 的魔数与扩展名一致，否则 `SOURCE_NOT_FOUND`「仅支持本地图片」。node:test：`v2 document APIs use text/plain ETags safe images sandbox and series details`、`readSource rejects paths outside the configured root`、`readSource rejects a source file replaced by a symlink outside the root`。 | 主进程协议测试：路径穿越、越界、伪装扩展名均拒绝。成功响应带 `SOURCE_CSP` 与 `nosniff`。 | 保留 |
+| 4.11b | Markdown 本地图片校验边界与真实类型 | `action === "asset"` 只对带 markdown 的条目开放。`path.resolve` 后 `readSafeFile`（真实路径必须在来源根内，拒绝符号链接和越界）。`imageType` 只认 PNG、JPEG、GIF、WEBP、AVIF 的魔数与扩展名一致，否则 `SOURCE_NOT_FOUND`「仅支持本地图片」。node:test：`worker documents use text/plain ETags, safe images, sandbox, and series details` 拒绝 `fake.png`、符号链接和越界路径；`readSource rejects paths outside the configured root`、`readSource rejects a source file replaced by a symlink outside the root`。协议测试 `pageshelf rejects traversal, unknown hosts, and returns source CSP` 覆盖原始路径穿越（400）和来源根外的 `?path=/etc/passwd`（404，仍带 `SOURCE_CSP` 与 `nosniff`），成功的 PNG 为 `image/png`。该协议测试没有再送一次 `fake.png`。 | 主进程协议测试：路径穿越、越界、伪装扩展名均拒绝。成功响应带 `SOURCE_CSP` 与 `nosniff`。 | 保留 |
 | 4.11c | UI 与正文不自动外连 | 主文档 `MAIN_CSP`（`src/server.js`）为 `default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; frame-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'`。静态响应也带该 CSP 和 `nosniff`。正文是 `SOURCE_CSP`，`connect` 不在允许之列（`default-src 'none'`）。现行 `connect-src 'self'` 只为同源 API。计划 §6 把应用 CSP 写成另一串，见 6.4d。非锚点的 http 链接在抽取后设 `target=_blank` 与 `noopener noreferrer`（`pipeline.js`）。桌面版点击外链的规则见 6.5c，不是自动请求。 | M6 样例文档不发起外连。应用壳不再因为 API 而允许 `connect-src 'self'`。 | 替换 |
 
 ## §4 快捷键
@@ -205,7 +229,7 @@
 | 4.T2 | 列出全部关联源文件 | 对话框列出 `detail.files` 的路径和大小。详情 API 返回该条目 `sourceFiles` 的 format、path、size、updatedAt。 | 多格式条目在确认前列出每一个关联文件。 | 部分 |
 | 4.T3 | 优先系统 `trash`，剩余文件再交访达 | `src/trash.js`：先 `/usr/bin/trash -- <paths>`，仍存在的文件再用 Finder `delete` AppleScript。返回 `method` 为 `trash-cli` 或 `finder`。node:test：`trash uses cli then Finder only for remaining files`。 | worker 继续调用这一服务，不改成直接删文件。Playwright 可用替身（§8）。 | 保留 |
 | 4.T4 | 从不 unlink 源文件 | 失败路径不调用 `unlink`。符号链接在执行任何命令前拒绝。node:test：`failed trash never falls back to unlink`、`trash rejects symlinks before invoking any command`、`deleteItem refuses a source path replaced by an outside symlink`。`src/service.js` 的 `unlink` 只删除 LaunchAgent plist。 | 源文件失败时字节仍在。审查时把 plist 删除和源文件删除分开。 | 保留 |
-| 4.T5 | 部分成功保留幸存格式，并可重试 | HTTP 207 加 `failed` 列表。索引只去掉已移走的格式。对话框列出失败路径并把按钮改成「重试剩余文件」。node:test：`partial trash reports surviving sources without claiming no changes`、`partial trash retains surviving formats and failed trash preserves files`。浏览器用例在 `test/browser/trash-regressions.js`：成功时前进到下一篇，没有下一篇时清空阅读区，迟到的响应不覆盖更新的选择。 | 207/部分失败的错误码与正文结构在服务层保留。重试只处理仍存在的文件。 | 保留 |
+| 4.T5 | 部分成功保留幸存格式，并可重试 | 旧 HTTP 用 207 加 `failed` 列表。索引只去掉已移走的格式。对话框列出失败路径并把按钮改成「重试剩余文件」。node:test：`partial trash reports surviving sources without claiming no changes`、`partial trash retains surviving formats and failed trash preserves files`。后一个测试现在走 worker，断言 `failed.length` 与幸存的 markdown，不再断言 HTTP 207。浏览器用例在 `test/browser/trash-regressions.js`：成功时前进到下一篇，没有下一篇时清空阅读区，迟到的响应不覆盖更新的选择。重试按钮仍是旧 UI，M2 没有做。 | 207/部分失败的错误码与正文结构在服务层保留。重试只处理仍存在的文件。 | 保留 |
 | 4.T6 | 全部失败显示错误 | 没有任何文件移走时抛 `TRASH_FAILED`，消息以「无法移入废纸篓」开头，并写明文件未被改动。对话框把 `error.message` 显示为 alert。同一失败测试覆盖。 | 全部失败时列表与磁盘都不变，界面显示该错误。 | 保留 |
 | 4.T7 | 目录管理「打开废纸篓」 | 管理页页脚按钮调用 `reveal({ trash: true })`。成功移入后的 toast 也有「打开废纸篓」。见 4.5f 的 argv。 | `openTrash` 只打开系统废纸篓，不删除其中文件。 | 保留 |
 
@@ -215,42 +239,42 @@
 |---|---|---|---|---|
 | 4.C1 | v1 只在内存中迁移，首次写入前备份 `config.v1.bak.json` | `config.js` `read`：无 version 或 version 1 时保留原始字节。`update` 用 `flag: "wx"` 写 `config.v1.bak.json`，已存在则不再覆盖。备份发生在第一次修改，不是在单纯启动时。node:test：`migration preserves ids and unknown fields and backs up original bytes once`。 | 原 `config.test.js` 不改并通过。数据目录仍是 `~/.html-library/`。 | 保留 |
 | 4.C2 | 损坏配置另存 `config.broken-*.json` | JSON 语法错误或现行版本的结构无效时，`rename` 到 `config.broken-` 加 ISO 时间（冒号换成 `-`）加 `.json`，内存改用空库，`startupWarning` 说明已备份。node:test：`broken config boots empty with a backup warning`、`invalid known-version labels and duplicate IDs are backed up instead of crashing or duplicating counts`。 | 原文件字节进备份，不就地改坏文件。启动提示仍出现。 | 保留 |
-| 4.C3 | 高于 v2 只读 | `version > 2` 时 `readOnly`，目录结构仍能规范化则保留根并警告；不能规范化则空根、原字节不动，警告「目录结构暂不支持」。只读下仍可浏览、重扫、选文件夹、清缓存；写入抛 `CONFIG_READ_ONLY`。node:test：`future configuration is read only and remains byte identical`、`unsupported future schema remains untouched with a read-only warning`、`future config stays byte identical while browsing scanning and cache maintenance work`。 | 桌面版不升级写回更高版本。只读标志传到 UI，添加/改名/移除保持禁用。 | 保留 |
+| 4.C3 | 高于 v2 只读 | `version > 2` 时 `readOnly`，目录结构仍能规范化则保留根并警告；不能规范化则空根、原字节不动，警告「目录结构暂不支持」。只读下仍可浏览、重扫、选文件夹、清缓存；写入抛 `CONFIG_READ_ONLY`。node:test：`future configuration is read only and remains byte identical`、`unsupported future schema remains untouched with a read-only warning`、`future config stays byte identical while browsing, scanning, and cache maintenance work`。 | 桌面版不升级写回更高版本。只读标志传到 UI，添加/改名/移除保持禁用。 | 保留 |
 | 4.C4 | 串行队列与原子写 | `update` 串在 `queue` 上。写入先写 `config.json.tmp-<uuid>`，再 `rename` 覆盖；失败删除临时文件。模式 `0o600`。node:test：`concurrent configuration updates retain both roots`。 | 并发 IPC 写入仍串行，崩溃时不留下半截 `config.json`。 | 保留 |
 | 4.C5 | `cache/doc/` 500 MiB LRU | `createDocumentCache` 默认 `maxBytes = 500 * 1024 * 1024`，目录为数据目录下 `cache/doc`。身份含 itemId、format、路径、dev、ino、size、mtimeMs。按访问时间淘汰。`clear` 增加 epoch，使迟到的生产者不能写回。node:test：`cache identity includes location inode format and file metadata`、`cache concurrent generation, budget eviction and clear invalidates late producer`。 | 原 `cache.test.js` 不改并通过。不要改预算或身份字段。 | 保留 |
 | 4.C6 | 清除缓存 | 管理页「清除缓存」DELETE `/api/cache`，只删派生缓存。下次阅读经 `getOrCreate` 再生。只读配置下该按钮仍可用（4.C3 的 server 测试覆盖维护操作）。 | `system.clearCache` 只删除 `cache/doc` 派生文件，不碰源文件和 `config.json`。 | 保留 |
 
 ## §6 安全规则（影响保留或验收的义务）
 
-这些行描述计划中的桌面约束。除「现行已经如此」的源文件规则外，Electron API 尚未存在。
+这些行从 M0 的 Web 约束写起。M2 已有主进程、preload、协议和 worker。证据只覆盖写明的测试；没有写到的运行时行为不标成通过。
 
 | ID | 验收项 | 现有行为与证据 | 目标侧验证 | 状态 |
 |---|---|---|---|---|
-| 6.1 | `BrowserWindow`：`contextIsolation: true`、`sandbox: true`、`nodeIntegration: false`、`webSecurity: true`、`titleBarStyle: "hiddenInset"`、`trafficLightPosition: {x:16,y:18}`、`minWidth ≥ 960`、`backgroundColor` 随主题 | 现行是浏览器页面，没有 `BrowserWindow`。三栏节点由 `ui.test.js` 检查。最小宽度和标题条是计划值。规范 §4.1 把普通窗格顶栏定为 48px；规范 §4.2 把另一道 macOS 可拖拽标题条定为 52px。计划 M3 与 §11 的 logo 修法要求这道 52px 标题条。§11「顶栏 52（应为 48）」指普通窗格顶栏，不是这道标题条。两个高度各自成立。 | M2/M3：窗口选项与上述安全开关一致，最小宽度不小于 960。背景色跟随 4.10a。macOS 可拖拽标题条为 52px，普通窗格顶栏为 48px。 | 新增 |
-| 6.2a | 不启动 HTTP 服务、不开端口 | 现行 `createServer` 使用 `node:http`。默认端口 4321、主机 `127.0.0.1`（`src/service.js`）。`npm start` 会监听。node:test `occupied port exits successfully without repeated errors` 描述的是端口被占用时的 HTTP 进程行为。 | M2：`lsof -iTCP -sTCP:LISTEN -p <应用 pid 及子进程>` 无监听端口。开发模式的 Vite 端口只允许开发，生产由 `pageshelf://app/` 加载（§3）。 | 删除 |
-| 6.2b | 不使用令牌或 Cookie | 仅当设置 `AUTH_TOKEN` 时，`authorizeRequest` 用 `timingSafeEqual`，并把令牌写入 `HttpOnly; SameSite=Strict` Cookie `html_library_token`。node:test：`protected servers reject unauthenticated requests and support token bootstrap`。计划 §1 与 M9 删除这一模式。 | 生产路径没有令牌、Cookie 和 Bearer 检查。该 HTTP 测试不应原样变成桌面功能；与 §8「原断言逐条保留」的范围冲突见文末未决问题。 | 删除 |
-| 6.3a | preload 只暴露具名函数 | 现行前端用 `fetch` 调 `/api`（`public/js/api.js`）。没有 preload。计划：`pageshelf.invoke`、`pageshelf.on`，以及 `pickFolder` / `revealInFinder` / `openTrash`。事件只限具名事件，例如 `scan-progress`、`library-changed`。 | 主进程测试：渲染层拿不到 `ipcRenderer` 或 Node。`on` 拒绝未列出的事件名。 | 新增 |
-| 6.3b | `invoke` 方法白名单与参数校验 | 计划举例：`roots.list/add/preflight/update/remove/rescan`、`items.search/get/trash`、`system.clearCache/openTrash`。「如」表示例子，不是把现行能力收窄为这份名单。现行路由还包括排序、选文件夹、reveal、系列列表、document/original/asset/source/download、扫描状态、增量/全量扫描、启用开关。 | 白名单覆盖现行用户可见操作，参数有类型和长度校验。只实现例子名单会丢 4.5 和 4.6 的能力，本矩阵不把例子当成删减清单。 | 新增 |
-| 6.3c | 调用方必须是 `pageshelf://app`，源文档 iframe 不能调用 preload | 现行靠同源 CSP 与 iframe `sandbox=""`。没有 `senderFrame` 检查。 | 主进程测试：`event.senderFrame` 不是 `pageshelf://app` 时拒绝。源 iframe 中没有 bridge。 | 新增 |
-| 6.4a | `pageshelf://` 只接受 `app/` 与 `source/` | 现行静态文件在 `/assets/` 下，源文件在 `/api/items/...`。`serveStatic` 拒绝跑出 `public/`。node:test：`history deep links use shell while missing assets and unknown API stay 404`、`serves the unified library app shell`。 | 其他协议路径拒绝。不注册 `file://` 处理器，不 `bypassCSP`。方案注册 `standard, secure, supportFetchAPI`，且不 `bypassCSP`（§3）。 | 替换 |
-| 6.4b | `source/` 只返回已索引条目及其边界内的本地图片 | 现行 `readSafeFile` / `validateSourceFile`：规范化路径、真实路径在来源根内、必须是普通文件、拒绝符号链接。见 4.11b。 | 协议处理先规范化再做同一边界检查。穿越和越界有主进程测试。 | 保留 |
-| 6.4c | 源响应带现行 `SOURCE_CSP` 与 `nosniff` | 常量在 `src/routes/items.js`。original、source、download、asset 都设置。document 正文是 `text/plain`，不把抽取 HTML 当可执行页面返回。测试见 4.6a。 | 字节响应的 CSP 字符串与现行 `SOURCE_CSP` 一致，并带 `nosniff`。 | 保留 |
-| 6.4d | `app/` 使用计划给出的主 CSP | 计划字符串：`default-src 'self'; script-src 'self'; frame-src pageshelf:; connect-src 'none'; object-src 'none'`。现行 `MAIN_CSP` 更宽：`frame-src 'self'`、`connect-src 'self'`，并含 img、style、base-uri、form-action。二者不是同一字符串。计划 §3 称「MAIN_CSP 等价策略」，§6 给出上面的目标串。 | 主进程测试断言 §6 这串，而不是把现行 HTTP CSP 原样抄上。`connect-src 'none'` 与「无 API 端口」一致。 | 替换 |
-| 6.5a | `setWindowOpenHandler` 拒绝新窗口 | 现行列表按住 meta/ctrl 点击、列表右键菜单和阅读区文章菜单都通过 `window.open` 打开同源 `/original`（`public/js/views/list.js`、`reader.js`）。抽取后的正文外链使用 `target=_blank`。没有 Electron 钩子。计划要求 deny；这三个原文打开入口的替代方式未说明，见文末未决问题。 | 新窗口请求被拒绝。测试覆盖 Electron 拒绝未授权的 `window.open`，并按未决问题验证原文打开入口。 | 新增 |
-| 6.5b | `will-navigate` / `will-frame-navigate` 只允许 `pageshelf://` | 现行导航是同一来源的 History API 与 iframe 源 URL。 | 主帧和子帧离开 `pageshelf://` 都被取消。 | 新增 |
-| 6.5c | 正文链接经确认后 `shell.openExternal`，仅 http/https | 现行外链没有确认步骤，由浏览器打开。计划把确认后的外部打开限制为 http/https。 | 主进程测试：`javascript:`、`file:`、`pageshelf:` 和其他方案被拒绝；http 与 https 在确认后才打开。 | 替换 |
-| 6.6 | 权限请求全部拒绝；禁用 `webview` | 现行页面未注册权限处理器，也没有 `webview` 标签。 | `setPermissionRequestHandler` 对所有权限调用 deny。窗口没有 `webviewTag`。 | 新增 |
+| 6.1 | `BrowserWindow`：`contextIsolation: true`、`sandbox: true`、`nodeIntegration: false`、`webSecurity: true`、`titleBarStyle: "hiddenInset"`、`trafficLightPosition: {x:16,y:18}`、`minWidth ≥ 960`、`backgroundColor` 随主题 | 旧页面没有 `BrowserWindow`。三栏节点仍由 `ui.test.js` 检查。M2 的 `electron/window-policy.js` 把主窗口最小宽度定为 1100，原网页窗口最小宽度定为 960，并带上列安全开关、`hiddenInset` 和 `{x:16,y:18}`。背景色由 `windowBackground` 在深色时用 `#111827`、浅色时用 `#FFFFFF`。node:test：`arbitrary window.open is denied and original pages use a preload-free window`。规范 §4.1 的 48px 窗格顶栏和 §4.2 的 52px 可拖拽标题条仍是 M3；M2 只把内容区上内边距设为 52px，没有测量标题条，也没有做主题切换界面。 | M2/M3：窗口选项与上述安全开关一致，最小宽度不小于 960。背景色跟随 4.10a。macOS 可拖拽标题条为 52px，普通窗格顶栏为 48px。 | 新增 |
+| 6.2a | 不启动 HTTP 服务、不开端口 | 旧 `createServer` 仍使用 `node:http`。默认端口 4321、主机 `127.0.0.1`（`src/service.js`）。`npm start` 仍会监听，到 M9 才删。原先的 `occupied port exits successfully without repeated errors` 已不在套件里。替代断言是 `desktop library host does not listen on a TCP port`（监视 `net.Server.prototype.listen`）以及开发 smoke 的 `lsof -nP -a -p <主进程 pid 与 worker pid> -iTCP -sTCP:LISTEN` 为空。Vite 在开发时监听 `127.0.0.1:5173`，该进程不是 Electron。 | M2：`lsof -iTCP -sTCP:LISTEN -p <应用 pid 及子进程>` 无监听端口。开发模式的 Vite 端口只允许开发，生产由 `pageshelf://app/` 加载（§3）。 | 删除 |
+| 6.2b | 不使用令牌或 Cookie | 旧 HTTP 仅当设置 `AUTH_TOKEN` 时，`authorizeRequest` 用 `timingSafeEqual`，并把令牌写入 `HttpOnly; SameSite=Strict` Cookie `html_library_token`。该路径仍在 `src/server.js`，到 M9 才删。原先的令牌引导测试已不在套件里。桌面断言是 `desktop surface has no auth token and worker env drops token, port, and host`：`DESKTOP_SURFACE` 为 `{ listens: false, authToken: null, cookies: false }`，worker 环境删掉 `AUTH_TOKEN`、`PORT`、`HOST`。 | 生产路径没有令牌、Cookie 和 Bearer 检查。旧令牌引导测试不保留为桌面产品行为，见文末已采纳决定。 | 删除 |
+| 6.3a | preload 只暴露具名函数 | 旧前端用 `fetch` 调 `/api`（`public/js/api.js`），该文件仍在。`electron/preload.cjs` 只 `contextBridge.exposeInMainWorld("pageshelf", …)`，具名方法为 `invoke`、`on`、`pickFolder`、`revealInFinder`、`openTrash`、`openOriginal`、`openExternal`。`on` 只接受 `scan-progress`、`library-changed`、`worker-status`。源码测试 `preload exposes only the named pageshelf bridge` 确认不暴露 `ipcRenderer`、不写死 `confirmed: true`。它没有在沙箱页面里再取值。主进程 `rendererEvent` 对未列出的事件返回 `null`，由 `renderer invoke rejects other senders…` 覆盖。 | 主进程测试：渲染层拿不到 `ipcRenderer` 或 Node。`on` 拒绝未列出的事件名。 | 新增 |
+| 6.3b | `invoke` 方法白名单与参数校验 | 计划举例：`roots.list/add/preflight/update/remove/rescan`、`items.search/get/trash`、`system.clearCache/openTrash`。「如」表示例子，不是把现行能力收窄为这份名单。`shared/pageshelf-contract.js` 的白名单还包括 `roots.order`、`roots.series`、`items.get/document/original/source/download/asset`、`system.chooseFolder/reveal/openTrash/openExternal`、`window.openOriginal`。未知方法、数组参数、超大参数由 `invoke whitelist rejects unknown methods, bad types, and oversized params` 拒绝。扫描状态通过具名事件 `scan-progress`，不另开一个任意 channel。 | 白名单覆盖现行用户可见操作，参数有类型和长度校验。只实现例子名单会丢 4.5 和 4.6 的能力，本矩阵不把例子当成删减清单。 | 新增 |
+| 6.3c | 调用方必须是 `pageshelf://app`，源文档 iframe 不能调用 preload | 旧页面靠同源 CSP 与 iframe `sandbox=""`。M2 的 `senderAllowed`：生产只接受 `pageshelf://app`；开发额外只接受 `http://127.0.0.1:5173`。`pageshelf://source`、`file:`、`localhost`、其他端口和带凭据的 URL 都拒绝。node:test：`only the app origin, or the fixed dev origin in development, may invoke`、`renderer invoke rejects other senders…`。原网页窗口不加载 preload。没有在真实 iframe 里再探测 bridge。 | 生产环境 `event.senderFrame` 不是 `pageshelf://app` 时拒绝。开发环境额外只接受 `http://127.0.0.1:5173`。源 iframe 中没有 bridge。 | 新增 |
+| 6.4a | `pageshelf://` 只接受 `app/` 与 `source/` | 旧静态文件仍在 `/assets/` 下，源文件仍在 `/api/items/...`。原先的 HTTP 壳测试 `history deep links use shell while missing assets and unknown API stay 404` 与 `serves the unified library app shell` 已随传输层断言删除。协议测试 `pageshelf rejects traversal, unknown hosts, and returns source CSP` 拒绝未知 host、`file:`、路径穿越和非 GET/HEAD，并断言特权只有 `standard`、`secure`、`supportFetchAPI`，没有 `bypassCSP`。`electron/main.ts` 在 `app` ready 前 `registerSchemesAsPrivileged`。 | 其他协议路径拒绝。不注册 `file://` 处理器，不 `bypassCSP`。方案注册 `standard, secure, supportFetchAPI`，且不 `bypassCSP`（§3）。 | 替换 |
+| 6.4b | `source/` 只返回已索引条目及其边界内的本地图片 | 现行 `readSafeFile` / `validateSourceFile`：规范化路径、真实路径在来源根内、必须是普通文件、拒绝符号链接。见 4.11b。协议层在 `new URL` 之前拒绝 `..`、反斜杠和原始 `%2e` / `%2f` / `%5c`；条目 id 还拒绝 `%`。未索引条目返回 404，并仍带 `SOURCE_CSP` 与 `nosniff`。 | 协议处理先规范化再做同一边界检查。穿越和越界有主进程测试。 | 保留 |
+| 6.4c | 源响应带现行 `SOURCE_CSP` 与 `nosniff` | 常量在 `src/services/items.js`，`src/routes/items.js` 再导出。服务层的 original、source、download、asset 都设置。协议层对 source 响应始终盖上同一 `SOURCE_CSP` 和 `nosniff`，不沿用调用方带来的另一条 CSP。document 正文是 `text/plain`。测试见 4.6a。 | 字节响应的 CSP 字符串与现行 `SOURCE_CSP` 一致，并带 `nosniff`。 | 保留 |
+| 6.4d | `app/` 使用计划给出的主 CSP | 计划字符串：`default-src 'self'; script-src 'self'; frame-src pageshelf:; connect-src 'none'; object-src 'none'`。旧 HTTP `MAIN_CSP` 更宽：`frame-src 'self'`、`connect-src 'self'`，并含 img、style、base-uri、form-action。二者不是同一字符串。`shared/pageshelf-contract.js` 的 `APP_CSP` 使用 §6 这串。协议测试断言应用资源带这串，缺失资源的错误响应也带 `connect-src 'none'`。旧 HTTP `MAIN_CSP` 未改。 | 主进程测试断言 §6 这串，而不是把现行 HTTP CSP 原样抄上。`connect-src 'none'` 与「无 API 端口」一致。 | 替换 |
+| 6.5a | `setWindowOpenHandler` 拒绝新窗口 | 旧列表按住 meta/ctrl 点击、列表右键菜单和阅读区文章菜单仍通过 `window.open` 打开同源 `/original`（`public/js/views/list.js`、`reader.js`）。抽取后的正文外链仍使用 `target=_blank`。桌面端已采纳的替代是一个参数受限的 preload API：`openOriginal(itemId)`。主进程用 `planOriginalWindow` 打开无 preload、无 Node 的窗口，只加载 `pageshelf://source/<id>/original`。`windowOpenDecision` 对任意 `window.open` 返回 `{ action: "deny" }`。node:test：`arbitrary window.open is denied and original pages use a preload-free window`。M2 的最小来源列表还没有接上这三个菜单。 | 任意 `window.open` 被拒绝。上述三个旧入口改为这个显式 API，而不是开放任意新窗口。来源窗口不能导航到外部源。 | 新增 |
+| 6.5b | `will-navigate` / `will-frame-navigate` 只允许 `pageshelf://` | 旧导航仍是同一来源的 History API 与 iframe 源 URL。`navigationAllowed`：生产主帧只留在 `pageshelf://app`；开发主帧还可留在 `http://127.0.0.1:5173`；应用子帧可以加载 `pageshelf://source`；来源窗口只留在该条目的 `pageshelf://source`。`electron/main.ts` 把该函数接到 Electron 45 的单参数 `will-navigate` 与 `will-frame-navigate`。node:test：`navigation stays on the app, and source windows stay on one item`。smoke 没有另点一条外链。 | 生产主帧离开 `pageshelf://app` 时取消。开发主帧还可留在固定的 Vite origin。应用子帧可以加载 `pageshelf://source`。来源窗口只留在该条目。其他跳转取消。 | 新增 |
+| 6.5c | 正文链接经确认后 `shell.openExternal`，仅 http/https | 旧外链没有确认步骤，由浏览器打开。M2 的 `openExternalUrl` 要求 `confirmed === true`，并且只接受不带凭据的 http/https。`javascript:`、`file:`、`pageshelf:` 与未确认的 https 被拒绝。node:test：`renderer invoke rejects other senders and keeps external opens confirmed http(s)`。preload 不替调用方写上 `confirmed: true`。确认对话框属于 M7，M2 没有做这个界面。 | 主进程测试：`javascript:`、`file:`、`pageshelf:` 和其他方案被拒绝；http 与 https 在确认后才打开。 | 替换 |
+| 6.6 | 权限请求全部拒绝；禁用 `webview` | 旧页面未注册权限处理器，也没有 `webview` 标签。`permissionDecision` 恒为 false，`APP_WINDOW_PREFERENCES.webviewTag` 为 false。`electron/main.ts` 在 session 上调用 `setPermissionRequestHandler`。node:test 断言这两个值，并在源码扫描里看到该调用。没有弹出一次真实权限请求。 | `setPermissionRequestHandler` 对所有权限调用 deny。窗口没有 `webviewTag`。 | 新增 |
 | 6.7 | 不新增外连；只有确认移入废纸篓才移动文件；从不 unlink 源文件 | 外连见 4.11c。移动文件见 4.T1–4.T6。vendor 从本地路径加载，`npm run check` 不访问网络。 | 打包后的应用没有新的运行时网络依赖。未确认的废纸篓调用不改磁盘。 | 保留 |
 
 ## §8 测试义务
 
 | ID | 验收项 | 现有行为与证据 | 目标侧验证 | 状态 |
 |---|---|---|---|---|
-| 8.1 | 点名的 node:test 保持不改并全部通过 | 计划点名：`cache`、`config`、`formats`、`html-scan`、`library`、`markdown`、`metadata`、`root-recovery`、`roots`、`scheduler`、`search`、`trash`。本次基线 77/77 包含它们，也包含将迁移或删除的文件。例外：`test/root-recovery.test.js` 被计划称作纯模块测试，但文件导入 `createServer`、监听 `127.0.0.1` 并用 `fetch`。见文末未决问题。 | 这些文件在后续里程碑仍通过。在未决问题回答之前，不要为了删 HTTP 而改写 `root-recovery.test.js`，也不要把它当成已经与服务器无关。 | 保留 |
-| 8.2a | `server.test.js`、`router.test.js`、`e2e-smoke.test.js` 迁到服务层和 worker IPC，原断言保留 | 现行 `server.test.js` 与 `e2e-smoke.test.js` 启动 HTTP。`router.test.js` 不走 HTTP，只测 `public/js/router.js` 与 `store.js`（往返、store 不可变、取消订阅）。计划要求保留的断言类别写明为：错误码、CSP header、来源边界拒绝、图片类型校验、废纸篓部分成功。对应现行测试名已在 §4 和 §6 各行引用。 | M1/M2：上述类别在服务层和 IPC 适配层各有直接调用测试。状态码变为错误码时，现行错误码字符串保持可识别。`router.test.js` 的路由往返不要在迁移时丢掉。 | 替换 |
+| 8.1 | 点名的 node:test 保持不改并全部通过 | 计划点名：`cache`、`config`、`formats`、`html-scan`、`library`、`markdown`、`metadata`、`root-recovery`、`roots`、`scheduler`、`search`、`trash`。M0 基线 77/77 包含它们。按已采纳的决定，M1 已把 `test/root-recovery.test.js` 改成服务调用，不再导入 `createServer` 或监听端口，并保留 rename 与 order 断言。本次 `npm test` 91 passed 包含这些文件。 | 这些文件在后续里程碑仍通过。`root-recovery.test.js` 保持服务调用和 rename/order 断言，不再接回 HTTP。 | 保留 |
+| 8.2a | `server.test.js`、`router.test.js`、`e2e-smoke.test.js` 迁到服务层和 worker IPC，原断言保留 | M2 已把 `test/server.test.js` 与 `test/e2e-smoke.test.js` 改成 worker 信封。保留的产品断言包括来源增删改查与扫描、MHTML 阅读与下载、错误码、CSP、来源边界、图片 MIME、废纸篓部分成功、配置与缓存。HTTP 静态壳、HTTP 状态码和 Origin 传输断言已去掉。令牌与占用端口换成桌面无令牌、无监听断言，见 6.2a 与 6.2b。`test/e2e-smoke.test.js` 仍断言成对 HTML/Markdown 的索引、搜索和 Markdown 下载。`test/router.test.js` 未改，仍只测 `public/js/router.js` 与 `store.js`。 | M1/M2：上述类别在服务层和 IPC 适配层各有直接调用测试。状态码变为错误码时，现行错误码字符串保持可识别。`router.test.js` 的路由往返不要在迁移时丢掉。 | 替换 |
 | 8.2b | `ui.test.js` 与 `service.test.js` 随旧 UI 和 launchd 删除 | `ui.test.js` 只断言三栏 id、theme-boot 顺序、模块脚本入口、无内联脚本。`service.test.js`：`creates a local-only LaunchAgent plist with stable paths`、`installs a LaunchAgent by writing its plist and bootstrapping launchctl`、`reports LaunchAgent status from launchctl success or failure`、`uninstalls a LaunchAgent and removes its plist`。标签 `com.local.html-conversation-library`。M9 才删除，并要求覆盖点迁到 vitest 或说明为何不再适用。 | M9 删除前，三栏与无白闪主题仍有测试；launchd 测试随服务脚本删除，并在汇报里说明不再适用于无端口桌面版。M0 不删。 | 删除 |
 | 8.3 | 新增 vitest（Testing Library、jsdom） | 仓库没有 vitest。计划用例：搜索语法、路由往返、快捷键（含输入框屏蔽和 `g` 前缀 1 秒）、菜单 Esc/外部点击/路由变化关闭、确认对话框 Promise、分隔条 clamp 与双击复位、主题三态、分场景空态。现行空态至少有：无来源、选择一篇资料、过滤无结果并提供重置、连接错误重试（浏览器用例 `empty filters offer a working reset and connection errors have retry`）。 | 上述每一项都有 vitest，而不是只在手工清单里勾选。路由变化关闭菜单是计划新增的断言，见 4.K2a。 | 新增 |
-| 8.4 | 新增主进程测试 | 计划项：preload/invoke 白名单、参数校验、`pageshelf://` 穿越与越界、CSP header、`openExternal` 方案过滤、worker 崩溃重启与退出清理。现行均无。 | M2 这些测试存在且针对主进程代码，不靠渲染层单测代替。 | 新增 |
+| 8.4 | 新增主进程测试 | `test/desktop-shell.test.js` 覆盖白名单与参数校验、合法 app sender 与其他 sender、`pageshelf://` 穿越与 source CSP/`nosniff`、外部 URL 方案过滤、原网页专用窗口与任意 `window.open` 拒绝、worker 在 ready 前/后崩溃并恢复、退出时 1.2 秒内强制结束。这些测试导入 `electron/*.js` 与 `shared/pageshelf-contract.js`，不靠渲染层单测代替。崩溃与退出用注入的子进程，见上文「M1 / M2 证据」。 | M2 这些测试存在且针对主进程代码，不靠渲染层单测代替。 | 新增 |
 | 8.5 | Playwright `_electron` 冒烟代替 `browser-test.mjs` | 现行 `scripts/browser-test.mjs` 使用本机 Chrome。缺 Chrome 时退出码 2，README 规定这不算通过。`--force-failure` 应以退出码 1 失败。冒烟目标：启动、添加夹具目录、搜索、打开 HTML/MHTML/MD、用替身移入废纸篓、退出；另含恶意脚本不执行。M9 删除 `browser-test.mjs`。本次未运行该脚本。 | M8/M10 前 Playwright 冒烟通过，并保留恶意脚本来源不执行的断言。旧浏览器脚本在 M9 之前仍可运行。 | 替换 |
 | 8.6 | `npm run benchmark:search` 保留，并在 worker 中运行、与基线对比 | 脚本是 `scripts/benchmark-search.mjs`。现行在主 Node 进程里测 `searchItems`。本次文档没有运行它，也没有把任何性能数字当作基线。仓库另有历史记录 `docs/verification/search-performance-2026-10-05.json`，那不是本次任务提供的基线。 | 桌面版在 worker 环境跑同一脚本，汇报与基线的对比。M0 不记录虚构的基线数字。 | 保留 |
 
@@ -261,7 +285,7 @@
 | 9.1 | 在 `electron-react` 上工作，从当时的 `main` 切出；小步提交 | 本文件编写时分支为 `electron-react`，HEAD 为 `a556edb7fe7b732698907e1bbe0302cc9a8af2c7`。M0 按任务要求不提交。 | 后续提交都在该分支。汇报使用 `git log --oneline main..electron-react`（§10）。 | 过程 |
 | 9.2 | 提交作者使用仓库 local 配置 | 计划指定 `user.name` `WYgao29`、`user.email` `171554485+WYgao29@users.noreply.github.com`，并写明不要用 `weisengao@wayneMac.local`。M0 没有读取或修改 git 配置，也没有提交。 | Codex 提交前核对本仓库 local 配置。不要改全局 git 配置。 | 过程 |
 | 9.3 | 不 push、不改 tag、不 rebase、不改写 `main` | 计划要求旧 Web UI 的删除只发生在 `electron-react` 的 M9。`main` 保持到使用者自行合并。M0 没有 push、rebase、reset 或切换分支。 | 验收时 `main` 未被本分支改写。远程没有新的推送。 | 过程 |
-| 9.4 | 不提交 `node_modules`、`dist*`、`release/`；更新 `.gitignore` | 工作树根目录没有 `.gitignore`（`test -e` 未找到该文件）。现行也没有这些构建产物的忽略规则。计划把更新 `.gitignore` 放在后续打包里程碑，不是 M0。 | M8 之前忽略规则覆盖 `node_modules`、`dist*`、`release/`。M0 不新增该文件，避免超出文档范围。 | 过程 |
+| 9.4 | 不提交 `node_modules`、`dist*`、`release/`；更新 `.gitignore` | M0 时工作树根目录没有 `.gitignore`。M2 因锁文件和构建产物提前新增该文件，内容为 `node_modules/`、`dist/`、`dist-electron/`、`release/`。打包与发布仍属后续里程碑，本行不表示 M8 已做。 | M8 之前忽略规则覆盖 `node_modules`、`dist*`、`release/`。M0 不新增该文件，避免超出文档范围。 | 过程 |
 | 9.5 | `ELECTRON_PLAN.md` 可留在工作区且不必提交 | 该文件在派发时为未跟踪文件。M0 没有修改它。本矩阵是唯一新增的跟踪候选文件。 | 后续提交不把计划书的修改混进功能提交。计划书若仍未跟踪，保持不加入提交。 | 过程 |
 
 ## 追踪索引
@@ -288,10 +312,10 @@
 | §8 各测试条款 | 8.1–8.6 |
 | §9 各 Git 条款 | 9.1–9.5 |
 
-## 未决问题
+## 已采纳决定
 
-本矩阵不替这些问题选行为。
+下面三项原为未决问题。用户已决定，M1/M2 按此实现。这里不新增别的产品取舍。
 
-1. `test/root-recovery.test.js` 在 §8 的「纯模块、保持不改」名单里，但实现依赖 `src/server.js` 的 HTTP 监听。M9 又要删除 HTTP 外壳。在决定「保持文件不改」还是「先脱离 HTTP 再删除外壳」之前，不改这个测试。
-2. §8 要求迁移 `server.test.js` 时原断言逐条保留。该文件含令牌引导（`protected servers reject unauthenticated requests and support token bootstrap`）和端口占用退出（`occupied port exits successfully without repeated errors`）。§1、§6 和 M9 要求删除令牌、Cookie 和监听端口。M0 不把这两项当成桌面版要保留的产品行为，也不删除测试。
-3. 列表行的 ⌘/Ctrl 点击、列表右键菜单和阅读区文章菜单都提供「在新标签页打开原网页」（`public/js/views/list.js`、`reader.js`），目前通过 `window.open` 打开本地 `/original`。§6 要求 `setWindowOpenHandler` 默认拒绝，并且只允许导航到 `pageshelf://`，但没有说明这三个入口应改成应用内次窗口、当前阅读区打开原文，还是取消。正文里的 http/https 链接另有明确规则：确认后通过 `shell.openExternal` 打开。
+1. `test/root-recovery.test.js` 脱离 HTTP，改为服务调用，并保留 rename 与 order 断言。M1 已完成：文件导入 `src/services/roots.js` 与 `src/services/items.js`，不再导入 `createServer`。见 8.1。
+2. 旧令牌引导与占用端口测试不保留为桌面产品行为。M2 用 `desktop surface has no auth token and worker env drops token, port, and host` 与 `desktop library host does not listen on a TCP port` 代替，并用开发 smoke 的 `lsof` 检查 Electron 主进程和 worker。旧 `src/server.js` 的令牌与监听留到 M9。见 6.2a、6.2b、8.2a。
+3. 列表 ⌘/Ctrl 点击、列表菜单和阅读区菜单这三个「打开原网页」入口，改为一个显式、参数受限的 preload API `openOriginal(itemId)`。主进程创建无 preload、无 Node 的原生窗口，只加载 `pageshelf://source/<id>/original`。任意 `window.open` 仍默认拒绝。旧 `public/js` 的 `window.open` 留到界面迁移。正文 http/https 外链仍是确认后的 `shell.openExternal`，确认对话框属于 M7。见 6.5a、6.5c。
