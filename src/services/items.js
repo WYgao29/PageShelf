@@ -2,7 +2,7 @@ import path from "node:path";
 import { searchItems, publicItem } from "../search.js";
 import { readSafeFile, sourceNotFound } from "../source-files.js";
 import { parseHtml } from "../formats/html.js";
-import { renderMhtml } from "../formats/mhtml.js";
+import { MHTML_RENDER_VERSION, renderMhtml } from "../formats/mhtml.js";
 import { documentIdentity } from "../cache.js";
 
 export const SOURCE_CSP =
@@ -169,7 +169,7 @@ export async function readDocument({
       format,
       path: source.path,
       stat: source.stat,
-    }),
+    }) + (format === "mhtml" ? ":mhtml-" + MHTML_RENDER_VERSION : ""),
     etag = '"' + key + '"';
   const headers = {
     "content-type":

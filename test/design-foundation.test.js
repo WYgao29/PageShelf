@@ -138,7 +138,8 @@ test("desktop shell boots the theme before css and ships local brand files", asy
   assert.match(css, /:where\(button, a, input, textarea, \[tabindex\]:not\(\[tabindex="-1"\]\)\):focus-visible/);
   const shell = await readFile(new URL("../src-ui/src/styles/shell.css", import.meta.url), "utf8");
   assert.match(shell, /letter-spacing:\s*-0\.065em/);
-  assert.match(shell, /\.wordmark\s*\{[^}]*font-weight:\s*700/s);
+  assert.match(shell, /\.wordmark\s*\{[^}]*font-weight:\s*var\(--fw-brand\)/s);
+  assert.match(css, /--fw-brand:\s*700/);
   assert.match(shell, /height:\s*var\(--titlebar-height\)/);
   assert.match(shell, /\.list-pane > \.titlebar\s*\{[^}]*display:\s*none/s);
   assert.match(shell, /\[data-sidebar="collapsed"\] \.list-pane > \.titlebar\s*\{[^}]*display:\s*block/s);

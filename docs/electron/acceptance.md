@@ -1,5 +1,7 @@
 # PageShelf Electron 交付验收
 
+本页保留 M0–M10 的阶段记录。后续 MHTML 图片修复、当前完整测试与最新应用包指纹见 [mhtml-images-fix.md](mhtml-images-fix.md)。
+
 日期：2026-10-22。分支：`electron-react`。桌面功能开发、旧网页版删除和 arm64 打包已完成。功能清单 23/23 通过；设计清单 20/21 通过，剩余的是 Dock 图标的独立目视检查，详见第 20 项。本次继续开发没有调用 Grok，也没有使用子 Agent。
 
 交付应用：`release/PageShelf-darwin-arm64/PageShelf.app`，bundle id `com.wayne.pageshelf`，版本 `0.1.0`。在 Finder 中打开该目录后双击应用；未签名、未公证，首次启动可右键选择“打开”。适用于 Apple Silicon Mac。
@@ -8,7 +10,7 @@
 
 ## 提交与阶段验证
 
-早期结果来自引用聊天和 [功能保留矩阵](feature-matrix.md)；最后一行对应本报告所在提交，实际 hash 见交付回复或 `git log --oneline main..electron-react`。
+早期结果来自引用聊天和 [功能保留矩阵](feature-matrix.md)；M10 的提交是 `d0348f9`。完整提交可用 `git log --oneline main..electron-react` 查询。
 
 | 阶段 | 提交 | 结果与验证 |
 |---|---|---|
@@ -22,7 +24,7 @@
 | M7 | `68af498` | 快捷键、应用菜单、外链确认、保存与废纸篓；Node 97/97、UI 79/79、E2E 11/11。 |
 | M8 | `be4258e` | 可独立启动的 macOS 应用；Node 97/97，图标 10 尺寸、许可证、六组打包布局和进程退出检查通过。 |
 | M9 | `72566cb` | 删除浏览器运行入口、HTTP、launchd 与旧脚本；Node 91/91、UI 79/79、E2E 11/11。退役项目和用户批准的导入路径变更见下文。 |
-| M10 | 本报告所在提交 | Node 92/92、UI 87/87、主进程专项 17/17、真实 Electron E2E 17/17；重建交付包并复验系统启动、六组布局、无端口和进程退出。 |
+| M10 | `d0348f9` | Node 92/92、UI 87/87、主进程专项 17/17、真实 Electron E2E 17/17；重建交付包并复验系统启动、六组布局、无端口和进程退出。 |
 
 ## 最终验证原文与复现
 
@@ -42,7 +44,7 @@
 
 搜索性能对照见 [search-benchmark.json](search-benchmark.json)：500 条、每条 1500 字、20 次，Node 对照 p95 23.315 ms，Electron utilityProcess p95 19.375 ms，比值 0.831。M0 没有采集性能数字，故这是同语料的当前 Node 对照，不冒充历史 M0 基线。
 
-交付包的 UI、主进程、worker、preload 与当前构建逐文件 SHA-256 相同；图标与生成的 `.icns` 相同。完整指纹与包内容见 [build-manifest.json](validation/build-manifest.json)。
+M10 交付包的 UI、主进程、worker、preload 与 M10 当时构建逐文件 SHA-256 相同；图标与生成的 `.icns` 相同。该阶段指纹与包内容见 [build-manifest.json](validation/build-manifest.json)，后续更新的指纹见本页开头链接。
 
 ## 计划 §4：23 项功能
 

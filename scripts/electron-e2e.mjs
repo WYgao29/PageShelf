@@ -4,7 +4,8 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { _electron, expect } from "@playwright/test";
-import { html, mhtml } from "../test/helpers/fixture.js";
+import { html } from "../test/helpers/fixture.js";
+import { mhtmlWithImage } from "../test/helpers/mhtml-image.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const temporary = await mkdtemp(path.join(os.tmpdir(), "pageshelf-e2e-"));
@@ -19,7 +20,7 @@ await writeFile(path.join(source, "notes/child.md"), "# 嵌套笔记\n\n![相邻
 await writeFile(path.join(data, "config.json"), JSON.stringify({ version: 2, roots: [], ui: {} }));
 await writeFile(path.join(source, "alpha.html"), html("HTML 样例"));
 await writeFile(path.join(source, "alpha.md"), "# HTML 样例\n\n## Markdown 备用\n这是另一种 Markdown 正文。");
-await writeFile(path.join(source, "archive.mhtml"), mhtml("MHTML 样例"));
+await writeFile(path.join(source, "archive.mhtml"), mhtmlWithImage("MHTML 样例"));
 await writeFile(path.join(source, "note.md"), "# Markdown 样例\n\n## 小节\n短笔记，证据与**方法**。\n\n![外部](https://example.test/blocked.png)\n![本地图](assets/pixel.png)");
 await writeFile(path.join(source, "short.html"), html("短文样例", "短文"));
 await writeFile(path.join(source, "evil.html"), html("恶意样例", "正文证据。".repeat(80)) + '<h2>恶意样例原文</h2><script>globalThis.__xss = 1; fetch("https://example.test/evil")</script><img src="https://example.test/evil.png" onerror="globalThis.__xss=1"><a href="https://example.test/article">原文外链</a>');
@@ -106,6 +107,10 @@ try {
   });
   await check("MHTML decoded through worker and reader", async () => {
     await open("MHTML 样例"); await expect(page.locator(".reading-article")).toContainText("证据应当可复核");
+    await expect.poll(() => page.locator('.reading-article img[alt="归档图片"]').evaluate(image => image.naturalWidth)).toBe(1);
+    await page.getByRole("tab", { name: "原网页", exact: true }).click();
+    await expect.poll(() => page.frameLocator("#original-frame").locator('img[alt="归档图片"]').evaluate(image => image.naturalWidth)).toBe(1);
+    await page.getByRole("tab", { name: "阅读视图", exact: true }).click();
   });
   await check("Markdown short-note reading and raw source text", async () => {
     await open("Markdown 样例"); await expect(page.locator(".reading-article")).toContainText("短笔记");

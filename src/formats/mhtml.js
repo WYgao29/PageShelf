@@ -1,4 +1,8 @@
 import { decodeText } from "./html.js";
+import { decodeEntities } from "../../shared/html-source.js";
+
+// Bump when archive rendering changes so cached HTML is regenerated.
+export const MHTML_RENDER_VERSION = 2;
 function parseMimeHeaders(value) {
   const headers = {};
   let currentName = "";
@@ -177,17 +181,19 @@ export function renderMhtml(content) {
   html = html.replace(
     /(\b(?:src|href|poster|background)\s*=\s*)(["'])([^"']+)\2/gi,
     (match, prefix, quote, reference) => {
-      const replacement = resources.get(resourceKey(reference, htmlLocation));
+      const replacement = resources.get(resourceKey(decodeEntities(reference), htmlLocation));
       return replacement ? prefix + quote + replacement + quote : match;
     },
   );
   html = html.replace(
     /(\bstyle\s*=\s*)(["'])([\s\S]*?)\2/gi,
-    (match, prefix, quote, style) =>
-      prefix +
-      quote +
-      rewriteCssResources(style, htmlLocation, resources) +
-      quote,
+    (match, prefix, quote, style) => {
+      const decoded = decodeEntities(style);
+      const rewritten = rewriteCssResources(decoded, htmlLocation, resources);
+      if (rewritten === decoded) return match;
+      const escaped = rewritten.replaceAll("&", "&amp;").replaceAll(quote, quote === '"' ? "&quot;" : "&#39;");
+      return prefix + quote + escaped + quote;
+    },
   );
   html = html.replace(
     /(<style\b[^>]*>)([\s\S]*?)(<\/style>)/gi,
