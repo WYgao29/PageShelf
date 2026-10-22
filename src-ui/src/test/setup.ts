@@ -43,6 +43,7 @@ if (typeof HTMLDialogElement !== "undefined") {
 afterEach(() => {
   cleanup();
   localStorage.clear();
+  history.replaceState(null, "", "/");
   document.documentElement.removeAttribute("data-theme");
   document.documentElement.style.removeProperty("--sidebar-width");
   document.documentElement.style.removeProperty("--list-width");

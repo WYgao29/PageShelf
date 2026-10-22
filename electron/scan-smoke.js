@@ -62,6 +62,16 @@ async function observeScan(win) {
     throw new Error("扫描进度没有到达界面：" + text);
   }
 
+  const searchStarted = Date.now();
+  await win.webContents.executeJavaScript(`(() => {
+    const input = document.querySelector('#search-input');
+    if (!input) throw new Error('缺少搜索框');
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, '小目录');
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  })()`);
+  await waitFor(() => win.webContents.executeJavaScript("new URLSearchParams(location.hash.split('?')[1]).get('q') === '小目录' && document.querySelector('#list-rows')?.getAttribute('aria-busy') === 'false' && [...document.querySelectorAll('.item-row')].some(node => node.textContent.includes('小目录'))"), "扫描期间搜索没有返回已有条目");
+  const searchMs = Date.now() - searchStarted;
+  if (searchMs > 2500) throw new Error("扫描期间搜索响应过慢：" + searchMs);
   const responded = await win.webContents.executeJavaScript("({ ok: true })");
   if (!responded || responded.ok !== true) throw new Error("主窗口在扫描期间没有响应");
 
@@ -116,6 +126,7 @@ async function observeScan(win) {
     throw new Error("交互后扫描没有继续：" + progress.text + " → " + progressAfter.text);
   return {
     responded: true,
+    searchMs,
     progress,
     progressAfter,
     moved: { before, after },

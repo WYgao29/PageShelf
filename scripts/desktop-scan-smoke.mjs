@@ -172,6 +172,7 @@ try {
   if (fail) throw new Error(fail);
   if (!scanLine || !pidLine) throw new Error("Electron 没有报出扫描交互结果");
   const scan = JSON.parse(scanLine.slice("SCAN_SMOKE ".length));
+  if (!(scan.searchMs >= 0 && scan.searchMs <= 2500)) throw new Error("扫描期间搜索响应验收失败：" + scanLine);
   if (scan.responded !== true) throw new Error("主窗口没有响应：" + scanLine);
   if (!scan.progress || !(scan.progress.total > 0)) throw new Error("进度没有到达界面：" + scanLine);
   if (scan.progress.done + "/" + scan.progress.total !== scan.progress.text)

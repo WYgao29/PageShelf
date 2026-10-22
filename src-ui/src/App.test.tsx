@@ -9,7 +9,7 @@ function installApi() {
   Object.defineProperty(window, "pageshelf", {
     configurable: true,
     value: {
-      invoke: vi.fn(async () => ({ roots: [] })),
+      invoke: vi.fn(async (method: string) => method === "items.search" ? { items: [], groups: [], total: 0, roots: 0, tookMs: 0 } : { roots: [] }),
       on: () => () => {},
       pickFolder: async () => ({}),
       revealInFinder: async () => ({}),
@@ -216,6 +216,8 @@ describe("PageShelf shell", () => {
     await user.tab();
     expect(document.activeElement).toHaveTextContent("↻ 全部重扫");
     await user.tab();
+    expect(document.activeElement).toHaveAttribute("aria-label", "搜索资料");
+    for (let index = 0; index < 6; index++) await user.tab();
     expect(document.activeElement).toHaveTextContent("跟随系统");
     await user.tab();
     expect(document.activeElement).toHaveAttribute("aria-label", "调整目录栏宽度");

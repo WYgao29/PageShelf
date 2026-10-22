@@ -72,6 +72,7 @@ function createHarness(initial: RootJson[] = [makeRoot()]) {
     openExternal: vi.fn(async () => ({})),
     invoke: vi.fn(async (method: string, params?: Record<string, unknown>) => {
       calls.push({ method, params });
+      if (method === "items.search") return { items: [], groups: [], total: 0, roots: 0, tookMs: 0 };
       if (method === "roots.list") {
         if (state.failList > 0) {
           state.failList -= 1;
@@ -186,9 +187,9 @@ describe("来源侧栏与目录管理", () => {
     expect(rootNav("root-a")).toHaveTextContent("扫描 4");
     expect(rootNav("root-a")).toHaveTextContent("可用 3");
     expect(within(sidebar).getByText("上次 " + formatDate("2026-01-02T00:00:00.000Z"))).toBeInTheDocument();
-    expect(screen.getByText("选择来源后显示资料")).toBeInTheDocument();
-    expect(screen.queryByRole("searchbox")).toBeNull();
-    expect(document.querySelector("#list-pane input")).toBeNull();
+    expect(screen.getByRole("searchbox", { name: "搜索资料" })).toBeInTheDocument();
+    expect(screen.getByRole("searchbox")).toBeInTheDocument();
+    expect(document.querySelector("#list-pane input")).not.toBeNull();
 
     const list = screen.getByRole("region", { name: "资料列表" });
     expect(list.querySelector("[data-nav-kind]")).toHaveAttribute("data-nav-kind", "all");

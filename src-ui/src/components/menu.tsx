@@ -52,10 +52,12 @@ export function Menu({
     const onBlur = () => closeRef.current();
     document.addEventListener("pointerdown", onPointerDown);
     window.addEventListener("blur", onBlur);
+    window.addEventListener("pageshelf-route", onBlur);
     return () => {
       if (menuCloser === close) menuCloser = null;
       document.removeEventListener("pointerdown", onPointerDown);
       window.removeEventListener("blur", onBlur);
+      window.removeEventListener("pageshelf-route", onBlur);
       returnFocus?.focus();
     };
   }, [returnFocus]);

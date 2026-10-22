@@ -2,7 +2,8 @@ import { useEffect, useLayoutEffect, useState } from "react";
 import markDark from "../assets/brand/pageshelf-mark-dark.svg";
 import mark from "../assets/brand/pageshelf-mark.svg";
 import { LibraryProvider, useLibrary } from "./library-context";
-import { selectionLabel } from "./library";
+import { ItemList } from "./item-list";
+import { RouterProvider } from "./router";
 import { Manager } from "./manager";
 import {
   LIST_MAX,
@@ -34,9 +35,9 @@ function prefersDark() {
 
 export function App() {
   return (
-    <LibraryProvider>
+    <RouterProvider><LibraryProvider>
       <Shell />
-    </LibraryProvider>
+    </LibraryProvider></RouterProvider>
   );
 }
 
@@ -172,41 +173,14 @@ function Shell() {
         </aside>
         <section id="list-pane" className="list-pane" aria-label="资料列表">
           <div className="titlebar" aria-hidden="true" />
-          <header className="pane-header">
-            <h2 className="pane-title">资料</h2>
-            <div className="theme-picker" role="radiogroup" aria-label="主题">
-              {THEME_OPTIONS.map(([value, label]) => (
-                <button
-                  key={value}
-                  type="button"
-                  className="theme-option"
-                  role="radio"
-                  data-theme={value}
-                  aria-checked={preference === value}
-                  tabIndex={preference === value ? 0 : -1}
-                  onClick={() => setPreference(value)}
-                  onKeyDown={onThemeKey}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </header>
-          <div className="pane-body">
-            <p
-              className="status-line"
-              data-nav-kind={library.selection.kind}
-              data-nav-root={"rootId" in library.selection ? library.selection.rootId : ""}
-              data-nav-series={"seriesKey" in library.selection ? library.selection.seriesKey : ""}
-            >
-              {selectionLabel(library.selection, library.snapshot.roots, library.seriesName)}
-            </p>
-            <p className="pane-placeholder">选择来源后显示资料</p>
-          </div>
+          <ItemList />
         </section>
         <main id="reader-pane" className="reader-pane" tabIndex={-1} aria-label="阅读区">
           <header className="pane-header">
             <h2 className="pane-title">阅读</h2>
+            <div className="theme-picker" role="radiogroup" aria-label="主题">
+              {THEME_OPTIONS.map(([value, label]) => <button key={value} type="button" className="theme-option" role="radio" data-theme={value} aria-checked={preference === value} tabIndex={preference === value ? 0 : -1} onClick={() => setPreference(value)} onKeyDown={onThemeKey}>{label}</button>)}
+            </div>
           </header>
           <div className="pane-body">
             <p className="pane-placeholder">选择一篇资料</p>

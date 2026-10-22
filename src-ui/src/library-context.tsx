@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { useRoute } from "./router";
 import { ConfirmDialog } from "./components/dialog";
 import { Toasts, type ToastItem } from "./components/toast";
 import {
@@ -69,7 +70,8 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState("");
   const [scan, setScan] = useState<ScanStatus>({ running: [], queued: [] });
   const [catalogEpoch, setCatalogEpoch] = useState(0);
-  const [selection, setSelection] = useState<Selection>({ kind: "all" });
+  const { route, navigate } = useRoute();
+  const selection = useMemo<Selection>(() => route.seriesKey && route.rootId ? { kind: "series", rootId: route.rootId, seriesKey: route.seriesKey } : route.rootId ? { kind: "root", rootId: route.rootId } : { kind: "all" }, [route.rootId, route.seriesKey]);
   const [seriesName, setSeriesName] = useState("");
   const [manager, setManager] = useState<ManagerRequest | null>(null);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
@@ -195,26 +197,32 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
 
   const selectAll = useCallback(() => {
     setSeriesName("");
-    setSelection({ kind: "all" });
-  }, []);
+    navigate({ rootId: "", seriesKey: "", folder: "", item: "", scope: "all" });
+  }, [navigate]);
 
   const selectRoot = useCallback((rootId: string) => {
     setSeriesName("");
-    setSelection({ kind: "root", rootId });
-  }, []);
+    navigate({ rootId, seriesKey: "", folder: "", item: "", scope: "root", sort: "updated" });
+  }, [navigate]);
 
   const selectSeries = useCallback((rootId: string, seriesKey: string, name: string) => {
     setSeriesName(name);
-    setSelection({ kind: "series", rootId, seriesKey });
-  }, []);
+    navigate({ rootId, seriesKey, folder: "", item: "", scope: "root", sort: "series" });
+  }, [navigate]);
 
   const openManager = useCallback((focus: ManagerRequest = {}) => {
     setManager(focus);
-  }, []);
+    navigate({ settings: true });
+  }, [navigate]);
 
   const closeManager = useCallback(() => {
     setManager(null);
-  }, []);
+    navigate({ settings: false });
+  }, [navigate]);
+
+  useEffect(() => {
+    setManager(current => route.settings ? current || {} : null);
+  }, [route.settings]);
 
   const preflight = useCallback(async (source: PreviewSource) => {
     const parsed = parsePreflight(await requireApi().invoke("roots.preflight", previewParams(source)));
@@ -240,10 +248,10 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
 
   const removeRoot = useCallback(async (id: string) => {
     await requireApi().invoke("roots.remove", { id });
-    setSelection((current) => (current.kind !== "all" && current.rootId === id ? { kind: "all" } : current));
+    if (route.rootId === id) navigate({ rootId: "", seriesKey: "", folder: "", item: "", scope: "all" });
     await refreshRoots();
     toast("来源目录已移除");
-  }, [refreshRoots, toast]);
+  }, [refreshRoots, toast, route.rootId, navigate]);
 
   const rescan = useCallback(async (id?: string, full = false) => {
     const api = requireApi();

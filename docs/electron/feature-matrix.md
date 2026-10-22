@@ -372,3 +372,11 @@ M4 新增或改写：`src-ui/src/library.ts`、`library-context.tsx`、`sidebar.
 1. `test/root-recovery.test.js` 脱离 HTTP，改为服务调用，并保留 rename 与 order 断言。M1 已完成：文件导入 `src/services/roots.js` 与 `src/services/items.js`，不再导入 `createServer`。见 8.1。
 2. 旧令牌引导与占用端口测试不保留为桌面产品行为。M2 用 `desktop surface has no auth token and worker env drops token, port, and host` 与 `desktop library host does not listen on a TCP port` 代替，并用开发 smoke 的 `lsof` 检查 Electron 主进程和 worker。旧 `src/server.js` 的令牌与监听留到 M9。见 6.2a、6.2b、8.2a。
 3. 列表 ⌘/Ctrl 点击、列表菜单和阅读区菜单这三个「打开原网页」入口，改为一个显式、参数受限的 preload API `openOriginal(itemId)`。主进程创建无 preload、无 Node 的原生窗口，只加载 `pageshelf://source/<id>/original`。任意 `window.open` 仍默认拒绝。旧 `public/js` 的 `window.open` 留到界面迁移。正文 http/https 外链仍是确认后的 `shell.openExternal`，确认对话框属于 M7。见 6.5a、6.5c。
+
+## M5 列表、搜索与路由（2026-10-22）
+
+- `src-ui/src/item-list.tsx`、`items.ts` 通过白名单 IPC 接入原搜索服务，保留 AND/短语/排除、格式/类型/范围/排序、标题与正文高亮、命中数、六篇分组、每批 100 条、加载失败重试和分场景空态。
+- `router.tsx` 保存目录/系列/文件夹、查询、筛选、排序、条目、视图和管理弹窗；hash/history 后退前进与 `ui.route` 重启恢复。菜单在路由变化时关闭。
+- 验证：node:test 94/94；Vitest 40/40；UI/主进程构建、vendor 校验、六组布局 smoke 通过。
+- 已按用户决定补验扫描期间搜索：2200 文件扫描从 382/2200 到 1141/2200，真实输入查询后 180 ms 返回已有条目，窗口移动、侧栏滚动和扫描继续；主进程/worker 无监听端口，退出后 worker 消失。不生成截图。
+- M4 测试中的“搜索尚未实现”断言已替换为真实搜索入口断言；未删其他目录管理验证。
