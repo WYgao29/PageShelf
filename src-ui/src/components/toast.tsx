@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 
-export type ToastItem = { id: number; message: string; error: boolean };
+export type ToastAction = { label: string; run: () => Promise<unknown> | void };
+export type ToastItem = { id: number; message: string; error: boolean; action?: ToastAction };
 
 const TOAST_MS = 5000;
 
@@ -25,6 +26,7 @@ function ToastView({ toast, onDismiss }: { toast: ToastItem; onDismiss: (id: num
   return (
     <div className={toast.error ? "toast toast-error" : "toast"} role={toast.error ? "alert" : "status"}>
       <p>{toast.message}</p>
+      {toast.action ? <button type="button" className="text-button" onClick={() => { void Promise.resolve(toast.action?.run()).catch(() => {}); }}>{toast.action.label}</button> : null}
       <button type="button" className="text-button" onClick={() => onDismiss(toast.id)}>
         关闭
       </button>

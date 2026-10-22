@@ -6,6 +6,7 @@ import { errorMessage, formatDate } from "./library";
 import { useLibrary } from "./library-context";
 import { buildReader, type Reading } from "./reader/pipeline.js";
 import { createToc } from "./reader/toc.js";
+import { TrashDialog } from "./trash-dialog";
 import { useRoute } from "./router";
 
 type Bytes = { body: string | Uint8Array; headers: Record<string, string> };
@@ -27,6 +28,7 @@ export function Reader() {
   const [hit, setHit] = useState(0);
   const [active, setActive] = useState("");
   const [tocOpen, setTocOpen] = useState(false);
+  const [trashDetail, setTrashDetail] = useState<ItemDetail | null>(null);
   const [infoOpen, setInfoOpen] = useState(false);
   const [menu, setMenu] = useState<{ kind: "font" | "actions"; x: number; y: number; target: HTMLElement } | null>(null);
   const articleHost = useRef<HTMLDivElement>(null);
@@ -41,10 +43,11 @@ export function Reader() {
     document.documentElement.style.setProperty("--reader-font", `var(--fs-reading-${FONTS.indexOf(font) + 1})`);
     try { localStorage.setItem("ui.readerFont", String(font)); } catch { /* 字号仍在本次会话生效。 */ }
   }, [font]);
+  useEffect(() => { setMenu(null); setTocOpen(false); setInfoOpen(false); }, [itemId, view, query]);
   useEffect(() => {
     let cancelled = false;
     let built: Reading | null = null;
-    setDetail(null); setReading(null); setSource(null); setError(""); setHit(0); setMenu(null); setTocOpen(false); setInfoOpen(false);
+    setDetail(null); setReading(null); setSource(null); setError(""); setHit(0);
     if (!itemId) { setLoading(false); return; }
     setLoading(true);
     void (async () => {
@@ -120,8 +123,13 @@ export function Reader() {
     try {
       if (id === "original") await window.pageshelf?.openOriginal(detail.item.id);
       else if (id === "reveal") await window.pageshelf?.revealInFinder({ itemId: detail.item.id });
-      else if (id === "copy") { await navigator.clipboard.writeText(detail.files[0]?.path || ""); library.toast("路径已复制"); }
+      else if (id === "copy") { await invoke("system.copyItemPath", { id: detail.item.id }); library.toast("路径已复制"); }
       else if (id === "info") setInfoOpen(true);
+      else if (id === "trash" && !library.snapshot.readOnly) setTrashDetail(detail);
+      else if (id.startsWith("download-")) {
+        const result = await invoke<{ cancelled: boolean }>("system.saveItem", { id: detail.item.id, format: id.slice(9) });
+        if (!result.cancelled) library.toast("原文件已保存");
+      }
     } catch (reason) { library.toast(errorMessage(reason), true); }
   }
   async function onArticleClick(event: React.MouseEvent) {
@@ -158,7 +166,8 @@ export function Reader() {
       </div> : null}
     </div>
     {tocOpen ? <Dialog title="本页目录" onClose={() => setTocOpen(false)}><nav className="toc-links">{reading?.toc.map(heading => <button type="button" key={heading.id} aria-current={heading.id === active ? "location" : undefined} onClick={() => { toc.current?.jump(heading.id); setTocOpen(false); }}>{heading.text}</button>)}</nav></Dialog> : null}
+    {trashDetail ? <TrashDialog detail={trashDetail} onClose={() => setTrashDetail(null)} /> : null}
     {infoOpen && detail ? <Dialog title="条目信息" onClose={() => setInfoOpen(false)}><p>{detail.item.title}</p><ul className="file-list">{detail.files.map(file => <li key={file.path}>{file.format} · {file.path} · {file.size} 字节</li>)}</ul></Dialog> : null}
-    {menu ? <Menu {...menu} returnFocus={menu.target} onClose={() => setMenu(null)} items={menu.kind === "font" ? FONTS.map(size => ({ kind: "item" as const, id: String(size), label: `${size} px${font === size ? " ✓" : ""}` })) : [{ kind: "item", id: "original", label: "在新窗口打开原网页" }, { kind: "item", id: "reveal", label: "在访达中显示" }, { kind: "item", id: "copy", label: "复制本地路径" }, { kind: "item", id: "info", label: "条目信息" }]} onSelect={id => menu.kind === "font" ? setFont(Number(id)) : void action(id)} /> : null}
+    {menu ? <Menu {...menu} returnFocus={menu.target} onClose={() => setMenu(null)} items={menu.kind === "font" ? FONTS.map(size => ({ kind: "item" as const, id: String(size), label: `${size} px${font === size ? " ✓" : ""}` })) : [{ kind: "item", id: "original", label: "在新窗口打开原网页" }, { kind: "item", id: "reveal", label: "在访达中显示" }, { kind: "item", id: "copy", label: "复制本地路径" }, { kind: "item", id: "info", label: "条目信息" }, ...(detail?.files || []).map(file => ({ kind: "item" as const, id: "download-" + file.format, label: "下载 " + file.format.toUpperCase() + " 原文件" })), { kind: "separator" }, { kind: "item", id: "trash", label: "移入废纸篓…", danger: true, disabled: library.snapshot.readOnly }]} onSelect={id => menu.kind === "font" ? setFont(Number(id)) : void action(id)} /> : null}
   </>;
 }

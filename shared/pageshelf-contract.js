@@ -17,6 +17,8 @@ export const DESKTOP_SURFACE = Object.freeze({
 export const MAIN_ONLY_METHODS = Object.freeze([
   "system.openExternal",
   "window.openOriginal",
+  "system.saveItem",
+  "system.copyItemPath",
 ]);
 
 const SOURCE_ACTIONS = new Set([
@@ -196,6 +198,11 @@ const schemas = {
   "items.original": (params) => copyRead(params),
   "items.source": (params) => copyFormat(params),
   "items.download": (params) => copyFormat(params),
+  "system.saveItem": (params) => copyFormat(params),
+  "system.copyItemPath": (params) => {
+    if (!onlyKeys(params, ["id"]) || !isItemId(params.id)) throw invalid();
+    return { id: params.id };
+  },
   "items.asset": (params) => {
     if (!onlyKeys(params, ["id", "path"]) || !isItemId(params.id))
       throw invalid();

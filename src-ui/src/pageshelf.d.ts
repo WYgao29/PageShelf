@@ -1,7 +1,7 @@
 interface PageshelfApi {
   invoke(method: string, params?: Record<string, unknown>): Promise<unknown>;
   on(
-    event: "scan-progress" | "library-changed" | "worker-status",
+    event: "scan-progress" | "library-changed" | "worker-status" | "command" | "external-link",
     callback: (payload: unknown) => void,
   ): () => void;
   pickFolder(): Promise<unknown>;

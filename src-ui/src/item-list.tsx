@@ -20,7 +20,9 @@ export function Highlight({ text, ranges = [] }: { text: string; ranges?: [numbe
 export function ItemList() {
   const { route, navigate } = useRoute();
   const library = useLibrary();
+  const [focused, setFocused] = useState("");
   const [draft, setDraft] = useState(route.q);
+  const [resultQuery, setResultQuery] = useState("");
   const [result, setResult] = useState<SearchResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [skeleton, setSkeleton] = useState(false);
@@ -32,6 +34,7 @@ export function ItemList() {
   const query = JSON.stringify(searchQuery(route));
   const searchRef = useRef<HTMLInputElement>(null);
   useEffect(() => { setDraft(route.q); }, [route.q]);
+  useEffect(() => { setFocused(route.item); }, [route.item]);
   useEffect(() => {
     if (draft === route.q) return;
     const timer = setTimeout(() => navigate({ q: draft, sort: draft ? "relevance" : "updated" }, true), 150);
@@ -49,11 +52,12 @@ export function ItemList() {
       if (generation !== serial.current) return;
       if (!Array.isArray(page.items) || !Array.isArray(page.groups)) throw new Error("资料列表无效");
       setResult(reset || !current ? page : mergePage(current, page));
+      setResultQuery(JSON.parse(query).q);
     } catch (reason) { if (generation === serial.current) setError(errorMessage(reason, "无法读取资料")); }
     finally { if (generation === serial.current) { pending.current = false; setLoading(false); } }
   }, [query]);
   useEffect(() => {
-    setResult(null); setExpanded(new Set());
+    setResult(null); setExpanded(new Set()); setFocused("");
     void fetchPage(true);
     return () => { serial.current++; pending.current = false; };
   }, [fetchPage, library.catalogEpoch]);
@@ -70,7 +74,7 @@ export function ItemList() {
   function row(item: Item) {
     const title = item.highlights?.find(value => value.field === "title");
     const body = item.highlights?.find(value => value.field === "body");
-    return <button type="button" key={item.id} role="option" aria-selected={route.item === item.id} className="item-row" data-item-id={item.id} title={item.relativePath}
+    return <button type="button" key={item.id} role="option" aria-selected={(focused || route.item) === item.id} className="item-row" onFocus={() => setFocused(item.id)} data-item-id={item.id} title={item.relativePath}
       onClick={event => {
         if (event.metaKey || event.ctrlKey) void window.pageshelf?.openOriginal(item.id).catch(reason => library.toast(errorMessage(reason), true));
         else navigate({ item: item.id });
@@ -106,14 +110,13 @@ export function ItemList() {
       </div>
       <div className="result-line"><span role="status">{loading ? "正在搜索…" : `${result?.total || 0} 篇 · ${result?.roots || 0} 个来源`}</span><select aria-label="排序" value={route.sort} onChange={event => navigate({ sort: event.target.value })}><option value="updated">最近更新</option><option value="title">标题</option><option value="series">系列顺序</option><option value="relevance">相关度</option></select></div>
     </div>
-    <div id="list-rows" className="list-scroll" role="listbox" aria-label="文章结果" aria-busy={loading} onScroll={event => { const node = event.currentTarget; if (result && result.items.length < result.total && node.scrollHeight - node.scrollTop - node.clientHeight < 160) void fetchPage(false, result); }}>
+    <div id="list-rows" className="list-scroll" data-query={resultQuery} role="listbox" aria-label="文章结果" aria-busy={loading} onScroll={event => { const node = event.currentTarget; if (result && result.items.length < result.total && node.scrollHeight - node.scrollTop - node.clientHeight < 160) void fetchPage(false, result); }}>
       {error ? <div className="empty-state" role="alert"><h2>资料加载失败</h2><p>{error}</p><button onClick={() => void fetchPage(true)}>重试</button></div> : result?.items.length ? rows : skeleton ? <div aria-label="正在加载资料" className="list-skeleton">{[1, 2, 3, 4].map(index => <div className="skeleton-row" key={index}><span /><span /><span /></div>)}</div> : <div className="empty-state"><h2>{emptyTitle}</h2><p>{library.error || (route.q ? `查询“${route.q}”。支持空格 AND、"短语"、-排除词。` : root?.state.message || "支持 HTML、MHTML 和 Markdown。")}</p>{!loading ? <button onClick={() => filtered ? navigate({ q: "", fmt: "", kind: "", folder: "" }) : root && !root.enabled ? void library.updateRoot(root.id, { enabled: true }) : library.openManager(root ? { relocateId: root.id } : { focusAdd: true })}>{filtered ? "清除筛选" : root && !root.enabled ? "启用目录" : root ? "管理目录" : "添加目录"}</button> : null}</div>}
       {result && result.items.length < result.total ? <button type="button" className="load-more" disabled={loading} onClick={() => void fetchPage(false, result)}>{loading ? "正在加载…" : "加载更多（100 篇）"}</button> : null}
     </div>
     {menu ? <Menu x={menu.x} y={menu.y} returnFocus={menu.target} onClose={() => setMenu(null)} items={[{ kind: "item", id: "original", label: "在新窗口打开原网页" }, { kind: "item", id: "reveal", label: "在访达中显示" }, { kind: "item", id: "copy", label: "复制路径" }]} onSelect={id => {
-      const action = id === "original" ? window.pageshelf?.openOriginal(menu.item.id) : id === "reveal" ? window.pageshelf?.revealInFinder({ itemId: menu.item.id }) : invoke<ItemDetailForPath>("items.get", { id: menu.item.id }).then(detail => navigator.clipboard.writeText(detail.files[0]?.path || ""));
+      const action = id === "original" ? window.pageshelf?.openOriginal(menu.item.id) : id === "reveal" ? window.pageshelf?.revealInFinder({ itemId: menu.item.id }) : invoke("system.copyItemPath", { id: menu.item.id });
       void action?.catch(reason => library.toast(errorMessage(reason), true));
     }} /> : null}
   </>;
 }
-type ItemDetailForPath = { files: { path: string }[] };

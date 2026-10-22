@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { rewriteExternalAnchors } from "./external-links.js";
 import { SOURCE_CSP } from "../src/services/items.js";
 import {
   APP_CSP,
@@ -98,7 +99,7 @@ export async function handlePageshelfRequest({
       return { status: 304, body: null, headers: sourceHeaders(result.headers, dev) };
     return {
       status: 200,
-      body: method === "HEAD" ? null : result.body,
+      body: method === "HEAD" ? null : parsed.action === "original" && String(result.headers?.["content-type"]).startsWith("text/html") ? rewriteExternalAnchors(result.body, parsed.id) : result.body,
       headers: sourceHeaders(result.headers, dev),
     };
   } catch (error) {

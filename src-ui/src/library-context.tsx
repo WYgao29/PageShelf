@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useRoute } from "./router";
 import { ConfirmDialog } from "./components/dialog";
-import { Toasts, type ToastItem } from "./components/toast";
+import { Toasts, type ToastItem, type ToastAction } from "./components/toast";
 import {
   countIssues,
   errorMessage,
@@ -35,7 +35,7 @@ type LibraryContextValue = {
   manager: ManagerRequest | null;
   openManager: (focus?: ManagerRequest) => void;
   closeManager: () => void;
-  toast: (message: string, error?: boolean) => void;
+  toast: (message: string, error?: boolean, action?: ToastAction) => void;
   confirm: (options: ConfirmOptions) => Promise<boolean>;
   preflight: (source: PreviewSource) => Promise<Preflight>;
   addRoot: (source: PreviewSource) => Promise<void>;
@@ -84,11 +84,11 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
   const loadedRef = useRef(false);
   const progressVersion = useRef(0);
 
-  const toast = useCallback((message: string, isError = false) => {
+  const toast = useCallback((message: string, isError = false, action?: ToastAction) => {
     if (!message) return;
     toastId.current += 1;
     const id = toastId.current;
-    setToasts((current) => [...current, { id, message, error: isError }]);
+    setToasts((current) => [...current, { id, message, error: isError, action }]);
   }, []);
 
   const dismissToast = useCallback((id: number) => {
@@ -104,10 +104,13 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
 
   const confirm = useCallback((options: ConfirmOptions) => {
     return new Promise<boolean>((resolve) => {
+      confirmResolve.current?.(false);
       confirmResolve.current = resolve;
       setConfirmOptions(options);
     });
   }, []);
+
+  useEffect(() => () => { confirmResolve.current?.(false); confirmResolve.current = null; }, []);
 
   const applySnapshot = useCallback((next: LibrarySnapshot) => {
     loadedRef.current = true;

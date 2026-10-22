@@ -389,3 +389,11 @@ M4 新增或改写：`src-ui/src/library.ts`、`library-context.tsx`、`sidebar.
 - node:test 94/94；Vitest 71/71（含 25 个既有恶意片段、站点/通用抽取、Markdown、正文查找及 React 阅读交互）；UI/主进程构建与六组布局 smoke 通过。
 - `npm run test:electron` 使用 Playwright `_electron` 跑真实生产协议界面：7 passed, 0 failed。覆盖添加夹具目录、搜索、HTML/MHTML/MD、短文 iframe 实际可读、恶意 HTML 脚本不执行、iframe 无 bridge/Node、应用与正文无外连。未生成截图。测试调试端口仅供 Playwright 自动化，无监听检查由独立 smoke 执行。
 - 保留的 vendor 原文件引用了上游未提供的 source map，Vitest 会提示缺 map；不影响测试或打包，未为消除提示修改已校验的 vendor 字节。
+
+## M7 快捷键、菜单与文件操作（2026-10-22）
+
+- `shortcuts.ts`、`shared/commands.js` 与原生 `electron/menu.ts` 接入完整命令表；单字母在输入/编辑区/弹窗中屏蔽，g 前缀一秒过期，非 macOS 用 Ctrl。原生组合键在 before-input-event 中阻止重复分发。窄窗的来源通过按钮弹窗访问，宽窗可折叠并保存设置。
+- 阅读区的原文件保存使用原生保存对话框，复制路径使用主进程剪贴板接口。确认 Promise、菜单路由关闭、Toast 动作、部分/全部废纸篓失败、只读禁用均有测试。
+- 原网页外链经本地协议导航交给主进程取消并弹出应用内确认；不向源文档加入脚本或 bridge。原始下载字节不变。修正退出时 worker 状态事件引发的额外 IPC，以及扫描完成时误关 TOC 的问题。
+- 验证：node:test 97/97；Vitest 79/79；构建、vendor 和六组布局 smoke 通过；真实 Electron E2E 11 passed, 0 failed，新增原网页外链确认、原生菜单/键盘去重、原文件字节、复制路径、废纸篓取消与确认。
+- 废纸篓 E2E 只用 `PAGESHELF_TEST=1` + `PAGESHELF_TEST_TRASH=1`、且数据实际位于本次 `pageshelf-e2e-*` 临时树时启用重命名替身；生产仍使用原系统 trash/Finder 服务，替身拒绝测试树之外的路径。

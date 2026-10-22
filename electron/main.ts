@@ -1,3 +1,7 @@
+import { writeFile } from "node:fs/promises";
+import { commandForInput } from "../shared/commands.js";
+import { sourceExternalLink } from "./external-links.js";
+import { installMenu } from "./menu.js";
 import { fileURLToPath } from "node:url";
 import os from "node:os";
 import path from "node:path";
@@ -5,6 +9,7 @@ import {
   app,
   BrowserWindow,
   dialog,
+  clipboard,
   ipcMain,
   nativeTheme,
   protocol,
@@ -18,6 +23,7 @@ import {
   EVENT_CHANNEL,
   IPC_CHANNEL,
   desktopWorkerEnv,
+  externalUrlDecision,
   navigationAllowed,
   senderAllowed,
 } from "../shared/pageshelf-contract.js";
@@ -57,6 +63,7 @@ const BACKGROUND_CHANNEL = "pageshelf:window-background";
 const CHROME_CHANNEL = "pageshelf:chrome";
 
 let mainWindow: BrowserWindow | null = null;
+let closing = false;
 const appWindows = new Set<BrowserWindow>();
 const revealers = new Map<number, () => void>();
 
@@ -123,6 +130,7 @@ const supervisor = createWorkerSupervisor({
       ),
     ),
   onEvent(message) {
+    if (closing) return;
     const event = rendererEvent(message);
     if (!event) return;
     for (const win of appWindows) {
@@ -149,13 +157,24 @@ function secureContents(
   policy: { kind: "app" | "source"; itemId?: string },
 ) {
   const context = { dev: policy.kind === "app" && dev, kind: policy.kind, itemId: policy.itemId || "" };
+  win.webContents.on("before-input-event", (event, input) => {
+    const command = commandForInput(input);
+    if (!command) return;
+    event.preventDefault();
+    dispatchCommand(command);
+  });
   win.webContents.setWindowOpenHandler(() => windowOpenDecision());
   win.webContents.on("will-navigate", (event) => {
-    if (!navigationAllowed(event.url, { ...context, frame: false })) event.preventDefault();
+    const external = sourceExternalLink(event.url);
+    if (external) { event.preventDefault(); proposeExternal(external); return; }
+    if (!navigationAllowed(event.url, { ...context, frame: false })) { event.preventDefault(); proposeExternal(event.url); }
   });
   win.webContents.on("will-frame-navigate", (event) => {
-    if (!navigationAllowed(event.url, { ...context, frame: event.isMainFrame !== true }))
-      event.preventDefault();
+    const external = sourceExternalLink(event.url);
+    if (external) { event.preventDefault(); proposeExternal(external); return; }
+    if (!navigationAllowed(event.url, { ...context, frame: event.isMainFrame !== true })) {
+      event.preventDefault(); proposeExternal(event.url);
+    }
   });
   win.webContents.session.setPermissionRequestHandler((_contents, _permission, callback) => {
     callback(permissionDecision());
@@ -235,6 +254,19 @@ async function openOriginal(itemId: string) {
   return { opened: true };
 }
 
+function proposeExternal(url: string) {
+  if (!externalUrlDecision(url, { confirmed: true }).ok || !mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.focus();
+  mainWindow.webContents.send(EVENT_CHANNEL, { event: "external-link", payload: { url } });
+}
+
+function dispatchCommand(command: string) {
+  const target = mainWindow;
+  if (!target || target.isDestroyed()) return;
+  target.focus();
+  target.webContents.send(EVENT_CHANNEL, { event: "command", payload: { command } });
+}
+
 const instance = claimSingleInstance({
   requestLock: () => app.requestSingleInstanceLock(),
   quit: () => app.quit(),
@@ -262,7 +294,7 @@ if (instance.primary) {
         app.quit();
       },
     },
-    shutdown: () => supervisor.shutdown(),
+    shutdown: async () => { closing = true; await supervisor.shutdown(); },
   });
   app.on("window-all-closed", () => {
     app.quit();
@@ -294,6 +326,21 @@ if (instance.primary) {
         openExternal: (url, confirmed) =>
           openExternalUrl(url, confirmed, (target) => shell.openExternal(target)),
         openOriginal,
+        copyItemPath: async (id) => {
+          const detail = await supervisor.request({ method: "items.get", params: { id } }) as { files: { path: string }[] };
+          clipboard.writeText(detail.files[0]?.path || "");
+          return { copied: true };
+        },
+        saveItem: async (id, format) => {
+          const detail = await supervisor.request({ method: "items.get", params: { id } }) as { files: { format: string; path: string }[] };
+          const file = detail.files.find(file => file.format === format);
+          if (!file) throw new Error("原文件不存在");
+          const selected = await dialog.showSaveDialog({ title: "保存原文件", defaultPath: path.basename(file.path) });
+          if (selected.canceled || !selected.filePath) return { cancelled: true };
+          const result = await supervisor.request({ method: "items.download", params: { id, format } }) as { body: string | Uint8Array };
+          await writeFile(selected.filePath, result.body);
+          return { cancelled: false };
+        },
         chooseFolder: async () => {
           const selected = await dialog.showOpenDialog({
             properties: ["openDirectory"],
@@ -308,6 +355,7 @@ if (instance.primary) {
         },
       }),
     );
+    installMenu(dispatchCommand);
     createMainWindow();
   });
 }

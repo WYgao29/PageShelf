@@ -39,6 +39,8 @@ function createHarness(initial: RootJson[] = [makeRoot()]) {
     "scan-progress": new Set<(payload: unknown) => void>(),
     "library-changed": new Set<(payload: unknown) => void>(),
     "worker-status": new Set<(payload: unknown) => void>(),
+    "command": new Set<(payload: unknown) => void>(),
+    "external-link": new Set<(payload: unknown) => void>(),
   };
   const calls: Call[] = [];
   const state = {
@@ -135,11 +137,11 @@ function createHarness(initial: RootJson[] = [makeRoot()]) {
       if (method === "roots.rescan" || method === "scan.all" || method === "system.clearCache") return { ok: true };
       throw new Error("未预期的调用 " + method);
     }),
-    on(event: "scan-progress" | "library-changed" | "worker-status", callback: (payload: unknown) => void) {
+    on(event: "scan-progress" | "library-changed" | "worker-status" | "command" | "external-link", callback: (payload: unknown) => void) {
       listeners[event].add(callback);
       return () => listeners[event].delete(callback);
     },
-    emit(event: "scan-progress" | "library-changed" | "worker-status", payload: unknown) {
+    emit(event: "scan-progress" | "library-changed" | "worker-status" | "command" | "external-link", payload: unknown) {
       for (const callback of [...listeners[event]]) callback(payload);
     },
   };

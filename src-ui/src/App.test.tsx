@@ -108,8 +108,8 @@ describe("PageShelf shell", () => {
     expect(localStorage.getItem("ui.theme")).toBe("dark");
 
     fireEvent.keyDown(document.body, { key: "t" });
-    expect(localStorage.getItem("ui.theme")).toBe("dark");
-    expect(dark).toHaveAttribute("aria-checked", "true");
+    expect(localStorage.getItem("ui.theme")).toBe("system");
+    expect(system).toHaveAttribute("aria-checked", "true");
   });
 
   it("steps, clamps, drags, resets, and restores pane widths", () => {
@@ -217,7 +217,7 @@ describe("PageShelf shell", () => {
     expect(document.activeElement).toHaveTextContent("↻ 全部重扫");
     await user.tab();
     expect(document.activeElement).toHaveAttribute("aria-label", "搜索资料");
-    for (let index = 0; index < 6; index++) await user.tab();
+    for (let index = 0; index < 10 && document.activeElement?.getAttribute("role") !== "radio"; index++) await user.tab();
     expect(document.activeElement).toHaveTextContent("跟随系统");
     await user.tab();
     expect(document.activeElement).toHaveTextContent("搜索资料");

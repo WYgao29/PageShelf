@@ -2,7 +2,7 @@ const { contextBridge, ipcRenderer } = require("electron");
 
 const INVOKE = "pageshelf:invoke";
 const EVENT = "pageshelf:event";
-const EVENTS = new Set(["scan-progress", "library-changed", "worker-status"]);
+const EVENTS = new Set(["scan-progress", "library-changed", "worker-status", "command", "external-link"]);
 
 function invoke(method, params) {
   return ipcRenderer.invoke(INVOKE, { method, params });

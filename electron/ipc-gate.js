@@ -16,6 +16,8 @@ const failure = (code, message) => Object.assign(new Error(message), { code });
  *   openExternal: (url: string, confirmed: boolean) => Promise<unknown>,
  *   openOriginal: (itemId: string) => Promise<unknown>,
  *   chooseFolder: () => Promise<unknown>,
+ *   copyItemPath?: (id: string) => Promise<unknown>,
+ *   saveItem?: (id: string, format: string) => Promise<unknown>,
  * }} input
  */
 export async function handleRendererInvoke({
@@ -26,6 +28,8 @@ export async function handleRendererInvoke({
   openExternal,
   openOriginal,
   chooseFolder,
+  saveItem,
+  copyItemPath,
 }) {
   if (!senderAllowed(senderUrl, { dev }))
     throw failure("METHOD_NOT_ALLOWED", "调用方不被允许");
@@ -37,6 +41,14 @@ export async function handleRendererInvoke({
     return openExternal(input.url, input.confirmed);
   if (method === "window.openOriginal") return openOriginal(input.itemId);
   if (method === "system.chooseFolder") return chooseFolder();
+  if (method === "system.copyItemPath") {
+    if (!copyItemPath) throw failure("DESKTOP_ONLY", "复制路径只在桌面主进程执行");
+    return copyItemPath(input.id);
+  }
+  if (method === "system.saveItem") {
+    if (!saveItem) throw failure("DESKTOP_ONLY", "保存文件只在桌面主进程执行");
+    return saveItem(input.id, input.format);
+  }
   return request(method, input);
 }
 

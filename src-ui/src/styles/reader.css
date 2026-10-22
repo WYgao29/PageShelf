@@ -33,3 +33,8 @@
 .toc-links button { text-align: left; overflow: hidden; text-overflow: ellipsis; }
 .toc-links button[aria-current="location"] { background: var(--surface-selected); color: var(--accent-text); }
 .dialog-body > p { white-space: pre-wrap; }
+
+.shortcut-list { display: grid; gap: var(--space-3); margin: 0; }
+.shortcut-list > div { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); }
+.shortcut-list dd { margin: 0; }
+.about-logo { display: block; width: 100%; max-width: var(--panel-width); margin: var(--space-4) auto; }
