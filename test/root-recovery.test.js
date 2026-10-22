@@ -2,7 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { mkdir, writeFile, readFile } from "node:fs/promises";
 import path from "node:path";
-import { createServer } from "../src/server.js";
+import { createConfigStore } from "../src/config.js";
+import { createLibrary } from "../src/library.js";
+import { createRootRegistry } from "../src/roots.js";
+import { search } from "../src/services/items.js";
+import { listRoots, orderRoots, saveRoot } from "../src/services/roots.js";
 import { withTempFixture } from "./helpers/fixture.js";
 
 async function withRoots(callback) {
@@ -23,52 +27,49 @@ async function withRoots(callback) {
         ],
       }),
     );
-    const server = createServer({ dataDir });
-    try {
-      await server.ready;
-      await server.library().scheduler.waitForIdle();
-      await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
-      const origin = "http://127.0.0.1:" + server.address().port;
-      const mutate = async (route, method, body) => {
-        const response = await fetch(origin + route, {
-          method,
-          headers: { origin, "content-type": "application/json" },
-          body: JSON.stringify(body),
-        });
-        assert.equal(response.status, 200);
-        const result = await response.json();
-        await server.library().scheduler.waitForIdle();
-        return result;
-      };
-      await callback({
-        parent,
-        child,
-        origin,
-        library: server.library(),
-        mutate,
-      });
-    } finally {
-      await new Promise((resolve) => server.close(resolve));
-    }
+    const registry = createRootRegistry({
+      configStore: createConfigStore({ dataDir }),
+    });
+    await registry.load();
+    const library = createLibrary({ rootRegistry: registry });
+    const roots = registry.list();
+    roots.forEach((root) => library.scheduler.enqueue(root.id, {}));
+    if (roots.length) await library.scheduler.waitForRoot(roots[0].id);
+    await library.scheduler.waitForIdle();
+    const mutate = async (run) => {
+      const result = await run();
+      assert.equal(result.status, 200);
+      await library.scheduler.waitForIdle();
+      return result.json;
+    };
+    await callback({ parent, child, library, mutate });
   });
 }
 
 for (const change of [
   {
     name: "rename",
-    route: "/api/roots/parent",
-    method: "PATCH",
-    body: { label: "Renamed" },
+    run: (library) =>
+      saveRoot({
+        library,
+        registry: library.registry,
+        mode: "patch",
+        id: "parent",
+        body: { label: "Renamed" },
+      }),
   },
   {
     name: "order",
-    route: "/api/roots/order",
-    method: "PUT",
-    body: { ids: ["child", "parent"] },
+    run: (library) =>
+      orderRoots({
+        library,
+        registry: library.registry,
+        ids: ["child", "parent"],
+      }),
   },
 ]) {
   test(`restored child root is indexed after ${change.name}`, () =>
-    withRoots(async ({ parent, child, origin, library, mutate }) => {
+    withRoots(async ({ parent, child, library, mutate }) => {
       assert.equal(library.registry.get("child").state, "missing");
       await mkdir(child);
       await writeFile(path.join(child, "child.md"), "# Child\n\nChild body.");
@@ -76,8 +77,8 @@ for (const change of [
       assert.equal(library.getSnapshot().items.length, 2);
       assert.equal(library.registry.get("child").state, "missing");
 
-      const changed = await mutate(change.route, change.method, change.body);
-      const listed = await (await fetch(origin + "/api/items")).json();
+      const changed = await mutate(() => change.run(library));
+      const listed = search({ library, query: {} }).json;
       assert.equal(listed.total, 2, "restored child's article disappeared");
       assert.deepEqual(
         listed.items.map((item) => [item.title, item.rootId]).sort(),
@@ -86,7 +87,7 @@ for (const change of [
           ["Parent", "parent"],
         ],
       );
-      const roots = await (await fetch(origin + "/api/roots")).json();
+      const roots = listRoots({ library, registry: library.registry }).json;
       assert.equal(
         roots.roots.find((root) => root.id === "child").counts.items,
         1,
@@ -108,14 +109,24 @@ test("ordinary rename and order do not enqueue scans for available roots", () =>
     const scannedAt = library.registry.get("parent").lastScan.completedAt;
     for (const state of ["ok", "warning", "scanning"]) {
       library.registry.setIndexState("parent", { state });
-      const renamed = await mutate("/api/roots/parent", "PATCH", {
-        label: "Renamed " + state,
-      });
+      const renamed = await mutate(() =>
+        saveRoot({
+          library,
+          registry: library.registry,
+          mode: "patch",
+          id: "parent",
+          body: { label: "Renamed " + state },
+        }),
+      );
       assert.deepEqual(renamed.scan.queued, []);
       library.registry.setIndexState("parent", { state });
-      const ordered = await mutate("/api/roots/order", "PUT", {
-        ids: ["child", "parent"],
-      });
+      const ordered = await mutate(() =>
+        orderRoots({
+          library,
+          registry: library.registry,
+          ids: ["child", "parent"],
+        }),
+      );
       assert.deepEqual(ordered.scan.queued, []);
     }
     assert.equal(
