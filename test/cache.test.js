@@ -1,0 +1,53 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { withTempFixture } from "./helpers/fixture.js";
+import { createDocumentCache, documentIdentity } from "../src/cache.js";
+test("cache identity includes location inode format and file metadata", () => {
+  const original = {
+    itemId: "a",
+    format: "html",
+    path: "/root/a",
+    stat: { ino: 1, dev: 1, size: 5, mtimeMs: 2 },
+  };
+  for (const changed of [
+    { path: "/other/a" },
+    { stat: { ...original.stat, ino: 2 } },
+    { format: "mhtml" },
+  ])
+    assert.notEqual(
+      documentIdentity(original),
+      documentIdentity({ ...original, ...changed }),
+    );
+});
+test("cache concurrent generation, budget eviction and clear invalidates late producer", () =>
+  withTempFixture(async (directory) => {
+    const cache = createDocumentCache({ directory, maxBytes: 8 });
+    let produced = 0;
+    const producer = async () => {
+      produced++;
+      return "12345";
+    };
+    await Promise.all([
+      cache.getOrCreate("a", producer, { itemId: "item-a" }),
+      cache.getOrCreate("a", producer, { itemId: "item-a" }),
+    ]);
+    assert.equal(produced, 1);
+    await cache.getOrCreate("b", producer, { itemId: "item-b" });
+    await cache.getOrCreate("a", producer, { itemId: "item-a" });
+    assert.equal(produced, 3);
+    let release;
+    const delayed = cache.getOrCreate(
+      "late",
+      () => new Promise((resolve) => (release = resolve)),
+      { itemId: "late" },
+    );
+    while (!release) await new Promise((r) => setImmediate(r));
+    await cache.clear();
+    release("late");
+    await delayed;
+    await cache.getOrCreate("late", producer, { itemId: "late" });
+    assert.equal(produced, 4);
+    await cache.invalidateItem("late");
+    await cache.getOrCreate("late", producer, { itemId: "late" });
+    assert.equal(produced, 5);
+  }));

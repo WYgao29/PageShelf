@@ -1,0 +1,10 @@
+node_modules/
+.DS_Store
+dist/
+dist-electron/
+release/
+build/icon.icns
+build/icon.iconset/
+build/icon-verify.iconset/
+.ai-collab/
+ELECTRON_PLAN.md
