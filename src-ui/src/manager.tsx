@@ -289,7 +289,7 @@ function ManagerRow({
   onIssues: () => void;
 }) {
   const [over, setOver] = useState(false);
-  const ratio = progress && progress.files.total ? (100 * progress.files.done) / progress.files.total : 0;
+  const ratio = progress && progress.files.total > 0 ? Math.max(0, Math.min(1, progress.files.done / progress.files.total)) : 0;
   return (
     <div
       className={"manager-row" + (over ? " drop-target" : "")}
@@ -358,7 +358,7 @@ function ManagerRow({
         ) : null}
         {progress ? (
           <span className="progress" aria-hidden="true">
-            <span style={{ width: ratio + "%" }} />
+            <span style={{ transform: `scaleX(${ratio})` }} />
           </span>
         ) : null}
       </div>

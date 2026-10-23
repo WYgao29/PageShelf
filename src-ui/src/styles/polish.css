@@ -87,6 +87,7 @@
   .item-row:hover:not([aria-selected="true"]) { background: var(--surface-hover); }
   .select-control:hover { border-color: var(--border-strong); }
   .button-primary:hover:not(:disabled) { background: var(--accent-hover); }
+  .button-danger:hover:not(:disabled) { background: color-mix(in srgb, var(--danger) 88%, var(--text)); }
   .menu button:hover:not(:disabled) { background: var(--surface-hover); }
   ::-webkit-scrollbar { width: var(--space-2); height: var(--space-2); }
   ::-webkit-scrollbar-thumb { border: 2px solid transparent; background-clip: padding-box; background-color: var(--border-strong); border-radius: var(--radius); }
@@ -96,15 +97,22 @@
 /* Pointer entrances explain where overlays come from. Repeated navigation stays immediate. */
 @media (prefers-reduced-motion: no-preference) {
   :root[data-input="pointer"] button:enabled:active:not(.item-row):not(.nav-button):not([role="radio"]):not([role="tab"]) { transform: scale(.97); }
+  :root[data-input="pointer"] .chevron .icon { transition: transform var(--dur-base) var(--ease); }
+  :root[data-input="pointer"] .series-list { transition: opacity var(--dur-base) var(--ease), transform var(--dur-base) var(--ease); }
+  :root[data-input="pointer"] .progress > span { transition: transform var(--dur-base) var(--ease); }
   :root[data-input="pointer"] .menu { transition: opacity var(--dur-base) var(--ease), transform var(--dur-base) var(--ease); }
   :root[data-input="pointer"] .dialog[open] { transition: opacity var(--dur-dialog) var(--ease); }
+  /* A transformed dialog would change the coordinate system of its fixed menus. */
+  :root[data-input="pointer"] .dialog[open]:not(:has([aria-haspopup="menu"])) { transform-origin: center; transition: opacity var(--dur-dialog) var(--ease), transform var(--dur-dialog) var(--ease); }
   :root[data-input="pointer"] .dialog[open]::backdrop { transition: opacity var(--dur-base) var(--ease); }
   :root[data-input="pointer"] .toast { transition: opacity var(--dur-base) var(--ease), transform var(--dur-base) var(--ease); }
   @starting-style {
     :root[data-input="pointer"] .menu { opacity: 0; transform: translateY(calc(var(--space-1) * var(--menu-enter-direction, -1))) scale(.98); }
     :root[data-input="pointer"] .dialog[open] { opacity: 0; }
+    :root[data-input="pointer"] .dialog[open]:not(:has([aria-haspopup="menu"])) { transform: translateY(var(--space-2)) scale(.98); }
     :root[data-input="pointer"] .dialog[open]::backdrop { opacity: 0; }
     :root[data-input="pointer"] .toast { opacity: 0; transform: translateY(var(--space-2)); }
+    :root[data-input="pointer"] .series-list { opacity: 0; transform: translateY(var(--space-1)); }
   }
 }
 
