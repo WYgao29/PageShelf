@@ -44,14 +44,7 @@ PageShelf gives those files a shared reading space. Add a folder, search across 
 
 ## How it works
 
-```mermaid
-flowchart LR
-  F["Your local folders"] --> I["Scan HTML · MHTML · Markdown"]
-  I --> L["In-memory library & search index"]
-  L --> S["Search & filter"]
-  S --> R["Read · browse series · follow links"]
-  F -. "Original files stay in place" .-> R
-```
+<img src="docs/images/workflow.svg" alt="Local folders are scanned and indexed for search and reading" width="100%">
 
 The app rebuilds its index at startup and keeps a local cache of extracted content. After changing files outside PageShelf, rescan the source to refresh the library.
 
