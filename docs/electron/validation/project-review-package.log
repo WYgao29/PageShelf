@@ -1,0 +1,3 @@
+Packaging app for platform darwin arm64 using electron v45.0.0
+WARNING: Could not find icon "/Users/weisengao/Documents/ChatGPT/HTML 知识库/build/icon.icns" with extension ".icon", skipping this app icon format
+PACKAGED /Users/weisengao/Documents/ChatGPT/HTML 知识库/release/PageShelf-darwin-arm64/PageShelf.app

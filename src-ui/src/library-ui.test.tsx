@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
@@ -172,6 +172,78 @@ describe("来源侧栏与目录管理", () => {
   beforeEach(() => {
     window.innerWidth = 1440;
     window.dispatchEvent(new Event("resize"));
+  });
+
+  it("后退和前进时按当前系列恢复列表标题", async () => {
+    const api = createHarness();
+    api.state.series = () => ({ series: [{ key: "a", name: "系列甲", total: 2 }, { key: "b", name: "系列乙", total: 2 }] });
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByText("甲");
+    await user.click(rootNav("root-a"));
+    await user.click(await screen.findByRole("button", { name: /系列甲/ }));
+    const heading = document.querySelector("[data-nav-kind]");
+    await waitFor(() => expect(heading).toHaveTextContent("系列甲"));
+    await user.click(screen.getByRole("button", { name: /系列乙/ }));
+    await waitFor(() => expect(heading).toHaveTextContent("系列乙"));
+
+    await act(async () => { history.back(); });
+    await waitFor(() => expect(heading).toHaveAttribute("data-nav-series", "a"));
+    expect(heading).toHaveTextContent("系列甲");
+    await act(async () => { history.forward(); });
+    await waitFor(() => expect(heading).toHaveAttribute("data-nav-series", "b"));
+    expect(heading).toHaveTextContent("系列乙");
+  });
+
+  it("重启恢复的系列标题按来源区分相同 key，并在目录更新后刷新", async () => {
+    const api = createHarness([makeRoot(), makeRoot({ id: "root-b", label: "乙", path: "/tmp/b" })]);
+    let revised = false;
+    api.state.series = (params) => ({ series: [{ key: "shared", name: params?.id === "root-a" ? "甲的系列" : revised ? "乙的新系列" : "乙的系列", total: 2 }] });
+    localStorage.setItem("ui.route", "/r/root-b/s/shared");
+    const user = userEvent.setup();
+    render(<App />);
+    const heading = document.querySelector("[data-nav-kind]");
+    await waitFor(() => expect(heading).toHaveTextContent("乙的系列"));
+
+    await user.click(rootNav("root-a"));
+    await user.click(await screen.findByRole("button", { name: /甲的系列/ }));
+    await waitFor(() => expect(heading).toHaveTextContent("甲的系列"));
+    await act(async () => { history.back(); });
+    await waitFor(() => expect(heading).toHaveAttribute("data-nav-kind", "root"));
+    await act(async () => { history.back(); });
+    await waitFor(() => expect(heading).toHaveAttribute("data-nav-root", "root-b"));
+    await waitFor(() => expect(heading).toHaveTextContent("乙的系列"));
+
+    revised = true;
+    act(() => api.emit("library-changed", { reason: "scan" }));
+    await waitFor(() => expect(heading).toHaveTextContent("乙的新系列"));
+  });
+
+  it("选中来源可以显式折叠，目录刷新保持折叠，重新选择后展开", async () => {
+    const api = createHarness();
+    api.state.series = () => ({ series: [{ key: "a", name: "系列甲", total: 2 }] });
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByText("甲");
+    await user.click(rootNav("root-a"));
+    await screen.findByRole("button", { name: /系列甲/ });
+    await user.click(screen.getByRole("button", { name: "收起 甲" }));
+    expect(screen.getByRole("button", { name: "展开 甲" })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("button", { name: /系列甲/ })).toBeNull();
+
+    const before = api.calls.filter((call) => call.method === "roots.list").length;
+    act(() => api.emit("library-changed", { reason: "scan" }));
+    await waitFor(() => expect(api.calls.filter((call) => call.method === "roots.list").length).toBeGreaterThan(before));
+    expect(screen.getByRole("button", { name: "展开 甲" })).toHaveAttribute("aria-expanded", "false");
+
+    await user.click(rootNav("root-a"));
+    await screen.findByRole("button", { name: /系列甲/ });
+    await user.click(screen.getByRole("button", { name: /系列甲/ }));
+    await user.click(screen.getByRole("button", { name: "收起 甲" }));
+    expect(screen.queryByRole("button", { name: /系列甲/ })).toBeNull();
+    await act(async () => { history.back(); });
+    await waitFor(() => expect(document.querySelector("[data-nav-kind]")).toHaveAttribute("data-nav-kind", "root"));
+    expect(await screen.findByRole("button", { name: /系列甲/ })).toBeInTheDocument();
   });
 
   it("保留三个入口、废纸篓和清缓存，并记录后续列表的选择", async () => {

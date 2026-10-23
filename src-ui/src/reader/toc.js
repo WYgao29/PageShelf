@@ -27,20 +27,22 @@ export function createToc({ article, scrollContainer, onActive = () => {} }) {
   headings.forEach((heading) => observer.observe(heading));
   update();
   function jump(id) {
-    const heading = headings.find((value) => value.id === id);
-    if (!heading) return;
+    const target = [...article.querySelectorAll("[id]")].find((value) => value.id === id);
+    if (!target) return;
     scrollContainer.scrollTo({
       top:
         scrollContainer.scrollTop +
-        heading.getBoundingClientRect().top -
+        target.getBoundingClientRect().top -
         scrollContainer.getBoundingClientRect().top -
         12,
       behavior: matchMedia("(prefers-reduced-motion: reduce)").matches
         ? "instant"
         : "smooth",
     });
-    active = id;
-    onActive(active);
+    if (headings.includes(target)) {
+      active = id;
+      onActive(active);
+    }
   }
   return {
     jump,

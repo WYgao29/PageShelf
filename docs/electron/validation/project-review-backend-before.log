@@ -1,0 +1,85 @@
+✔ invoke whitelist rejects unknown methods, bad types, and oversized params (2.19475ms)
+✔ only the app origin, or the fixed dev origin in development, may invoke (0.152417ms)
+✔ renderer invoke rejects other senders and keeps external opens confirmed http(s) (0.421042ms)
+✖ renderer reveal requests survive both IPC and worker validation (11.883833ms)
+✔ pageshelf rejects traversal, unknown hosts, and returns source CSP (10.465167ms)
+✔ navigation stays on the app, and source windows stay on one item (0.211334ms)
+✔ arbitrary window.open is denied and original pages use a preload-free window (0.22ms)
+✔ preload exposes only the named pageshelf bridge (0.748084ms)
+✔ worker adapter emits ready once and uses SIGTERM before force kill (0.251666ms)
+✔ worker crash fails the pending call and starts a replacement (0.665334ms)
+✔ worker exit before ready starts a replacement that serves the next request (0.372542ms)
+✔ shutdown ends pending calls and force-kills after 1200ms (0.146417ms)
+✔ shutdown does not force-kill a worker that already exited (0.07275ms)
+✔ quit waits for worker cleanup and a second instance yields (0.381125ms)
+✔ root services preview, add, scan, and remove without changing source bytes (16.778ms)
+✔ root preview reports child overlap and does not save (5.863958ms)
+✔ item services keep source CSP, ETags, image checks, and boundaries (11.338709ms)
+✖ HTML downloads preserve the original bytes for non-UTF-8 files (5.356375ms)
+✔ MHTML source is rendered HTML and download keeps the archive (4.550917ms)
+✔ trash requires confirmation, keeps partial survivors, and preserves files on total failure (4.89075ms)
+✔ system services trim chosen folders and reveal only known targets (3.141417ms)
+ℹ tests 21
+ℹ suites 0
+ℹ pass 19
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 154.7335
+
+✖ failing tests:
+
+test at test/desktop-shell.test.js:147:1
+✖ renderer reveal requests survive both IPC and worker validation (11.883833ms)
+  Error: 请指定条目、来源目录或废纸篓
+      at invalid (file:///Users/weisengao/Documents/ChatGPT/HTML%20%E7%9F%A5%E8%AF%86%E5%BA%93/shared/pageshelf-contract.js:45:17)
+      at copyReveal (file:///Users/weisengao/Documents/ChatGPT/HTML%20%E7%9F%A5%E8%AF%86%E5%BA%93/shared/pageshelf-contract.js:271:11)
+      at system.reveal (file:///Users/weisengao/Documents/ChatGPT/HTML%20%E7%9F%A5%E8%AF%86%E5%BA%93/shared/pageshelf-contract.js:226:41)
+      at validateInvocation (file:///Users/weisengao/Documents/ChatGPT/HTML%20%E7%9F%A5%E8%AF%86%E5%BA%93/shared/pageshelf-contract.js:295:25)
+      at Object.call (file:///Users/weisengao/Documents/ChatGPT/HTML%20%E7%9F%A5%E8%AF%86%E5%BA%93/electron/backend/host.js:74:19)
+      at request (file:///Users/weisengao/Documents/ChatGPT/HTML%20%E7%9F%A5%E8%AF%86%E5%BA%93/test/desktop-shell.test.js:164:42)
+      at handleRendererInvoke (file:///Users/weisengao/Documents/ChatGPT/HTML%20%E7%9F%A5%E8%AF%86%E5%BA%93/electron/ipc-gate.js:52:10)
+      at invoke (file:///Users/weisengao/Documents/ChatGPT/HTML%20%E7%9F%A5%E8%AF%86%E5%BA%93/test/desktop-shell.test.js:161:32)
+      at file:///Users/weisengao/Documents/ChatGPT/HTML%20%E7%9F%A5%E8%AF%86%E5%BA%93/test/desktop-shell.test.js:167:32
+      at async withTempFixture (file:///Users/weisengao/Documents/ChatGPT/HTML%20%E7%9F%A5%E8%AF%86%E5%BA%93/test/helpers/fixture.js:8:12) {
+    code: 'INVALID_PARAMS'
+  }
+
+test at test/services.test.js:345:1
+✖ HTML downloads preserve the original bytes for non-UTF-8 files (5.356375ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  ... Skipped lines
+  
+  + Buffer(78) [Uint8Array] [
+  - Buffer(76) [Uint8Array] [
+      60,
+      109,
+      101,
+      116,
+      97,
+  ...
+      102,
+  +   239,
+  +   191,
+  +   189,
+  -   233,
+      60,
+      47,
+      116,
+      105,
+      116,
+  
+      at file:///Users/weisengao/Documents/ChatGPT/HTML%20%E7%9F%A5%E8%AF%86%E5%BA%93/test/services.test.js:363:14
+      at async withTempFixture (file:///Users/weisengao/Documents/ChatGPT/HTML%20%E7%9F%A5%E8%AF%86%E5%BA%93/test/helpers/fixture.js:8:12)
+      at async TestContext.<anonymous> (file:///Users/weisengao/Documents/ChatGPT/HTML%20%E7%9F%A5%E8%AF%86%E5%BA%93/test/services.test.js:346:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: <Buffer 3c 6d 65 74 61 20 63 68 61 72 73 65 74 3d 22 77 69 6e 64 6f 77 73 2d 31 32 35 32 22 3e 3c 74 69 74 6c 65 3e 43 61 66 ef bf bd 3c 2f 74 69 74 6c 65 3e ... 28 more bytes>,
+    expected: <Buffer 3c 6d 65 74 61 20 63 68 61 72 73 65 74 3d 22 77 69 6e 64 6f 77 73 2d 31 32 35 32 22 3e 3c 74 69 74 6c 65 3e 43 61 66 e9 3c 2f 74 69 74 6c 65 3e 3c 70 ... 26 more bytes>,
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }

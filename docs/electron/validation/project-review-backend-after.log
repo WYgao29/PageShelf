@@ -1,0 +1,29 @@
+✔ invoke whitelist rejects unknown methods, bad types, and oversized params (2.406042ms)
+✔ only the app origin, or the fixed dev origin in development, may invoke (0.151875ms)
+✔ renderer invoke rejects other senders and keeps external opens confirmed http(s) (0.484292ms)
+✔ renderer reveal requests survive both IPC and worker validation (26.843ms)
+✔ pageshelf rejects traversal, unknown hosts, and returns source CSP (26.894708ms)
+✔ navigation stays on the app, and source windows stay on one item (0.224209ms)
+✔ arbitrary window.open is denied and original pages use a preload-free window (0.23025ms)
+✔ preload exposes only the named pageshelf bridge (1.267417ms)
+✔ worker adapter emits ready once and uses SIGTERM before force kill (0.295291ms)
+✔ worker crash fails the pending call and starts a replacement (0.73275ms)
+✔ worker exit before ready starts a replacement that serves the next request (0.442208ms)
+✔ shutdown ends pending calls and force-kills after 1200ms (0.160167ms)
+✔ shutdown does not force-kill a worker that already exited (0.075709ms)
+✔ quit waits for worker cleanup and a second instance yields (0.448791ms)
+✔ root services preview, add, scan, and remove without changing source bytes (28.285541ms)
+✔ root preview reports child overlap and does not save (22.426917ms)
+✔ item services keep source CSP, ETags, image checks, and boundaries (29.789708ms)
+✔ HTML downloads preserve the original bytes for non-UTF-8 files (7.406333ms)
+✔ MHTML source is rendered HTML and download keeps the archive (5.254458ms)
+✔ trash requires confirmation, keeps partial survivors, and preserves files on total failure (5.851875ms)
+✔ system services trim chosen folders and reveal only known targets (3.822ms)
+ℹ tests 21
+ℹ suites 0
+ℹ pass 21
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 220.510917

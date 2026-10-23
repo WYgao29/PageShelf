@@ -65,6 +65,7 @@ const CHROME_CHANNEL = "pageshelf:chrome";
 
 let mainWindow: BrowserWindow | null = null;
 let closing = false;
+let desktopReady = false;
 const appWindows = new Set<BrowserWindow>();
 const revealers = new Map<number, () => void>();
 
@@ -189,9 +190,11 @@ function createMainWindow() {
       backgroundColor: backgroundColor(),
     }),
   );
+  const windowId = win.id;
   appWindows.add(win);
   win.on("closed", () => {
     appWindows.delete(win);
+    revealers.delete(windowId);
     if (mainWindow === win) mainWindow = null;
   });
   secureContents(win, { kind: "app" });
@@ -203,6 +206,16 @@ function createMainWindow() {
   if (dev) void win.loadURL(DEV_ORIGIN + "/");
   else void win.loadURL("pageshelf://app/index.html");
   return win;
+}
+
+function restoreMainWindow() {
+  if (!desktopReady || closing) return;
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    createMainWindow();
+    return;
+  }
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.focus();
 }
 
 function watchSmoke(win: BrowserWindow) {
@@ -275,9 +288,7 @@ const instance = claimSingleInstance({
     app.on("second-instance", listener);
   },
   onSecond() {
-    if (!mainWindow) return;
-    if (mainWindow.isMinimized()) mainWindow.restore();
-    mainWindow.focus();
+    restoreMainWindow();
   },
 });
 
@@ -300,6 +311,7 @@ if (instance.primary) {
   app.on("window-all-closed", () => {
     app.quit();
   });
+  app.on("activate", restoreMainWindow);
   void app.whenReady().then(async () => {
     session.defaultSession.setPermissionRequestHandler((_contents, _permission, callback) => {
       callback(permissionDecision());
@@ -357,6 +369,7 @@ if (instance.primary) {
       }),
     );
     installMenu(dispatchCommand);
-    createMainWindow();
+    desktopReady = true;
+    restoreMainWindow();
   });
 }
