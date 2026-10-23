@@ -1,0 +1,30 @@
+{
+  "cli": {
+    "method": "trash-cli",
+    "trashed": 1,
+    "failed": 0,
+    "restored": {
+      "method": "Finder context menu 放回原处",
+      "originalPath": true,
+      "bytes": 60,
+      "sha256": "4c9ea1a37d3058ac1d38b481e639b680a1bf7fc57da5b90c9302f72befd463df",
+      "verifiedAt": "2026-10-05T01:35:53.452Z"
+    }
+  },
+  "finderFallback": {
+    "cliIntentionallyUnavailable": true,
+    "scriptCompiled": true,
+    "attempts": 2,
+    "passed": false,
+    "nativeError": {
+      "code": null,
+      "signal": "SIGTERM",
+      "killed": true,
+      "stderr": "",
+      "elapsedMs": 15006.389917
+    },
+    "sourceUnchanged": true,
+    "verifiedAt": "2026-10-05T06:07:37.858Z",
+    "cause": "Not confirmed; native command was terminated by the configured 15-second timeout"
+  }
+}

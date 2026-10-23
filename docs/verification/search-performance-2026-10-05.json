@@ -1,0 +1,11 @@
+{
+  "items": 500,
+  "bodyCharacters": 1500,
+  "iterations": 20,
+  "medianMs": 21.495750000000044,
+  "p95Ms": 22.98679199999998,
+  "node": "v26.8.1",
+  "cpu": "Apple M1 Max",
+  "method": "3 warmups, then 20 warm searches for 证据 with limit 100; timing excludes scan and browser DOM",
+  "measuredAt": "2026-10-05T00:42:42.490Z"
+}

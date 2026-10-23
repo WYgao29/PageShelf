@@ -1,0 +1,109 @@
+{
+  "date": "2026-10-22",
+  "scope": "MHTML image fix after M10",
+  "mhtmlRendererVersion": 2,
+  "appPath": "/Users/weisengao/Documents/ChatGPT/HTML 知识库/release/PageShelf-darwin-arm64/PageShelf.app",
+  "sourceBuildMatchesPackage": true,
+  "files": [
+    {
+      "path": "dist/assets/InterVariable-DiVDrmQJ.woff2",
+      "bytes": 352240,
+      "sha256": "693b77d4f32ee9b8bfc995589b5fad5e99adf2832738661f5402f9978429a8e3"
+    },
+    {
+      "path": "dist/assets/Readability-DeYwLZA3.js",
+      "bytes": 89980,
+      "sha256": "34dcab3d0832d0019f02990eed6b6124e029e8c32b9f0c6f2550544ff8dff174"
+    },
+    {
+      "path": "dist/assets/SpaceGrotesk-Variable-CzOCAti0.woff2",
+      "bytes": 49256,
+      "sha256": "8e085aa438094f11487a836652edd5c054fa6a96f63fc7c282105ee3a4b08c07"
+    },
+    {
+      "path": "dist/assets/index-CrkbVYv2.js",
+      "bytes": 373431,
+      "sha256": "ca0a7fbd66d1f57c82b68e3955ded9002d8cbc4f6913fbd71b82da6bd1ba1024"
+    },
+    {
+      "path": "dist/assets/index-DNtRvNmO.css",
+      "bytes": 23320,
+      "sha256": "f68062aefde00f68b89c9403a00f3e866d49f471fa9cd0918bcb250e21ffd918"
+    },
+    {
+      "path": "dist/assets/pageshelf-logo-DYbpa1LB.svg",
+      "bytes": 4194,
+      "sha256": "9af1ecc88f0f721c18fbc6675fe2eeec74edba631729d047c80b98c42524bee8"
+    },
+    {
+      "path": "dist/assets/pageshelf-logo-dark-CPd51x12.svg",
+      "bytes": 4194,
+      "sha256": "e0f39b30326306910dd9a56dec02e954e62e97c2da5a9b1857552a72212b1e91"
+    },
+    {
+      "path": "dist/assets/pageshelf-mark-C8s1nbeH.svg",
+      "bytes": 543,
+      "sha256": "5ad5e94b0c0cb73569ddafc6af8aedf6002349cdf97b38febff02a11cd45f32f"
+    },
+    {
+      "path": "dist/assets/pageshelf-mark-dark-AxyLMK95.svg",
+      "bytes": 543,
+      "sha256": "b50a36eedc8b1d77a47a1dd428abad9d6522087c3e935e41677af329f5242996"
+    },
+    {
+      "path": "dist/index.html",
+      "bytes": 441,
+      "sha256": "53c35134b6adfc6d3ee0fea962066ee7b8d0fc016b648563156d7b88cd311366"
+    },
+    {
+      "path": "dist/licenses/DOMPurify-LICENSE.txt",
+      "bytes": 11358,
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "path": "dist/licenses/Inter-LICENSE.txt",
+      "bytes": 4380,
+      "sha256": "262481e844521b326f5ecd053e59b98c8b2da78c8ee1bdbb6e8174305e54935a"
+    },
+    {
+      "path": "dist/licenses/Readability-LICENSE.txt",
+      "bytes": 553,
+      "sha256": "a5b1e8181751ce05b85b7bfaa832b785e87086250a5148e679d17ca9bdcfa958"
+    },
+    {
+      "path": "dist/licenses/SpaceGrotesk-OFL.txt",
+      "bytes": 4401,
+      "sha256": "18a4de52385f6b988782639d5d0cc1326e5a8c2de9a7f01d7b20d9aedcc60943"
+    },
+    {
+      "path": "dist/licenses/VENDOR.md",
+      "bytes": 1073,
+      "sha256": "a46df78ce0911aa27f8bbd8f84abb4d5a7e983ab2f192076513c5c7c609f15d7"
+    },
+    {
+      "path": "dist/licenses/marked-LICENSE.txt",
+      "bytes": 2942,
+      "sha256": "8e3a3f82f59a60958f56ca08f445647c32a4733dc7ca6c2c46f6eb898471ab9c"
+    },
+    {
+      "path": "dist/theme-boot.js",
+      "bytes": 1042,
+      "sha256": "c4196e4c99c7bd42799ce7f762b03d0275e8f75bfa42fc09aa6af1c1aa7e653f"
+    },
+    {
+      "path": "dist-electron/backend/worker.js",
+      "bytes": 109162,
+      "sha256": "0edfc34ff59e74cc8ccbba0ccba4aa8d82a74ea3a159b86db1eb0cda2efd7e70"
+    },
+    {
+      "path": "dist-electron/main.js",
+      "bytes": 58566,
+      "sha256": "8fa61e0edad0ff91ac3bb897baf48f0151462c3bc81e00c6f7e6c8b26ee7d3af"
+    },
+    {
+      "path": "electron/preload.cjs",
+      "bytes": 2355,
+      "sha256": "dd4770f9190e6ce9fb4f2ef81386b7f69c022b4534b7b8e70fe8d2e4c6e96f0d"
+    }
+  ]
+}

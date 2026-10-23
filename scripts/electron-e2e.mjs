@@ -94,6 +94,32 @@ try {
             tabs: document.querySelector(".view-tabs").getBoundingClientRect().height, fits: children.every(child => child.left >= toolbar.left && child.right <= toolbar.right && child.top >= toolbar.top && child.bottom <= toolbar.bottom), rootOverflow: document.documentElement.scrollWidth > innerWidth };
         });
         assert.ok(geometry.search >= 240 && geometry.reader >= 480 && geometry.tabs === 32 && geometry.fits && !geometry.rootOverflow, JSON.stringify({ width, theme, geometry }));
+        const contrast = await page.evaluate(() => {
+          const style = getComputedStyle(document.documentElement);
+          const canvas = document.createElement("canvas");
+          canvas.width = canvas.height = 1;
+          const context = canvas.getContext("2d", { willReadFrequently: true });
+          const color = (...tokens) => {
+            context.clearRect(0, 0, 1, 1);
+            for (const token of tokens) {
+              context.fillStyle = style.getPropertyValue(token).trim();
+              context.fillRect(0, 0, 1, 1);
+            }
+            return [...context.getImageData(0, 0, 1, 1).data].slice(0, 3);
+          };
+          const luminance = values => {
+            const rgb = values.map(value => value / 255).map(value => value <= .04045 ? value / 12.92 : ((value + .055) / 1.055) ** 2.4);
+            return rgb[0] * .2126 + rgb[1] * .7152 + rgb[2] * .0722;
+          };
+          const ratio = (text, background) => (Math.max(text, background) + .05) / (Math.min(text, background) + .05);
+          const text = luminance(color("--text-3"));
+          return ["--bg", "--surface", "--surface-sunken", "--sidebar-bg"].flatMap(token => {
+            const background = luminance(color(token));
+            const selected = luminance(color(token, "--surface-selected"));
+            return [ratio(text, background), ratio(text, selected), ratio(luminance(color("--status-waiting")), background)];
+          });
+        });
+        assert.ok(contrast.every(ratio => ratio >= 4.5), JSON.stringify({ theme, contrast }));
       }
     }
     await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1440, 900));
@@ -131,8 +157,28 @@ try {
     await expect.poll(() => page.evaluate(() => globalThis.__motionSamples.filter(sample => sample.kind === "dialog").length)).toBeGreaterThan(0);
     const dialog = await page.evaluate(() => globalThis.__motionSamples.filter(sample => sample.kind === "dialog").at(-1));
     assert.equal(dialog.input, "pointer");
-    assert.deepEqual(dialog.animations, [{ property: "opacity", duration: 200 }]);
+    assert.deepEqual(dialog.animations.map(animation => animation.property).sort(), ["opacity", "transform"]);
+    assert.ok(dialog.animations.every(animation => animation.duration === 200), JSON.stringify(dialog));
     await page.getByRole("button", { name: "关闭弹窗" }).click();
+  });
+  await check("directory disclosure reverses smoothly and keyboard toggles stay immediate", async () => {
+    const toggle = page.locator(".sidebar .chevron").first();
+    const icon = toggle.locator(".icon");
+    if (await toggle.getAttribute("aria-expanded") === "true") await toggle.click();
+    await icon.evaluate(async node => { await Promise.all(node.getAnimations().map(animation => animation.finished.catch(() => {}))); });
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-expanded", "true");
+    const opening = await icon.evaluate(node => node.getAnimations().map(animation => ({ property: animation.transitionProperty, duration: animation.effect.getTiming().duration })));
+    assert.ok(opening.some(animation => animation.property === "transform" && animation.duration === 160), JSON.stringify(opening));
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await icon.evaluate(async node => { await Promise.all(node.getAnimations().map(animation => animation.finished.catch(() => {}))); });
+    assert.equal(await icon.evaluate(node => getComputedStyle(node).transform), "none");
+    await toggle.focus();
+    await page.keyboard.press("Enter");
+    await expect(toggle).toHaveAttribute("aria-expanded", "true");
+    assert.equal(await icon.evaluate(node => node.getAnimations().length), 0);
+    assert.equal(await page.locator(".sidebar .series-list").first().evaluate(node => node.getAnimations().length), 0);
   });
   await check("keyboard commands open overlays instantly without animation", async () => {
     await page.keyboard.press("Shift+m");
@@ -143,6 +189,36 @@ try {
     assert.equal(await dialog.evaluate(node => getComputedStyle(node).transitionDuration), "0s");
     await page.keyboard.press("Escape");
     await expect(dialog).toHaveCount(0);
+  });
+  await check("live scan progress stays within its track and follows input modality", async () => {
+    await page.getByRole("button", { name: "添加来源目录" }).click();
+    assert.equal(await page.getByRole("dialog", { name: "目录管理" }).evaluate(node => getComputedStyle(node).transform), "none");
+    const rootId = await page.evaluate(async () => (await window.pageshelf.invoke("roots.list")).roots[0].id);
+    const progress = page.locator(".progress > span");
+    const update = async (done, total) => {
+      await application.evaluate(({ BrowserWindow }, { rootId, done, total }) => {
+        BrowserWindow.getAllWindows()[0].webContents.send("pageshelf:event", { event: "scan-progress", payload: { running: [{ rootId, files: { done, total } }], queued: [] } });
+      }, { rootId, done, total });
+      await expect(page.locator('.manager-status [data-scan-progress]')).toHaveAttribute("data-scan-progress", `${done}/${total}`);
+    };
+    const settledRatio = () => progress.evaluate(async node => {
+      await Promise.all(node.getAnimations().map(animation => animation.finished.catch(() => {})));
+      return node.getBoundingClientRect().width / node.parentElement.getBoundingClientRect().width;
+    });
+    await update(2, 10);
+    assert.ok(Math.abs(await settledRatio() - .2) < .01);
+    await update(8, 10);
+    const animations = await progress.evaluate(node => node.getAnimations().map(animation => ({ property: animation.transitionProperty, duration: animation.effect.getTiming().duration })));
+    assert.ok(animations.some(animation => animation.property === "transform" && animation.duration === 160), JSON.stringify(animations));
+    assert.ok(Math.abs(await settledRatio() - .8) < .01);
+    await page.keyboard.press("Tab");
+    await update(12, 10);
+    assert.equal(await progress.evaluate(node => node.getAnimations().length), 0);
+    assert.equal(await settledRatio(), 1);
+    await update(1, 0);
+    assert.equal(await settledRatio(), 0);
+    await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.send("pageshelf:event", { event: "scan-progress", payload: { running: [], queued: [] } }));
+    await page.keyboard.press("Escape");
   });
   await check("reduced motion keeps pointer overlays free of movement", async () => {
     await page.emulateMedia({ reducedMotion: "reduce" });
@@ -157,6 +233,15 @@ try {
     const animations = await menu.evaluate(node => node.getAnimations().map(animation => ({ property: animation.transitionProperty, duration: animation.effect.getTiming().duration })));
     assert.ok(animations.every(animation => animation.property === "opacity" && animation.duration <= 100), JSON.stringify(animations));
     assert.equal(await menu.evaluate(node => getComputedStyle(node).transform), "none");
+    await page.keyboard.press("Escape");
+    const toggle = page.locator(".sidebar .chevron").first();
+    await toggle.click();
+    assert.equal(await toggle.locator(".icon").evaluate(node => node.getAnimations().length), 0);
+    await page.getByRole("button", { name: "添加来源目录" }).click();
+    const dialog = page.getByRole("dialog", { name: "目录管理" });
+    await expect(dialog).toBeVisible();
+    assert.equal(await dialog.evaluate(node => getComputedStyle(node).transform), "none");
+    assert.ok(await dialog.evaluate(node => node.getAnimations().every(animation => animation.transitionProperty === "opacity")));
     await page.keyboard.press("Escape");
     await page.emulateMedia({ reducedMotion: null });
   });
@@ -307,7 +392,7 @@ try {
     await application.evaluate(({ dialog }, file) => { dialog.showSaveDialog = async () => ({ canceled: false, filePath: file }); }, saved);
     await page.getByLabel("文章操作", { exact: true }).click();
     await page.getByRole("menuitem", { name: "下载 MARKDOWN 原文件" }).click();
-    await expect(page.getByText("原文件已保存", { exact: true })).toBeVisible();
+    await expect(page.getByText("原文件已保存", { exact: true }).last()).toBeVisible();
     await expect.poll(async () => { try { return (await readFile(saved)).equals(await readFile(path.join(source, "note.md"))); } catch { return false; } }).toBe(true);
     await page.getByLabel("文章操作", { exact: true }).click();
     await page.getByRole("menuitem", { name: "复制本地路径" }).click();

@@ -1,0 +1,56 @@
+{
+  "verifiedAt": "2026-10-05T06:16:40.231Z",
+  "codeCommit": "99060ea",
+  "baseline": {
+    "commit": "f5a148ffd101303308020c2455f714d3b1160e41",
+    "tests": 31,
+    "passed": 31
+  },
+  "node": {
+    "command": "npm test",
+    "tests": 74,
+    "passed": 74,
+    "failed": 0,
+    "skipped": 0
+  },
+  "chrome": {
+    "command": "npm run test:browser",
+    "status": "passed",
+    "passed": 47,
+    "failed": 0,
+    "skipped": 0,
+    "failures": [],
+    "first100DomMs": 3.9000000059604645,
+    "uiRows": 48,
+    "outboundRequests": 0
+  },
+  "real": {
+    "command": "npm run test:browser -- --real --screenshots",
+    "status": "passed",
+    "passed": 38,
+    "failed": 0,
+    "skipped": 0,
+    "documents": 44,
+    "successful": 43,
+    "mhtmlSuccessful": 36,
+    "screenshots": 12,
+    "outboundRequests": 0
+  },
+  "vendor": {
+    "command": "npm run check",
+    "matched": 3
+  },
+  "syntax": {
+    "command": "node --check each own JS/MJS file",
+    "files": 69,
+    "passed": true
+  },
+  "whitespace": {
+    "command": "git diff --check",
+    "passed": true
+  },
+  "manualArtifactRouting": {
+    "diagnosticRequest": true,
+    "safariEvidenceUnchanged": true
+  }
+}

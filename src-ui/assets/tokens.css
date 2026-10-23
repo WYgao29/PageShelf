@@ -13,7 +13,7 @@
   --surface-selected: color-mix(in srgb, var(--accent) 8%, transparent);
   --sidebar-bg: #F7F7F8; --overlay-backdrop: rgba(22, 24, 32, .24);
   /* 文字 */
-  --text: #16171A; --text-2: #5C5F66; --text-3: #7F8396; --brand-text: #16171A;
+  --text: #16171A; --text-2: #5C5F66; --text-3: #626875; --brand-text: #16171A;
   /* 边框 */
   --border: #16182014; --border-strong: #16182024; --border-width: 1px;
   /* 强调 */
@@ -76,7 +76,7 @@
   --surface-hover: #FFFFFF0A;
   --surface-selected: color-mix(in srgb, var(--accent) 12%, transparent);
   --sidebar-bg: #0C0D0F; --overlay-backdrop: rgba(0, 0, 0, .55);
-  --text: #EDEDEF; --text-2: #A1A4AB; --text-3: #6E717B; --brand-text: #ECECEE;
+  --text: #EDEDEF; --text-2: #A1A4AB; --text-3: #9498A3; --brand-text: #ECECEE;
   --border: #FFFFFF14; --border-strong: #FFFFFF24;
   --accent: #93C5FD; --accent-hover: #BFDBFE; --accent-pressed: var(--accent-hover);
   --accent-subtle: rgba(147, 197, 253, .14); --accent-text: var(--accent); --on-accent: #0B1220;
@@ -87,7 +87,7 @@
   --status-waiting: var(--warning); --status-waiting-bg: rgba(251, 146, 60, .12);
   --status-failed: var(--danger); --status-failed-bg: var(--danger-subtle);
   --status-done: var(--success); --status-done-bg: rgba(74, 222, 128, .12);
-  --code-bg: #0C0D0F; --code-text: #E6E7EA; --code-flag: #FF922B; --code-comment: #6E717B;
+  --code-bg: #0C0D0F; --code-text: #E6E7EA; --code-flag: #FF922B; --code-comment: var(--text-3);
   --shadow-overlay: 0 12px 32px rgba(0, 0, 0, .5), 0 0 0 1px var(--border);
   --shadow-xs: none;
 }

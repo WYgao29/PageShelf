@@ -1,0 +1,12 @@
+{
+  "status": "passed",
+  "passed": 47,
+  "failed": 0,
+  "skipped": 0,
+  "failures": [],
+  "first100DomMs": 6,
+  "uiRows": 48,
+  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.6.2 Safari/605.1.15",
+  "verifiedAt": "2026-10-05T01:58:58.105Z",
+  "outboundRequests": 0
+}

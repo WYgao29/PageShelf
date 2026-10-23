@@ -1,0 +1,163 @@
+
+> html-conversation-library@0.1.0 test
+> node scripts/test.mjs
+
+✔ cache identity includes location inode format and file metadata (0.716375ms)
+✔ cache concurrent generation, budget eviction and clear invalidates late producer (16.033375ms)
+✔ migration preserves ids and unknown fields and backs up original bytes once (18.05575ms)
+✔ concurrent configuration updates retain both roots (8.656292ms)
+✔ broken config boots empty with a backup warning (4.729667ms)
+✔ future configuration is read only and remains byte identical (6.971625ms)
+✔ unsupported future schema remains untouched with a read-only warning (5.609459ms)
+✔ invalid known-version labels and duplicate IDs are backed up instead of crashing or duplicating counts (6.576084ms)
+✔ desktop shell boots the theme before css and ships local brand files (17.074792ms)
+✔ native accelerators have one owner and single letters stay in the renderer (0.485333ms)
+✔ trash double is opt-in and refuses data outside an E2E temporary tree (2.101ms)
+✔ original-document external anchors use a validated local navigation without scripts (1.069333ms)
+✔ desktop worker becomes available while the first configured root is scanning (22.822458ms)
+✔ invoke whitelist rejects unknown methods, bad types, and oversized params (1.899166ms)
+✔ only the app origin, or the fixed dev origin in development, may invoke (0.166541ms)
+✔ renderer invoke rejects other senders and keeps external opens confirmed http(s) (0.4685ms)
+✔ pageshelf rejects traversal, unknown hosts, and returns source CSP (44.50875ms)
+✔ navigation stays on the app, and source windows stay on one item (0.282459ms)
+✔ arbitrary window.open is denied and original pages use a preload-free window (0.253375ms)
+✔ preload exposes only the named pageshelf bridge (2.340875ms)
+✔ worker adapter emits ready once and uses SIGTERM before force kill (0.324334ms)
+✔ worker crash fails the pending call and starts a replacement (0.809542ms)
+✔ worker exit before ready starts a replacement that serves the next request (0.778125ms)
+✔ shutdown ends pending calls and force-kills after 1200ms (0.364417ms)
+✔ shutdown does not force-kill a worker that already exited (0.12225ms)
+✔ quit waits for worker cleanup and a second instance yields (0.651667ms)
+✔ worker indexes a paired conversation and returns its markdown download (27.181541ms)
+✔ presentation pre-pass preserves quoted text, code and selector attributes (0.979209ms)
+✔ MIME decoding preserves UTF8 base64, quoted printable and inline cid resources (1.271375ms)
+✔ Markdown front matter only strips closed supported metadata (0.863583ms)
+✔ element matching skips fake tags and pairs nested same-name tags (1.362375ms)
+✔ scan merges matching HTML and Markdown files into one item (25.86ms)
+✔ scan indexes MHTML and extracts its embedded HTML for title and search (4.797541ms)
+✔ readSource returns the original MHTML archive (11.828292ms)
+✔ search matches title, path, and body content (18.489041ms)
+✔ readSource rejects paths outside the configured root (12.0325ms)
+✔ readSource rejects a source file replaced by a symlink outside the root (13.434375ms)
+✔ readSource rejects unknown formats and files removed after scanning (8.648ms)
+✔ deleteItem moves all source files to trash and removes the index entry (11.56825ms)
+✔ deleteItem refuses a source path replaced by an outside symlink (7.482208ms)
+✔ scan chooses .html deterministically when a stem has duplicate HTML formats (3.319833ms)
+✔ a scan queued after removing a root cannot be overwritten by the earlier scan (96.61825ms)
+✔ incremental scans reuse unchanged metadata and full scans reread (9.557875ms)
+✔ legacy NFD stems retain v1 item ids and memory feedback persists on next mutation (6.817208ms)
+✔ legacy fixture retains all ids and ownership goes 48 to 40+8 to 48 (75.453375ms)
+✔ a stale delayed scan cannot resurrect a trashed item (4.303792ms)
+✔ new roots always use NFC ids while overlap transfer never duplicates published items (38.771542ms)
+✔ wikilinks prefer same folder then unique root and reject ambiguous missing or outside (0.644667ms)
+✔ title priority, repeated generic title, suffix emoji cleanup and content excerpt (4.224292ms)
+✔ series requires two in same folder, R2 avoids root and numeric natural ordering (9.35725ms)
+✔ site detection uses content containers before unrelated outbound links and prefers article heading (0.393917ms)
+✔ MHTML matches archived images when HTML query separators use &amp; (47.022791ms)
+✔ MHTML matches archived images when HTML query separators use &#38; (9.193375ms)
+✔ MHTML matches archived images when HTML query separators use &#x26; (5.789584ms)
+✔ MHTML matches archived images when HTML query separators use & (5.89225ms)
+✔ MHTML embeds image URLs in HTML-escaped inline CSS without breaking attribute quotes (11.66075ms)
+✔ MHTML leaves unrelated markup and unavailable external images unchanged (0.286625ms)
+✔ MHTML renderer updates bypass stale document caches and old ETags automatically (12.318959ms)
+✔ restored child root is indexed after rename (41.8565ms)
+✔ restored child root is indexed after order (40.523708ms)
+✔ ordinary rename and order do not enqueue scans for available roots (51.378417ms)
+✔ deepest available root owns files once and dry run does not write (115.149125ms)
+✔ paths are canonical, labels validated and order exactly covers roots (5.729958ms)
+✔ volume case policy is not a global lowercase comparison (0.839916ms)
+✔ routes round trip unicode ids query filters view and settings (0.833417ms)
+✔ same root scans serially with one merged rerun and global concurrency two (2.7815ms)
+✔ scan failure releases slots and idle waiters (0.981792ms)
+✔ AND phrase exclusions pure exclusions and weighted NFKC search (2.907209ms)
+✔ highlights use original UTF16 ranges for ligature fullwidth emoji and combining marks (0.211ms)
+✔ root filters series ordering grouping and pagination remain consistent (0.498792ms)
+✔ worker adds a root, scans it, searches it, and reads its source (58.278375ms)
+✔ worker opens MHTML as HTML and keeps the original archive for download (15.780292ms)
+✔ worker rejects invalid roots and unknown source formats (1.771541ms)
+✔ worker removes a root without touching its source files (10.830584ms)
+✔ worker moves a record to trash and drops its index entry (4.670916ms)
+✔ desktop surface has no auth token and worker env drops token, port, and host (0.379167ms)
+✔ desktop library host does not listen on a TCP port (0.952083ms)
+✔ source responses prevent executable HTML and unknown formats are not found (5.241125ms)
+✔ startup ignores invalid persisted roots instead of crashing (1.236541ms)
+✔ worker returns the folder selected by the injected picker (1.154417ms)
+✔ worker reports when the folder picker is cancelled (0.7965ms)
+✔ worker previews, renames, orders, disables, rescans, and removes without touching files (10.430375ms)
+✔ worker documents use text/plain ETags, safe images, sandbox, and series details (11.319417ms)
+✔ system reveal accepts only known targets and uses fixed argv (0.924125ms)
+✔ future config stays byte identical while browsing, scanning, and cache maintenance work (5.729834ms)
+✔ partial trash retains surviving formats and failed trash preserves files (5.337541ms)
+✔ root contract exposes scan totals, affected series, and validation codes (40.964292ms)
+✔ root services preview, add, scan, and remove without changing source bytes (60.379541ms)
+✔ root preview reports child overlap and does not save (12.600417ms)
+✔ item services keep source CSP, ETags, image checks, and boundaries (22.047875ms)
+✔ MHTML source is rendered HTML and download keeps the archive (6.695416ms)
+✔ trash requires confirmation, keeps partial survivors, and preserves files on total failure (6.136334ms)
+✔ system services trim chosen folders and reveal only known targets (4.597125ms)
+✔ shell audit accepts the six no-screenshot layout records (2.121959ms)
+✔ shell audit reports a short reading pane and a wrong theme token (0.349917ms)
+✔ trash uses cli then Finder only for remaining files (16.502208ms)
+✔ partial trash reports surviving sources without claiming no changes (3.7895ms)
+✔ trash rejects symlinks before invoking any command (4.337333ms)
+✔ failed trash never falls back to unlink (3.333834ms)
+ℹ tests 99
+ℹ suites 0
+ℹ pass 99
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 544.888916
+
+ RUN  v5.0.5 /Users/weisengao/Documents/ChatGPT/HTML 知识库
+
+
+ Test Files  8 passed (8)
+      Tests  87 passed (87)
+   Start at  17:04:40
+   Duration  6.62s (tests 59%, environment 30%, setup 6%, import 3%, transform 2%)
+
+vite v8.3.5 building client environment for production...
+transforming...
+✓ 49 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                                     0.44 kB │ gzip:   0.27 kB
+dist/assets/pageshelf-mark-C8s1nbeH.svg             0.54 kB │ gzip:   0.22 kB
+dist/assets/pageshelf-mark-dark-AxyLMK95.svg        0.54 kB │ gzip:   0.22 kB
+dist/assets/pageshelf-logo-DYbpa1LB.svg             4.19 kB │ gzip:   1.55 kB
+dist/assets/pageshelf-logo-dark-CPd51x12.svg        4.19 kB │ gzip:   1.56 kB
+dist/assets/SpaceGrotesk-Variable-CzOCAti0.woff2   49.25 kB
+dist/assets/Readability-DeYwLZA3.js                89.98 kB
+dist/assets/InterVariable-DiVDrmQJ.woff2          352.24 kB
+dist/assets/index-DNtRvNmO.css                     23.32 kB │ gzip:   5.43 kB
+dist/assets/index-CrkbVYv2.js                     373.43 kB │ gzip: 119.39 kB
+
+✓ built in 112ms
+LICENSES_PACKAGED 6 notices
+
+  dist-electron/backend/worker.js      106.6kb
+  dist-electron/main.js                 57.2kb
+  dist-electron/backend/worker.js.map  209.5kb
+  dist-electron/main.js.map            127.1kb
+
+⚡ Done in 53ms
+PASS production custom-protocol shell and native-folder preflight
+PASS HTML extracted article, headings and hit navigation
+PASS all three views and toolbars fit at three widths in both themes
+PASS all three original-page entry points open a restricted application window
+PASS MHTML decoded through worker and reader
+PASS Markdown short-note reading and raw source text
+PASS nested Markdown images load within the root and reject escaping paths
+PASS short HTML falls back to a functioning sandbox iframe
+PASS hostile HTML never executes scripts or accesses the desktop bridge
+PASS source iframe links require confirmation before opening a browser
+PASS native menu and keyboard accelerator fire once
+PASS native save dialog exports the original source bytes
+PASS trash confirmation can cancel, then moves only fixture files through the double
+PASS production renderer and source documents make no external requests
+PASS native back and forward restore filters
+PASS restarting the application restores navigation and local preferences
+PASS a real utility-process crash restarts the library without closing the window
+ELECTRON_E2E 17 passed, 0 failed

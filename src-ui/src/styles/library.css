@@ -151,7 +151,7 @@
 .status-dot[data-status="error"] { background: var(--danger); }
 
 .status-caption[data-status="ok"] { color: var(--status-done); }
-.status-caption[data-status="warning"] { color: var(--warning); }
+.status-caption[data-status="warning"] { color: var(--status-waiting); }
 .status-caption[data-status="scanning"] { color: var(--info); }
 .status-caption[data-status="disabled"] { color: var(--text-3); }
 .status-caption[data-status="missing"],
@@ -269,7 +269,7 @@ button:disabled {
 }
 
 .danger-text { color: var(--danger); }
-.warning-text { color: var(--warning); }
+.warning-text { color: var(--status-waiting); }
 .muted { color: var(--text-2); }
 
 .toast-stack {
@@ -332,7 +332,7 @@ button:disabled {
 .manager-counts strong { color: var(--text); font-weight: var(--fw-semibold); }
 
 .badge {
-  color: var(--warning);
+  color: var(--status-waiting);
   background: var(--status-waiting-bg);
   border-radius: var(--radius-sm);
   font-size: var(--fs-12);
@@ -370,8 +370,10 @@ button:disabled {
 
 .progress > span {
   display: block;
+  width: 100%;
   height: 100%;
   background: var(--status-running);
+  transform-origin: left center;
 }
 
 h3 {

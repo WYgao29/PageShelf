@@ -1,0 +1,18 @@
+PASS production custom-protocol shell and native-folder preflight
+PASS HTML extracted article, headings and hit navigation
+PASS all three views and toolbars fit at three widths in both themes
+PASS all three original-page entry points open a restricted application window
+PASS MHTML decoded through worker and reader
+PASS Markdown short-note reading and raw source text
+PASS nested Markdown images load within the root and reject escaping paths
+PASS short HTML falls back to a functioning sandbox iframe
+PASS hostile HTML never executes scripts or accesses the desktop bridge
+PASS source iframe links require confirmation before opening a browser
+PASS native menu and keyboard accelerator fire once
+PASS native save dialog exports the original source bytes
+PASS trash confirmation can cancel, then moves only fixture files through the double
+PASS production renderer and source documents make no external requests
+PASS native back and forward restore filters
+PASS restarting the application restores navigation and local preferences
+PASS a real utility-process crash restarts the library without closing the window
+ELECTRON_E2E 17 passed, 0 failed

@@ -1,0 +1,87 @@
+{
+  "verifiedAt": "2026-10-05T07:16:37.668Z",
+  "base": "28a5cbfebba4cd4516e373dda73f0e2d85fb58ff",
+  "head": "5dfab04edd2a810465eed19ff64266d507d38d3e",
+  "reviewer": "current-agent self-review",
+  "regressions": {
+    "restoredRoot": {
+      "before": {
+        "tests": 3,
+        "pass": 1,
+        "fail": 2,
+        "skipped": 0
+      },
+      "after": {
+        "tests": 77,
+        "pass": 77,
+        "fail": 0,
+        "skipped": 0
+      }
+    },
+    "lateTrash": {
+      "before": {
+        "status": "failed",
+        "passed": 49,
+        "failed": 2,
+        "skipped": 0,
+        "failureNames": [
+          "late trash response preserves the newer reader selection",
+          "late roots response preserves the newer reader selection"
+        ],
+        "outboundRequests": 0
+      },
+      "after": {
+        "status": "passed",
+        "passed": 54,
+        "failed": 0,
+        "skipped": 0,
+        "failureNames": [],
+        "nativeKeyboard": {
+          "passed": 3,
+          "failed": 0
+        },
+        "outboundRequests": 0
+      }
+    },
+    "nativeEnter": {
+      "before": {
+        "status": "failed",
+        "passed": 52,
+        "failed": 2,
+        "skipped": 0,
+        "failureNames": [
+          "native Tab then Enter opens the fourth focused article",
+          "native Enter expands six rows to ten without selecting an article"
+        ],
+        "nativeKeyboard": {
+          "passed": 1,
+          "failed": 2
+        },
+        "outboundRequests": 0
+      },
+      "after": {
+        "status": "passed",
+        "passed": 54,
+        "failed": 0,
+        "skipped": 0,
+        "failureNames": [],
+        "nativeKeyboard": {
+          "passed": 3,
+          "failed": 0
+        },
+        "outboundRequests": 0
+      }
+    }
+  },
+  "vendorHashes": {
+    "verified": 3,
+    "failed": 0
+  },
+  "scope": "Three findings from the preceding review; four production files, no dependency changes.",
+  "nativeInput": "Chrome CDP keydown/up, with character text for Enter; includes actual Tab traversal.",
+  "isolation": "Only temporary roots/files/config were mutated in regression tests.",
+  "knownManualValidation": [
+    "Safari was not rerun for this repair.",
+    "Edge, Finder native fallback and production service validation remain as previously recorded."
+  ]
+}
