@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, realpath, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -27,7 +27,7 @@ import {
   senderAllowed,
   validateInvocation,
 } from "../shared/pageshelf-contract.js";
-import { testTrashService } from "./helpers/fixture.js";
+import { testTrashService, withTempFixture } from "./helpers/fixture.js";
 
 function fakeWorker() {
   const child = {
@@ -142,6 +142,41 @@ test("renderer invoke rejects other senders and keeps external opens confirmed h
   assert.deepEqual(calls, ["item-1"]);
   assert.equal(rendererEvent({ event: "scan-progress", payload: { running: [] } }).event, "scan-progress");
   assert.equal(rendererEvent({ event: "window-open", payload: {} }), null);
+});
+
+test("renderer reveal requests survive both IPC and worker validation", async () => {
+  await withTempFixture(async (directory) => {
+    const source = path.join(directory, "source");
+    await mkdir(source);
+    await writeFile(path.join(source, "note.md"), "# Reveal source\n\nOriginal document.");
+    const calls = [];
+    const host = await createLibraryHost({
+      dataDir: path.join(directory, "data"),
+      systemExecFile: async (...args) => { calls.push(args); },
+    });
+    try {
+      const added = await host.call("roots.add", { path: source });
+      await host.library.scheduler.waitForIdle();
+      const item = host.library.getSnapshot().items[0];
+      const invoke = params => handleRendererInvoke({
+        senderUrl: "pageshelf://app/index.html",
+        payload: { method: "system.reveal", params },
+        request: (method, input) => host.call(method, input),
+      });
+      for (const params of [{ rootId: added.root.id }, { itemId: item.id }, { trash: true }]) {
+        assert.deepEqual(await invoke(params), { revealed: true });
+      }
+      assert.deepEqual(calls.map(call => call.slice(0, 2)), [
+        ["/usr/bin/open", ["-R", await realpath(source)]],
+        ["/usr/bin/open", ["-R", await realpath(path.join(source, "note.md"))]],
+        ["/usr/bin/open", ["-a", "Finder", path.join(os.homedir(), ".Trash")]],
+      ]);
+      await assert.rejects(() => invoke({ body: { itemId: item.id } }), { code: "INVALID_PARAMS" });
+      assert.equal(calls.length, 3);
+    } finally {
+      await host.close();
+    }
+  });
 });
 
 test("pageshelf rejects traversal, unknown hosts, and returns source CSP", async () => {

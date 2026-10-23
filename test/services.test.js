@@ -342,6 +342,29 @@ test("item services keep source CSP, ETags, image checks, and boundaries", async
   });
 });
 
+test("HTML downloads preserve the original bytes for non-UTF-8 files", async () => {
+  await withTempFixture(async (directory) => {
+    const fixtures = [
+      ["latin.html", "windows-1252", Buffer.from([0x43, 0x61, 0x66, 0xe9]), "Café"],
+      ["chinese.html", "gbk", Buffer.from([0xd6, 0xd0, 0xce, 0xc4]), "中文"],
+    ];
+    const { sourceDir, library, registry } = await openLibrary(directory, {
+      files: fixtures.map(([name, charset, title]) => [name, Buffer.concat([
+        Buffer.from(`<meta charset="${charset}"><title>`), title,
+        Buffer.from("</title><p>Original source bytes</p>"),
+      ])]),
+    });
+    await saveRoot({ library, registry, mode: "add", body: { path: sourceDir } });
+    await library.scheduler.waitForIdle();
+    for (const [name, , , title] of fixtures) {
+      const item = library.getSnapshot().items.find(entry => entry.title === title);
+      assert.ok(item, "the declared source encoding should still be read correctly");
+      const result = await readItemFile({ library, id: item.id, format: "html", action: "download" });
+      assert.deepEqual(Buffer.from(result.body), await readFile(path.join(sourceDir, name)));
+    }
+  });
+});
+
 test("MHTML source is rendered HTML and download keeps the archive", async () => {
   await withTempFixture(async (directory) => {
     const { sourceDir, library, registry } = await openLibrary(directory);

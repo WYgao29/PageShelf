@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import { type Item } from "./items";
 import { buildReader } from "./reader/pipeline.js";
+import { createToc } from "./reader/toc.js";
 
 const item: Item = { id: "a", title: "文章", rootId: "r", rootLabel: "来源甲", relativePath: "notes/a", formats: { html: null, mhtml: null, markdown: { extension: ".md", filename: "a.md", size: 10, updatedAt: "2026-01-01" } }, series: null, site: "markdown", author: null, tags: [], readingMinutes: 1, updatedAt: "2026-01-01", excerpt: "笔记" };
 const text = "这是用于验证安全正文抽取的内容，研究需要证据。".repeat(30);
@@ -44,6 +45,78 @@ describe("reader pipeline", () => {
     expect(result.article?.querySelector('[data-wikilink="b"]')).not.toBeNull();
     expect(result.article?.querySelector("img")?.getAttribute("src")).toBe("pageshelf://source/a/asset?path=image.png");
     expect(result.article?.textContent).toContain("外部图片未加载");
+  });
+
+  it.each([
+    ["<my image.png>", "my image.png"],
+    ["<图片 空格.png>", "图片 空格.png"],
+    ["100%.png", "100%.png"],
+    ["100%25.png", "100%.png"],
+    ["name%2520literal.png", "name%20literal.png"],
+    ["image.png?width=200#preview", "image.png"],
+    ["literal%3F%23.png?width=200#preview", "literal?#.png"],
+    ["../images/photo.png", "../images/photo.png"],
+  ])("resolves the local image URL %s to the source filename", async (url, filename) => {
+    const result = await buildReader({ item, markdown: `![图](${url})` });
+    const image = result.article!.querySelector("img")!;
+    const address = new URL(image.getAttribute("src")!);
+    expect(address.protocol).toBe("pageshelf:");
+    expect(address.host).toBe("source");
+    expect(address.pathname).toBe("/a/asset");
+    expect(address.searchParams.get("path")).toBe(filename);
+  });
+
+  it("keeps encoded absolute image paths outside the local asset route", async () => {
+    const result = await buildReader({ item, markdown: "![图](%2Foutside.png)" });
+    expect(result.article!.querySelector("img")).toBeNull();
+    expect(result.article!.textContent).toContain("外部图片未加载");
+  });
+
+  it("maps source IDs and named anchors to safe targets while retaining TOC and wiki links", async () => {
+    const result = await buildReader({ item, items: [{ ...item, id: "b", relativePath: "notes/target" }], markdown: `
+<h1 id="document-title">文章</h1>
+<p><a href="#document-title">标题</a> <a href="#chapter">章节</a> <a href="#fn%3A%E4%B8%80">脚注</a> <a href="#legacy">旧锚点</a> <a href="#location">特殊目标</a> <a href="#user-content-location">相近目标</a></p>
+<h2 id="chapter">小节</h2>
+<p id="location">目标一</p><p id="user-content-location">目标二</p>
+<p id="fn:一">脚注正文</p><a name="legacy"></a>
+
+## 自动目录
+
+[[target|双链]]
+` });
+    const article = result.article!;
+    const targets = [...article.querySelectorAll<HTMLElement>("[id]")];
+    expect(new Set(targets.map(target => target.id)).size).toBe(targets.length);
+    expect(targets.every(target => /^(?:reader-anchor-|section-)\d+$/.test(target.id))).toBe(true);
+    for (const label of ["标题", "章节", "脚注", "旧锚点", "特殊目标", "相近目标"]) {
+      const link = [...article.querySelectorAll("a")].find(value => value.textContent === label)!;
+      const target = targets.find(value => "#" + value.id === link.getAttribute("href"));
+      expect(target, label).toBeDefined();
+    }
+    const findTarget = (label: string) => article.querySelector(`[id="${[...article.querySelectorAll("a")].find(value => value.textContent === label)!.getAttribute("href")!.slice(1)}"]`);
+    expect(findTarget("脚注")).toHaveTextContent("脚注正文");
+    expect(findTarget("特殊目标")).toHaveTextContent("目标一");
+    expect(findTarget("相近目标")).toHaveTextContent("目标二");
+    expect(result.toc.map(entry => entry.id)).toEqual([findTarget("章节")!.id, "section-2"]);
+    expect(article.querySelector('[data-wikilink="b"]')).toHaveAttribute("href", "#item-b");
+    const repeated = await buildReader({ item, markdown: '<h2 id="chapter">小节</h2><p id="fn:一">脚注正文</p><a href="#fn%3A%E4%B8%80">脚注</a>' });
+    const repeatedAgain = await buildReader({ item, markdown: '<h2 id="chapter">小节</h2><p id="fn:一">脚注正文</p><a href="#fn%3A%E4%B8%80">脚注</a>' });
+    expect(repeated.article!.innerHTML).toBe(repeatedAgain.article!.innerHTML);
+  });
+
+  it("jumps to a footnote outside TOC headings without changing the active section to the footnote", () => {
+    const article = document.createElement("article");
+    article.innerHTML = '<h2 id="section-1">章节</h2><p id="reader-anchor-2">脚注</p>';
+    const scrollContainer = document.createElement("div");
+    const onActive = vi.fn();
+    const footnote = article.querySelector<HTMLElement>("p")!;
+    vi.spyOn(scrollContainer, "getBoundingClientRect").mockReturnValue({ top: 20 } as DOMRect);
+    vi.spyOn(footnote, "getBoundingClientRect").mockReturnValue({ top: 300 } as DOMRect);
+    const toc = createToc({ article, scrollContainer, onActive });
+    toc.jump(footnote.id);
+    expect(scrollContainer.scrollTo).toHaveBeenCalledWith({ top: 268, behavior: "smooth" });
+    expect(onActive).not.toHaveBeenCalledWith(footnote.id);
+    toc.destroy();
   });
 
   it("finds a phrase spanning inline nodes and wraps backwards", async () => {

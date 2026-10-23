@@ -102,18 +102,32 @@ function loadReadability() {
   return readabilityPromise;
 }
 const rasterData = /^data:image\/(?:png|jpe?g|gif|webp|avif|bmp)(?:;[^,]*)?,/i;
+const absoluteSource = /^(?:[a-z][a-z\d+.-]*:|\/|\\)/i;
+function localImagePath(source) {
+  if (absoluteSource.test(source)) return null;
+  const pathname = source.split(/[?#]/, 1)[0];
+  let decoded;
+  try {
+    decoded = decodeURIComponent(pathname.replace(/%(?![\da-f]{2})/gi, "%25"));
+  } catch {
+    decoded = pathname;
+  }
+  return decoded && !decoded.includes("\0") && !absoluteSource.test(decoded) ? decoded : null;
+}
+
 function prepareImages(container, item, markdown) {
   for (const image of container.querySelectorAll("img")) {
     const source = image.getAttribute("src") || "";
     image.removeAttribute("srcset");
     if (rasterData.test(source)) continue;
-    if (markdown && source && !/^(?:[a-z][a-z\d+.-]*:|\/\/|\/)/i.test(source))
+    const localPath = markdown && localImagePath(source);
+    if (localPath)
       image.setAttribute(
         "src",
         "pageshelf://source/" +
           encodeURIComponent(item.id) +
           "/asset?path=" +
-          encodeURIComponent(source),
+          encodeURIComponent(localPath),
       );
     else {
       image.removeAttribute("src");
@@ -125,6 +139,23 @@ function prepareImages(container, item, markdown) {
     }
   }
 }
+
+function prepareAnchors(container) {
+  const aliases = new Map();
+  const safeIds = new Set();
+  for (const element of container.querySelectorAll("[id],a[name]")) {
+    const names = [element.getAttribute("id"), element.getAttribute("name")].filter(Boolean);
+    element.removeAttribute("id");
+    element.removeAttribute("name");
+    if (!names.length) continue;
+    const id = "reader-anchor-" + (safeIds.size + 1);
+    element.id = id;
+    safeIds.add(id);
+    for (const name of names) if (!aliases.has(name)) aliases.set(name, id);
+  }
+  return { aliases, safeIds };
+}
+
 export async function buildReader({
   item,
   html,
@@ -196,9 +227,13 @@ export async function buildReader({
   // Only sanitized nodes enter the live reading DOM.
   const dirty = selected.ownerDocument.createElement("div");
   dirty.append(...selected.childNodes);
+  const anchors = prepareAnchors(dirty);
   article.append(DOMPurify.sanitize(dirty, PURIFY_CONFIG));
-  for (const element of article.querySelectorAll("[id]"))
-    element.removeAttribute("id");
+  for (const element of article.querySelectorAll("[id]")) {
+    const id = element.id.replace(/^user-content-/, "");
+    if (anchors.safeIds.has(id)) element.id = id;
+    else element.removeAttribute("id");
+  }
   for (const input of article.querySelectorAll("input")) {
     if (input.type !== "checkbox") input.remove();
     else input.disabled = true;
@@ -227,7 +262,13 @@ export async function buildReader({
     }
   }
   const heading = article.querySelector("h1");
-  if (heading && heading.textContent.trim() === item.title) heading.remove();
+  if (heading && heading.textContent.trim() === item.title) {
+    if (heading.id) {
+      const target = document.createElement("span");
+      target.id = heading.id;
+      heading.replaceWith(target);
+    } else heading.remove();
+  }
   if (!isMarkdown && [...article.textContent.trim()].length < 200)
     return {
       status: "fallback",
@@ -236,8 +277,11 @@ export async function buildReader({
       toc: [],
       find: null,
     };
+  const headingIds = new Map();
   const toc = [...article.querySelectorAll("h2,h3")].map((heading, index) => {
+    const previousId = heading.id;
     heading.id = "section-" + (index + 1);
+    if (previousId) headingIds.set(previousId, heading.id);
     return {
       id: heading.id,
       level: Number(heading.tagName[1]),
@@ -245,6 +289,12 @@ export async function buildReader({
       element: heading,
     };
   });
+  for (const link of article.querySelectorAll('a[href^="#"]:not([data-wikilink])')) {
+    let original = link.getAttribute("href").slice(1);
+    try { original = decodeURIComponent(original); } catch { /* Literal percent signs can occur in source IDs. */ }
+    const target = anchors.aliases.get(original);
+    if (target) link.setAttribute("href", "#" + (headingIds.get(target) || target));
+  }
   const find = createFind({ article, query, onChange: onFindChange });
   return {
     article,

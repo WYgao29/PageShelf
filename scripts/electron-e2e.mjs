@@ -15,13 +15,16 @@ await mkdir(data); await mkdir(source);
 await mkdir(path.join(source, "assets")); await mkdir(path.join(source, "notes"));
 const pixel = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQEBAI3CrcUAAAAASUVORK5CYII=", "base64");
 await writeFile(path.join(source, "assets/pixel.png"), pixel);
+await writeFile(path.join(source, "assets/my image.png"), pixel);
 await writeFile(path.join(temporary, "outside.png"), pixel);
 await writeFile(path.join(source, "notes/child.md"), "# 嵌套笔记\n\n![相邻本地图](../assets/pixel.png)");
 await writeFile(path.join(data, "config.json"), JSON.stringify({ version: 2, roots: [], ui: {} }));
 await writeFile(path.join(source, "alpha.html"), html("HTML 样例"));
 await writeFile(path.join(source, "alpha.md"), "# HTML 样例\n\n## Markdown 备用\n这是另一种 Markdown 正文。");
+const legacyHtml = Buffer.from('<html><head><meta charset="windows-1252"><title>Café export sample</title></head><body><article><h1>Café export sample</h1><p>' + "Original archived text. ".repeat(40) + "</p></article></body></html>", "latin1");
+await writeFile(path.join(source, "legacy.html"), legacyHtml);
 await writeFile(path.join(source, "archive.mhtml"), mhtmlWithImage("MHTML 样例"));
-await writeFile(path.join(source, "note.md"), "# Markdown 样例\n\n## 小节\n短笔记，证据与**方法**。\n\n![外部](https://example.test/blocked.png)\n![本地图](assets/pixel.png)");
+await writeFile(path.join(source, "note.md"), "# Markdown 样例\n\n## 小节\n短笔记，证据与**方法**。\n\n![外部](https://example.test/blocked.png)\n![本地图](assets/pixel.png)\n![空格本地图](assets/my%20image.png)\n\n配置 API_KEY 后启动。\n\n```sh\nnpm run frobnicate\n```\n\n[前往目标](#target)\n\n<h2 id=\"target\">文内跳转目标</h2>\n");
 await writeFile(path.join(source, "inline.md"), "# 图文混排样例\n\n开头文字 ![行内图](assets/pixel.png) 结尾文字\n\n![独立图](assets/pixel.png)");
 await writeFile(path.join(source, "multi.html"), html("多格式元数据", "元数据。".repeat(2000)));
 await writeFile(path.join(source, "multi.mhtml"), mhtmlWithImage("多格式元数据"));
@@ -29,7 +32,7 @@ await writeFile(path.join(source, "multi.md"), "# 多格式元数据\n\nMarkdown
 await writeFile(path.join(source, "short.html"), html("短文样例", "短文"));
 await writeFile(path.join(source, "evil.html"), html("恶意样例", "正文证据。".repeat(80)) + '<h2>恶意样例原文</h2><script>globalThis.__xss = 1; fetch("https://example.test/evil")</script><img src="https://example.test/evil.png" onerror="globalThis.__xss=1"><a href="https://example.test/article">原文外链</a>');
 
-const fixtureItemCount = 8;
+const fixtureItemCount = 9;
 const env = { ...process.env, HTML_LIBRARY_DATA_DIR: data, PAGESHELF_TEST: "1", PAGESHELF_TEST_TRASH: "1" };
 delete env.ELECTRON_RUN_AS_NODE; delete env.PAGESHELF_DEV; delete env.PAGESHELF_SMOKE;
 let application = await _electron.launch({ args: [root], cwd: root, env, timeout: 30000 });
@@ -182,6 +185,15 @@ try {
     await open("Markdown 样例"); await expect(page.locator(".reading-article")).toContainText("短笔记");
     await expect(page.locator(".image-placeholder")).toContainText("外部图片未加载");
     await expect.poll(() => page.locator('img[alt="本地图"]').evaluate(image => image.naturalWidth)).toBe(1);
+    await expect.poll(() => page.locator('img[alt="空格本地图"]').evaluate(image => image.naturalWidth)).toBe(1);
+    for (const q of ["frobnicate", "API_KEY"]) {
+      assert.equal(await page.evaluate(async q => (await window.pageshelf.invoke("items.search", { query: { q } })).total, q), 1);
+    }
+    const targetId = await page.getByRole("link", { name: "前往目标" }).getAttribute("href");
+    assert.ok(targetId?.startsWith("#"));
+    await expect(page.locator('.reading-article [id]').filter({ hasText: "文内跳转目标" })).toHaveAttribute("id", targetId.slice(1));
+    await page.getByRole("link", { name: "前往目标" }).click();
+    await expect(page.getByRole("heading", { name: "文内跳转目标" })).toBeVisible();
     await page.getByRole("tab", { name: "源文本", exact: true }).click();
     await expect(page.locator(".source-text")).toContainText("证据与**方法**");
     await page.getByRole("tab", { name: "阅读视图", exact: true }).click();
@@ -284,13 +296,19 @@ try {
     await expect(page.locator(".app-shell")).toHaveAttribute("data-sidebar", before);
   });
   await check("native save dialog exports the original source bytes", async () => {
+    await open("Café export sample");
+    const legacySaved = path.join(temporary, "export-legacy.html");
+    await application.evaluate(({ dialog }, file) => { dialog.showSaveDialog = async () => ({ canceled: false, filePath: file }); }, legacySaved);
+    await page.getByLabel("文章操作", { exact: true }).click();
+    await page.getByRole("menuitem", { name: "下载 HTML 原文件", exact: true }).click();
+    await expect.poll(async () => { try { return (await readFile(legacySaved)).equals(legacyHtml); } catch { return false; } }).toBe(true);
     await open("Markdown 样例"); await page.getByRole("tab", { name: "阅读视图", exact: true }).click();
     const saved = path.join(temporary, "export.md");
     await application.evaluate(({ dialog }, file) => { dialog.showSaveDialog = async () => ({ canceled: false, filePath: file }); }, saved);
     await page.getByLabel("文章操作", { exact: true }).click();
     await page.getByRole("menuitem", { name: "下载 MARKDOWN 原文件" }).click();
     await expect(page.getByText("原文件已保存", { exact: true })).toBeVisible();
-    assert.equal(await readFile(saved, "utf8"), await readFile(path.join(source, "note.md"), "utf8"));
+    await expect.poll(async () => { try { return (await readFile(saved)).equals(await readFile(path.join(source, "note.md"))); } catch { return false; } }).toBe(true);
     await page.getByLabel("文章操作", { exact: true }).click();
     await page.getByRole("menuitem", { name: "复制本地路径" }).click();
     const canonical = await realpath(path.join(source, "note.md"));
@@ -332,6 +350,24 @@ try {
     await expect.poll(() => application.evaluate(({ app }, oldPid) => app.getAppMetrics().some(metric => (metric.name === "PageShelf Library" || metric.serviceName === "PageShelf Library") && metric.pid !== oldPid), worker.pid)).toBe(true);
     await expect.poll(() => page.evaluate(async () => { try { return (await window.pageshelf.invoke("items.search", { query: {} })).total; } catch { return -1; } })).toBe(fixtureItemCount - 1);
     await expect(page.getByRole("searchbox")).toBeVisible();
+  });
+  await check("Dock activation and a second instance restore the library while a source window stays open", async () => {
+    const item = await page.evaluate(async () => (await window.pageshelf.invoke("items.search", { query: {} })).items.find(item => item.formats.html));
+    assert.ok(item);
+    const originalOpened = application.waitForEvent("window");
+    await page.evaluate(id => window.pageshelf.openOriginal(id), item.id);
+    const original = await originalOpened;
+    await original.waitForLoadState("domcontentloaded");
+    for (const event of ["activate", "second-instance"]) {
+      await page.close();
+      const reopened = application.waitForEvent("window");
+      await application.evaluate(({ app }, event) => app.emit(event), event);
+      page = await reopened;
+      await expect(page.getByRole("searchbox", { name: "搜索资料" })).toBeVisible();
+      assert.ok(page.url().startsWith("pageshelf://app/"));
+      assert.equal(original.isClosed(), false);
+    }
+    await original.close();
   });
   console.log(`ELECTRON_E2E ${passed} passed, 0 failed`);
 } catch (error) {

@@ -217,7 +217,7 @@ export async function createLibraryHost({
       case "system.reveal":
         return (
           await system.reveal({
-            body: input.body,
+            body: input,
             registry,
             library,
             systemExecFile,

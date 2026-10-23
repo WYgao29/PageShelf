@@ -223,7 +223,7 @@ const schemas = {
     if (Object.keys(params).length) throw invalid();
     return {};
   },
-  "system.reveal": (params) => ({ body: copyReveal(params) }),
+  "system.reveal": (params) => copyReveal(params),
   "system.openTrash": (params) => {
     if (Object.keys(params).length) throw invalid();
     return {};

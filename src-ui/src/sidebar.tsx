@@ -20,7 +20,7 @@ import {
 
 export function Sidebar() {
   const library = useLibrary();
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set(library.selection.kind === "all" ? [] : [library.selection.rootId]));
   const [more, setMore] = useState<Set<string>>(new Set());
   const [editingId, setEditingId] = useState<string | null>(null);
   const [menu, setMenu] = useState<{ rootId: string; x: number; y: number; returnFocus: HTMLElement | null } | null>(
@@ -33,10 +33,16 @@ export function Sidebar() {
       : library.selection.kind === "root"
         ? "root:" + library.selection.rootId
         : "series:" + library.selection.rootId + ":" + library.selection.seriesKey;
+  const selectedRootId = library.selection.kind === "all" ? "" : library.selection.rootId;
+
+  function expandRoot(id: string) {
+    setExpanded((current) => current.has(id) ? current : new Set(current).add(id));
+  }
 
   useEffect(() => {
     setMenu(null);
-  }, [selectionKey]);
+    if (selectedRootId) expandRoot(selectedRootId);
+  }, [selectedRootId, selectionKey]);
 
   function toggleExpanded(id: string) {
     setExpanded((current) => {
@@ -120,7 +126,7 @@ export function Sidebar() {
         ) : null}
         {roots.map((root) => {
           const selected = library.selection.kind !== "all" && library.selection.rootId === root.id;
-          const open = selected || expanded.has(root.id);
+          const open = expanded.has(root.id);
           const progress = progressFor(library.scan, root.id);
           const status = root.state.status;
           return (
@@ -160,7 +166,7 @@ export function Sidebar() {
                     className="nav-button root-nav"
                     aria-current={selected && library.selection.kind === "root" ? "page" : undefined}
                     title={root.path + (root.state.message ? "\n" + root.state.message : "")}
-                    onClick={() => library.selectRoot(root.id)}
+                    onClick={() => { expandRoot(root.id); library.selectRoot(root.id); }}
                     onDoubleClick={(event) => {
                       event.preventDefault();
                       event.stopPropagation();

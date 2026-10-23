@@ -9,12 +9,14 @@ import {
   parseLibrary,
   parsePreflight,
   parseScan,
+  parseSeries,
   previewParams,
   type LibrarySnapshot,
   type Preflight,
   type PreviewSource,
   type ScanStatus,
   type Selection,
+  type SeriesEntry,
 } from "./library";
 
 type ConfirmOptions = { title: string; message: string; confirmLabel: string; danger?: boolean };
@@ -73,7 +75,11 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
   const [catalogEpoch, setCatalogEpoch] = useState(0);
   const { route, navigate } = useRoute();
   const selection = useMemo<Selection>(() => route.seriesKey && route.rootId ? { kind: "series", rootId: route.rootId, seriesKey: route.seriesKey } : route.rootId ? { kind: "root", rootId: route.rootId } : { kind: "all" }, [route.rootId, route.seriesKey]);
-  const [seriesName, setSeriesName] = useState("");
+  const [seriesCatalog, setSeriesCatalog] = useState<{ rootId: string; epoch: number; entries: SeriesEntry[] } | null>(null);
+  const seriesRootId = selection.kind === "series" ? selection.rootId : "";
+  const seriesName = seriesCatalog?.rootId === seriesRootId && seriesCatalog.epoch === catalogEpoch
+    ? seriesCatalog.entries.find((entry) => entry.key === route.seriesKey)?.name || ""
+    : "";
   const [manager, setManager] = useState<ManagerRequest | null>(null);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [confirmOptions, setConfirmOptions] = useState<ConfirmOptions | null>(null);
@@ -91,6 +97,17 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
     const id = toastId.current;
     setToasts((current) => [...current, { id, message, error: isError, action }]);
   }, []);
+
+  useEffect(() => {
+    if (!loaded || !seriesRootId) return;
+    let cancelled = false;
+    void requireApi().invoke("roots.series", { id: seriesRootId }).then((result) => {
+      if (!cancelled) setSeriesCatalog({ rootId: seriesRootId, epoch: catalogEpoch, entries: parseSeries(result) });
+    }).catch((reason: unknown) => {
+      if (!cancelled) toast(errorMessage(reason, "无法读取系列"), true);
+    });
+    return () => { cancelled = true; };
+  }, [catalogEpoch, loaded, seriesRootId, toast]);
 
   const dismissToast = useCallback((id: number) => {
     setToasts((current) => current.filter((item) => item.id !== id));
@@ -200,17 +217,14 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const selectAll = useCallback(() => {
-    setSeriesName("");
     navigate({ rootId: "", seriesKey: "", folder: "", item: "", scope: "all" });
   }, [navigate]);
 
   const selectRoot = useCallback((rootId: string) => {
-    setSeriesName("");
     navigate({ rootId, seriesKey: "", folder: "", item: "", scope: "root", sort: "updated" });
   }, [navigate]);
 
-  const selectSeries = useCallback((rootId: string, seriesKey: string, name: string) => {
-    setSeriesName(name);
+  const selectSeries = useCallback((rootId: string, seriesKey: string) => {
     navigate({ rootId, seriesKey, folder: "", item: "", scope: "root", sort: "series" });
   }, [navigate]);
 

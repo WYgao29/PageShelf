@@ -141,7 +141,7 @@ export async function readItemFile({ library, id, format, action }) {
     format === "mhtml" && action === "source"
       ? await library.readMhtmlView(id)
       : await library.readSource(id, format);
-  return byteResult(200, source.content, {
+  return byteResult(200, action === "download" ? source.buffer : source.content, {
     "content-type": source.contentType,
     "content-disposition":
       (action === "download" ? "attachment" : "inline") +
